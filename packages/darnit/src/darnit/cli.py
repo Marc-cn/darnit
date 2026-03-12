@@ -427,6 +427,54 @@ def cmd_list(args: argparse.Namespace) -> int:
 
     return 0
 
+def cmd_install(args: argparse.Namespace) -> int:
+    """Install darnit MCP server config into a supported client settings file."""
+    import shutil
+
+    if args.client == "claude":
+        settings_path = Path.home() / ".claude" / "settings.json"
+    else:
+        settings_path = Path.home() / ".cursor" / "mcp.json"
+
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+
+    config = {}
+    if settings_path.exists():
+        try:
+            config = json.loads(settings_path.read_text())
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in settings file: {settings_path}: {e}")
+            return 1
+
+        backup_path = settings_path.with_suffix(settings_path.suffix + ".bak")
+        shutil.copy2(settings_path, backup_path)
+
+    mcp_servers = config.setdefault("mcpServers", {})
+    darnit_entry = {
+        "command": "uvx",
+        "args": ["--from", "darnit", "darnit", "serve"],
+    }
+
+    if "darnit" in mcp_servers and not args.force:
+        response = input(
+            f"'darnit' entry already exists in {settings_path}. Overwrite? [y/N]: "
+        ).strip().lower()
+        if response not in {"y", "yes"}:
+            print("Install cancelled.")
+            return 1
+
+    mcp_servers["darnit"] = darnit_entry
+
+    try:
+        json.dumps(config)  # validate before write
+        settings_path.write_text(json.dumps(config, indent=2) + "\n")
+    except Exception as e:
+        logger.error(f"Failed to write settings file: {e}")
+        return 1
+
+    print(f"✓ Installed darnit MCP server config in {settings_path}")
+    print("Next step: restart your AI client and use the configured MCP server.")
+    return 0
 
 def cmd_serve(args: argparse.Namespace) -> int:
     """Start the MCP server.
@@ -677,6 +725,24 @@ def create_parser() -> argparse.ArgumentParser:
     # list command
     list_parser = subparsers.add_parser("list", help="List available frameworks")
     list_parser.set_defaults(func=cmd_list)
+
+    # install command
+    install_parser = subparsers.add_parser(
+        "install",
+        help="Configure MCP server in Claude Code or Cursor",
+    )
+    install_parser.add_argument(
+        "--client",
+        choices=["claude", "cursor"],
+        default="claude",
+        help="Client to configure (default: claude)",
+    )
+    install_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing darnit entry without prompting",
+    )
+    install_parser.set_defaults(func=cmd_install)
 
     return parser
 
