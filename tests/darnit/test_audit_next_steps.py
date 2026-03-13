@@ -53,9 +53,7 @@ class TestGetNextStepsSection:
     """Tests for _get_next_steps_section()."""
 
     @patch("darnit.config.context_storage.get_pending_context")
-    def test_pending_context_and_failures_produces_context_then_remediation(
-        self, mock_get_pending
-    ):
+    def test_pending_context_and_failures_produces_context_then_remediation(self, mock_get_pending):
         """3.1: Pending context + failures → context as step 1, remediation as step 2.
         Verify get_pending_context() directive appears. Verify 'Help Improve This Audit' absent.
         """
@@ -78,9 +76,7 @@ class TestGetNextStepsSection:
         assert "Help Improve This Audit" not in output
 
     @patch("darnit.config.context_storage.get_pending_context")
-    def test_failures_no_pending_context_starts_with_remediation(
-        self, mock_get_pending
-    ):
+    def test_failures_no_pending_context_starts_with_remediation(self, mock_get_pending):
         """3.2: Failures but no pending context → starts with remediation."""
         mock_get_pending.return_value = []
         summary = {"PASS": 10, "FAIL": 5, "WARN": 0, "ERROR": 0}
@@ -93,9 +89,7 @@ class TestGetNextStepsSection:
         assert "Confirm project context" not in output
 
     @patch("darnit.config.context_storage.get_pending_context")
-    def test_all_passing_no_pending_context_produces_no_section(
-        self, mock_get_pending
-    ):
+    def test_all_passing_no_pending_context_produces_no_section(self, mock_get_pending):
         """3.3: All passing + no pending context → no Next Steps section."""
         mock_get_pending.return_value = []
         summary = {"PASS": 20, "FAIL": 0, "WARN": 0, "ERROR": 0}
@@ -105,9 +99,7 @@ class TestGetNextStepsSection:
         assert result == []
 
     @patch("darnit.config.context_storage.get_pending_context")
-    def test_context_step_directs_to_get_pending_context(
-        self, mock_get_pending
-    ):
+    def test_context_step_directs_to_get_pending_context(self, mock_get_pending):
         """3.5: Context collection step directs to get_pending_context wizard."""
         pending = [
             _make_pending("maintainers", "Who maintains?", auto_value=["@alice"]),
@@ -184,8 +176,13 @@ class TestFormatContextCollectionStep:
                 "governance_model",
                 "What governance model does this project use?",
                 values=[
-                    "bdfl", "meritocracy", "democracy",
-                    "corporate", "foundation", "committee", "other",
+                    "bdfl",
+                    "meritocracy",
+                    "democracy",
+                    "corporate",
+                    "foundation",
+                    "committee",
+                    "other",
                 ],
             ),
         ]
@@ -205,10 +202,7 @@ class TestFormatContextCollectionStep:
         assert "detected from CODEOWNERS" in output
 
         # Unknown value as individual prompt
-        assert (
-            "**governance_model**: What governance model does this project use?"
-            in output
-        )
+        assert "**governance_model**: What governance model does this project use?" in output
         assert "`bdfl`" in output
         assert "<ask user>" in output
 
@@ -258,9 +252,7 @@ class TestFormatContextCollectionStep:
     def test_boolean_auto_detected_value(self):
         """Boolean auto-detected values are formatted correctly."""
         pending = [
-            _make_pending(
-                "has_releases", "Does project have releases?", auto_value=True
-            ),
+            _make_pending("has_releases", "Does project have releases?", auto_value=True),
         ]
 
         result = _format_context_collection_step(1, pending, "/repo")
@@ -282,10 +274,7 @@ class TestFormatContextCollectionStep:
     def test_overflow_indicator_when_capped(self):
         """Shows overflow indicator when pending items exceed cap of 8."""
         # Create 12 auto-detected items (cap is 8)
-        pending = [
-            _make_pending(f"key_{i}", f"Prompt {i}?", auto_value=f"val_{i}")
-            for i in range(12)
-        ]
+        pending = [_make_pending(f"key_{i}", f"Prompt {i}?", auto_value=f"val_{i}") for i in range(12)]
 
         result = _format_context_collection_step(1, pending, "/repo")
         output = "\n".join(result)

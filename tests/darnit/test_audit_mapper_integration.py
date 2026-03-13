@@ -44,9 +44,7 @@ class TestAuditMapperIntegration:
         # Create a .project/project.yaml so mapper has something to read
         project_dir = tmp_path / ".project"
         project_dir.mkdir()
-        (project_dir / "project.yaml").write_text(
-            "name: test-project\nsecurity:\n  contact: sec@example.com\n"
-        )
+        (project_dir / "project.yaml").write_text("name: test-project\nsecurity:\n  contact: sec@example.com\n")
 
         results, summary = run_sieve_audit(
             owner="test-org",
@@ -90,9 +88,7 @@ class TestAuditMapperIntegration:
             mock_mapper_cls.return_value = mock_mapper
 
             # Patch load_context to return overriding values
-            with patch(
-                "darnit.config.context_storage.load_context"
-            ) as mock_load:
+            with patch("darnit.config.context_storage.load_context") as mock_load:
                 mock_load.return_value = {"project.name": "from-user"}
                 with patch(
                     "darnit.config.context_storage.flatten_user_context",

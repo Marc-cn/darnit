@@ -50,9 +50,7 @@ class TestProjectUpdateRemediationConfig:
 
     def test_create_with_set(self):
         """Create config with set values."""
-        config = ProjectUpdateRemediationConfig(
-            set={"security.policy.path": "SECURITY.md"}
-        )
+        config = ProjectUpdateRemediationConfig(set={"security.policy.path": "SECURITY.md"})
         assert config.set == {"security.policy.path": "SECURITY.md"}
 
     def test_create_empty(self):
@@ -214,9 +212,7 @@ class TestApplyProjectUpdate:
         # Should not create .project/
         assert not (tmp_path / ".project").exists()
 
-    def test_does_not_overwrite_existing_config_on_validation_failure(
-        self, tmp_path, monkeypatch
-    ):
+    def test_does_not_overwrite_existing_config_on_validation_failure(self, tmp_path, monkeypatch):
         """When .project/ exists but load fails, do NOT overwrite with blank config.
 
         This tests the bug where apply_project_update would create a blank
@@ -226,13 +222,9 @@ class TestApplyProjectUpdate:
         # Create .project/ with existing darnit.yaml containing context
         project_dir = tmp_path / ".project"
         project_dir.mkdir()
-        (project_dir / "project.yaml").write_text(
-            "name: test\nschema_version: '1.0'\n"
-        )
+        (project_dir / "project.yaml").write_text("name: test\nschema_version: '1.0'\n")
         darnit_yaml = project_dir / "darnit.yaml"
-        darnit_yaml.write_text(
-            "context:\n  maintainers:\n  - '@alice'\n  - '@bob'\n"
-        )
+        darnit_yaml.write_text("context:\n  maintainers:\n  - '@alice'\n  - '@bob'\n")
         original_content = darnit_yaml.read_text()
 
         # Monkeypatch load_project_config to return None (simulating validation failure)

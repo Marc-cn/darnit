@@ -18,9 +18,7 @@ from darnit.sieve.handler_registry import (
 )
 
 
-def readme_description_handler(
-    config: dict, context: HandlerContext
-) -> HandlerResult:
+def readme_description_handler(config: dict, context: HandlerContext) -> HandlerResult:
     """Check that the README has substantive content beyond the title.
 
     Returns PASS if the README has at least one paragraph of text (>20 chars)
@@ -66,9 +64,7 @@ def readme_description_handler(
     )
 
 
-def readme_quality_handler(
-    config: dict, context: HandlerContext
-) -> HandlerResult:
+def readme_quality_handler(config: dict, context: HandlerContext) -> HandlerResult:
     """Check README quality heuristics — looks for common sections.
 
     Checks for common sections like Installation, Usage, etc.
@@ -108,24 +104,25 @@ def readme_quality_handler(
     )
 
 
-def ci_config_handler(
-    config: dict, context: HandlerContext
-) -> HandlerResult:
+def ci_config_handler(config: dict, context: HandlerContext) -> HandlerResult:
     """Check for CI/CD configuration files using glob patterns.
 
     Searches for common CI providers: GitHub Actions, GitLab CI, CircleCI,
     Travis CI, Jenkins, Azure Pipelines, Buildkite.
     """
-    ci_patterns = config.get("patterns", [
-        ".github/workflows/*.yml",
-        ".github/workflows/*.yaml",
-        ".gitlab-ci.yml",
-        ".circleci/config.yml",
-        ".travis.yml",
-        "Jenkinsfile",
-        "azure-pipelines.yml",
-        ".buildkite/pipeline.yml",
-    ])
+    ci_patterns = config.get(
+        "patterns",
+        [
+            ".github/workflows/*.yml",
+            ".github/workflows/*.yaml",
+            ".gitlab-ci.yml",
+            ".circleci/config.yml",
+            ".travis.yml",
+            "Jenkinsfile",
+            "azure-pipelines.yml",
+            ".buildkite/pipeline.yml",
+        ],
+    )
 
     for pattern in ci_patterns:
         full_pattern = os.path.join(context.local_path, pattern)

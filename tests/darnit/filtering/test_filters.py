@@ -616,9 +616,7 @@ class TestTagsDictFiltering:
 
     def test_filter_on_level_via_tags_dict(self):
         """Test that level filtering works via tags dict."""
-        control = MockControlWithTags(
-            control_id="TEST-01", level=2, domain="AC"
-        )
+        control = MockControlWithTags(control_id="TEST-01", level=2, domain="AC")
 
         f = ControlFilter(field="level", operator="<=", value=2)
         assert matches_filter(control, f) is True
@@ -628,9 +626,7 @@ class TestTagsDictFiltering:
 
     def test_filter_on_domain_via_tags_dict(self):
         """Test that domain filtering works via tags dict."""
-        control = MockControlWithTags(
-            control_id="TEST-01", level=1, domain="VM"
-        )
+        control = MockControlWithTags(control_id="TEST-01", level=1, domain="VM")
 
         f = ControlFilter(field="domain", operator="=", value="VM")
         assert matches_filter(control, f) is True
@@ -678,9 +674,7 @@ class TestTagsDictFiltering:
 
     def test_unknown_tag_key_excludes_control(self):
         """Test that unknown tag keys exclude the control."""
-        control = MockControlWithTags(
-            control_id="TEST-01", level=1, domain="AC"
-        )
+        control = MockControlWithTags(control_id="TEST-01", level=1, domain="AC")
 
         # Control doesn't have 'nonexistent' tag, so it should be excluded
         f = ControlFilter(field="nonexistent", operator="=", value="test")
@@ -690,15 +684,21 @@ class TestTagsDictFiltering:
         """Test combining tag and level filtering."""
         controls = [
             MockControlWithTags(
-                control_id="TEST-01", level=1, domain="AC",
+                control_id="TEST-01",
+                level=1,
+                domain="AC",
                 tags={"category": "auth"},
             ),
             MockControlWithTags(
-                control_id="TEST-02", level=2, domain="AC",
+                control_id="TEST-02",
+                level=2,
+                domain="AC",
                 tags={"category": "auth"},
             ),
             MockControlWithTags(
-                control_id="TEST-03", level=1, domain="VM",
+                control_id="TEST-03",
+                level=1,
+                domain="VM",
                 tags={"category": "docs"},
             ),
         ]

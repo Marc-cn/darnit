@@ -15,7 +15,7 @@ def create_test_repository_impl(
     parent_dir: str = ".",
     github_org: str | None = None,
     create_github: bool = True,
-    make_template: bool = False
+    make_template: bool = False,
 ) -> str:
     """Create a minimal test repository that intentionally fails all controls.
 
@@ -80,23 +80,13 @@ node_modules/
 
     # Initialize git
     try:
-        subprocess.run(
-            ["git", "init"],
-            cwd=repo_path,
-            capture_output=True,
-            check=True
-        )
-        subprocess.run(
-            ["git", "add", "."],
-            cwd=repo_path,
-            capture_output=True,
-            check=True
-        )
+        subprocess.run(["git", "init"], cwd=repo_path, capture_output=True, check=True)
+        subprocess.run(["git", "add", "."], cwd=repo_path, capture_output=True, check=True)
         subprocess.run(
             ["git", "commit", "-m", "Initial commit - intentionally non-compliant"],
             cwd=repo_path,
             capture_output=True,
-            check=True
+            check=True,
         )
     except subprocess.CalledProcessError as e:
         return f"❌ Git error: {e.stderr.decode() if e.stderr else str(e)}"
@@ -120,35 +110,34 @@ node_modules/
     if create_github:
         try:
             # Check if gh is available
-            gh_check = subprocess.run(
-                ["gh", "auth", "status"],
-                capture_output=True
-            )
+            gh_check = subprocess.run(["gh", "auth", "status"], capture_output=True)
             if gh_check.returncode != 0:
                 output_lines.append("⚠️ GitHub CLI not authenticated. Skipping GitHub repo creation.")
                 output_lines.append("   Run: gh auth login")
             else:
                 # Get org if not specified
                 if not github_org:
-                    result = subprocess.run(
-                        ["gh", "api", "user", "--jq", ".login"],
-                        capture_output=True,
-                        text=True
-                    )
+                    result = subprocess.run(["gh", "api", "user", "--jq", ".login"], capture_output=True, text=True)
                     github_org = result.stdout.strip()
 
                 # Create GitHub repo
                 subprocess.run(
                     [
-                        "gh", "repo", "create", f"{github_org}/{repo_name}",
+                        "gh",
+                        "repo",
+                        "create",
+                        f"{github_org}/{repo_name}",
                         "--public",
-                        "--source", repo_path,
-                        "--remote", "origin",
-                        "--description", "OpenSSF Baseline test repo - intentionally non-compliant",
-                        "--push"
+                        "--source",
+                        repo_path,
+                        "--remote",
+                        "origin",
+                        "--description",
+                        "OpenSSF Baseline test repo - intentionally non-compliant",
+                        "--push",
                     ],
                     capture_output=True,
-                    check=True
+                    check=True,
                 )
                 output_lines.append(f"✅ GitHub repo created: https://github.com/{github_org}/{repo_name}")
 
@@ -156,14 +145,18 @@ node_modules/
                 if make_template:
                     subprocess.run(
                         [
-                            "gh", "api",
-                            "--method", "PATCH",
-                            "-H", "Accept: application/vnd.github+json",
+                            "gh",
+                            "api",
+                            "--method",
+                            "PATCH",
+                            "-H",
+                            "Accept: application/vnd.github+json",
                             f"/repos/{github_org}/{repo_name}",
-                            "-f", "is_template=true"
+                            "-f",
+                            "is_template=true",
                         ],
                         capture_output=True,
-                        check=True
+                        check=True,
                     )
                     output_lines.append("✅ Repository is now a template")
                     output_lines.append("")
@@ -175,13 +168,15 @@ node_modules/
         except subprocess.CalledProcessError as e:
             output_lines.append(f"⚠️ GitHub error: {e.stderr.decode() if e.stderr else str(e)}")
 
-    output_lines.extend([
-        "",
-        "**Next steps:**",
-        f"1. cd {repo_path}",
-        "2. npm install",
-        "3. Run: audit_openssf_baseline(local_path='.', level=3)",
-        "4. Start implementing fixes to reach 100% compliance!",
-    ])
+    output_lines.extend(
+        [
+            "",
+            "**Next steps:**",
+            f"1. cd {repo_path}",
+            "2. npm install",
+            "3. Run: audit_openssf_baseline(local_path='.', level=3)",
+            "4. Start implementing fixes to reach 100% compliance!",
+        ]
+    )
 
     return "\n".join(output_lines)

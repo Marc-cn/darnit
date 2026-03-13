@@ -4,7 +4,6 @@ Allows users to record project-specific context that cannot be auto-detected,
 such as whether a project has subprojects or which CI system is used.
 """
 
-
 from darnit.config.loader import (
     init_project_config,
     load_project_config,
@@ -69,7 +68,9 @@ def confirm_project_context_impl(
     # Validate governance_model if provided
     if governance_model is not None:
         if governance_model.lower() not in VALID_GOVERNANCE_MODELS:
-            return f"❌ Invalid governance_model: {governance_model}. Valid options: {', '.join(VALID_GOVERNANCE_MODELS)}"
+            return (
+                f"❌ Invalid governance_model: {governance_model}. Valid options: {', '.join(VALID_GOVERNANCE_MODELS)}"
+            )
         governance_model = governance_model.lower()
 
     # Check if any values were provided
@@ -201,8 +202,8 @@ confirm_project_context(
     except Exception as e:
         verified_values.append(f"  - ⚠️ Round-trip verification failed: {e}")
 
-    updates_str = '\n'.join(updates)
-    verified_str = '\n'.join(verified_values)
+    updates_str = "\n".join(updates)
+    verified_str = "\n".join(verified_values)
     return f"""✅ Project context updated in .project.yaml
 
 **Recorded:**

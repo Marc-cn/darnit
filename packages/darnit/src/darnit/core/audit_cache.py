@@ -132,9 +132,7 @@ def write_audit_cache(
     cache_path = cache_dir / CACHE_FILENAME
 
     # Atomic write: write to temp file in same directory, then rename.
-    fd, tmp_path = tempfile.mkstemp(
-        dir=str(cache_dir), suffix=".tmp", prefix="audit-cache-"
-    )
+    fd, tmp_path = tempfile.mkstemp(dir=str(cache_dir), suffix=".tmp", prefix="audit-cache-")
     try:
         with os.fdopen(fd, "w") as f:
             json.dump(envelope, f, indent=2)

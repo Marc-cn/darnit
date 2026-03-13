@@ -57,8 +57,9 @@ class TestContextValidationAfterConfirmation:
             dry_run=True,
         )
 
-        assert result["status"] != "needs_confirmation", \
+        assert result["status"] != "needs_confirmation", (
             f"Still prompting after confirmation! Status: {result['status']}"
+        )
         assert result["status"] in ["skipped", "applied", "dry_run", "preview", "would_apply"]
 
     @pytest.mark.unit
@@ -106,8 +107,9 @@ class TestAllContextRequiringControls:
             dry_run=True,
         )
 
-        assert result["status"] == "needs_confirmation", \
+        assert result["status"] == "needs_confirmation", (
             f"Control {control_id} with dry_run=True returned {result['status']} instead of needs_confirmation"
+        )
 
     @pytest.mark.unit
     @pytest.mark.parametrize("control_id", CONTEXT_REQUIRING_CONTROLS)
@@ -123,8 +125,9 @@ class TestAllContextRequiringControls:
             dry_run=False,
         )
 
-        assert result["status"] == "needs_confirmation", \
+        assert result["status"] == "needs_confirmation", (
             f"Control {control_id} with dry_run=False returned {result['status']} instead of needs_confirmation"
+        )
 
 
 class TestToolsDefaultBehavior:
@@ -142,8 +145,9 @@ class TestToolsDefaultBehavior:
             categories=["governance"],
         )
 
-        assert "confirm" in result.lower() or "needs_confirmation" in result.lower(), \
+        assert "confirm" in result.lower() or "needs_confirmation" in result.lower(), (
             f"Tool with default dry_run didn't prompt for confirmation: {result[:200]}"
+        )
 
     @pytest.mark.unit
     def test_remediate_audit_findings_explicit_dry_run_false_prompts(self, temp_repo):
@@ -158,8 +162,9 @@ class TestToolsDefaultBehavior:
             dry_run=False,
         )
 
-        assert "confirm" in result.lower() or "needs_confirmation" in result.lower(), \
+        assert "confirm" in result.lower() or "needs_confirmation" in result.lower(), (
             f"Tool with dry_run=False didn't prompt for confirmation: {result[:200]}"
+        )
 
 
 class TestFileReferenceRecommendation:
@@ -178,9 +183,7 @@ class TestFileReferenceRecommendation:
             yield tmpdir
 
     @pytest.mark.unit
-    def test_prompt_recommends_file_reference_when_codeowners_exists(
-        self, temp_repo_with_codeowners
-    ):
+    def test_prompt_recommends_file_reference_when_codeowners_exists(self, temp_repo_with_codeowners):
         """When CODEOWNERS exists, prompt should show parsed values and placeholder command."""
         from darnit_baseline.remediation.orchestrator import remediate_audit_findings
 
@@ -192,7 +195,7 @@ class TestFileReferenceRecommendation:
 
         assert "CODEOWNERS" in result
         assert "authoritative" in result.lower()
-        assert 'maintainers=<user-confirmed values>' in result
+        assert "maintainers=<user-confirmed values>" in result
         assert 'maintainers="CODEOWNERS"' not in result
 
     @pytest.mark.unit
@@ -212,8 +215,9 @@ class TestFileReferenceRecommendation:
         assert config.x_openssf_baseline.context is not None
 
         maintainers = config.x_openssf_baseline.context.maintainers
-        assert isinstance(maintainers, str), \
+        assert isinstance(maintainers, str), (
             f"maintainers should be string (file ref), got {type(maintainers)}: {maintainers}"
+        )
         assert maintainers == "CODEOWNERS"
 
 
@@ -269,12 +273,11 @@ class TestExplicitWarningAgainstDirectEdits:
             dry_run=True,
         )
 
-        assert "DO NOT" in result, \
-            f"Pre-flight prompt missing 'DO NOT' warning: {result[:500]}"
-        assert ".project/" in result or "project" in result.lower(), \
+        assert "DO NOT" in result, f"Pre-flight prompt missing 'DO NOT' warning: {result[:500]}"
+        assert ".project/" in result or "project" in result.lower(), (
             f"Pre-flight prompt should mention .project/ files: {result[:500]}"
-        assert "confirm_project_context" in result, \
-            f"Pre-flight prompt should mention the tool to use: {result[:500]}"
+        )
+        assert "confirm_project_context" in result, f"Pre-flight prompt should mention the tool to use: {result[:500]}"
 
     @pytest.mark.unit
     def test_context_prompt_warns_against_direct_edits(self, temp_repo):
@@ -292,10 +295,10 @@ class TestExplicitWarningAgainstDirectEdits:
         assert result["status"] == "needs_confirmation"
         prompt_text = result.get("result", "")
 
-        assert "DO NOT" in prompt_text, \
-            f"Context prompt missing 'DO NOT' warning: {prompt_text[:500]}"
-        assert "confirm_project_context" in prompt_text, \
+        assert "DO NOT" in prompt_text, f"Context prompt missing 'DO NOT' warning: {prompt_text[:500]}"
+        assert "confirm_project_context" in prompt_text, (
             f"Context prompt should mention the tool to use: {prompt_text[:500]}"
+        )
 
 
 class TestTomlRemediationReachability:
@@ -324,5 +327,4 @@ class TestTomlRemediationReachability:
             if rem_config is None and manual is None:
                 unreachable.append(control_id)
 
-        assert len(unreachable) == 0, \
-            f"Controls with TOML remediation but unreachable by orchestrator: {unreachable}"
+        assert len(unreachable) == 0, f"Controls with TOML remediation but unreachable by orchestrator: {unreachable}"

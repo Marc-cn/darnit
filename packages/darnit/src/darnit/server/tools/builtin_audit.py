@@ -85,11 +85,7 @@ async def builtin_audit(
     # Merge Python-defined controls that aren't in TOML
     registry = get_control_registry()
     toml_ids = {c.control_id for c in toml_controls}
-    python_controls = [
-        spec
-        for spec in registry.get_all_specs()
-        if spec.control_id not in toml_ids
-    ]
+    python_controls = [spec for spec in registry.get_all_specs() if spec.control_id not in toml_ids]
 
     all_controls = toml_controls + python_controls
     all_controls.sort(key=lambda c: c.control_id)

@@ -254,6 +254,7 @@ def get_sieve_handler_registry() -> SieveHandlerRegistry:
         _sieve_handler_registry = SieveHandlerRegistry()
         # Auto-register builtin handlers
         from darnit.sieve.builtin_handlers import register_builtin_handlers
+
         register_builtin_handlers()
     return _sieve_handler_registry
 

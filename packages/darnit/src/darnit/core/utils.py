@@ -18,11 +18,7 @@ def gh_api(endpoint: str) -> dict[str, Any]:
     Raises:
         RuntimeError: If the API call fails or returns invalid JSON.
     """
-    result = subprocess.run(
-        ["gh", "api", endpoint],
-        capture_output=True,
-        text=True
-    )
+    result = subprocess.run(["gh", "api", endpoint], capture_output=True, text=True)
     if result.returncode != 0:
         error_msg = result.stderr.strip() or "Unknown error"
         raise RuntimeError(f"gh api failed: {error_msg}")
@@ -45,9 +41,7 @@ def gh_api_safe(endpoint: str) -> dict[str, Any] | None:
 
 
 def validate_local_path(
-    local_path: str,
-    expected_owner: str | None = None,
-    expected_repo: str | None = None
+    local_path: str, expected_owner: str | None = None, expected_repo: str | None = None
 ) -> tuple[str, str | None]:
     """
     Validate and resolve the local_path.
@@ -88,15 +82,17 @@ def validate_local_path(
         if dir_name.lower() != expected_repo.lower():
             try:
                 result = subprocess.run(
-                    ["git", "-C", abs_path, "remote", "get-url", "origin"],
-                    capture_output=True, text=True, timeout=5
+                    ["git", "-C", abs_path, "remote", "get-url", "origin"], capture_output=True, text=True, timeout=5
                 )
                 if result.returncode == 0:
                     remote_url = result.stdout.strip()
-                    match = re.search(r'[:/]([^/:]+)/([^/]+?)(?:\.git)?$', remote_url)
+                    match = re.search(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?$", remote_url)
                     if match:
                         detected_owner, detected_repo = match.groups()
-                        if detected_owner.lower() != expected_owner.lower() or detected_repo.lower() != expected_repo.lower():
+                        if (
+                            detected_owner.lower() != expected_owner.lower()
+                            or detected_repo.lower() != expected_repo.lower()
+                        ):
                             return abs_path, (
                                 f"Path mismatch detected!\n\n"
                                 f"You requested audit for: {expected_owner}/{expected_repo}\n"
@@ -105,7 +101,7 @@ def validate_local_path(
                                 f"When using MCP tools, '.' resolves to the MCP server's directory, "
                                 f"NOT your current working directory.\n\n"
                                 f"Solution: Use an absolute path:\n"
-                                f"  local_path=\"/path/to/{expected_repo}\""
+                                f'  local_path="/path/to/{expected_repo}"'
                             )
                 else:
                     return abs_path, (
@@ -116,7 +112,7 @@ def validate_local_path(
                         f"When using MCP tools, '.' resolves to the MCP server's directory, "
                         f"NOT your current working directory.\n\n"
                         f"Solution: Use an absolute path:\n"
-                        f"  local_path=\"/path/to/{expected_repo}\""
+                        f'  local_path="/path/to/{expected_repo}"'
                     )
             except subprocess.TimeoutExpired:
                 logger.debug(f"Git command timed out checking remote for {abs_path}")
@@ -128,7 +124,7 @@ def validate_local_path(
                     f"When using MCP tools, '.' resolves to the MCP server's directory, "
                     f"NOT your current working directory.\n\n"
                     f"Solution: Use an absolute path:\n"
-                    f"  local_path=\"/path/to/{expected_repo}\""
+                    f'  local_path="/path/to/{expected_repo}"'
                 )
             except (OSError, subprocess.SubprocessError) as e:
                 logger.debug(f"Git command failed for {abs_path}: {type(e).__name__}")
@@ -140,7 +136,7 @@ def validate_local_path(
                     f"When using MCP tools, '.' resolves to the MCP server's directory, "
                     f"NOT your current working directory.\n\n"
                     f"Solution: Use an absolute path:\n"
-                    f"  local_path=\"/path/to/{expected_repo}\""
+                    f'  local_path="/path/to/{expected_repo}"'
                 )
 
     return abs_path, None
@@ -262,8 +258,12 @@ def _gh_enrich(owner: str, repo: str, cwd: str) -> dict[str, Any]:
     try:
         result = subprocess.run(
             [
-                "gh", "repo", "view", f"{owner}/{repo}",
-                "--json", "url,isPrivate,defaultBranchRef",
+                "gh",
+                "repo",
+                "view",
+                f"{owner}/{repo}",
+                "--json",
+                "url,isPrivate,defaultBranchRef",
             ],
             capture_output=True,
             text=True,
@@ -278,8 +278,13 @@ def _gh_enrich(owner: str, repo: str, cwd: str) -> dict[str, Any]:
             "is_private": data.get("isPrivate", False),
             "default_branch": data.get("defaultBranchRef", {}).get("name", "main"),
         }
-    except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError,
-            OSError, subprocess.SubprocessError) as e:
+    except (
+        subprocess.TimeoutExpired,
+        FileNotFoundError,
+        json.JSONDecodeError,
+        OSError,
+        subprocess.SubprocessError,
+    ) as e:
         logger.debug(f"gh enrichment failed for {owner}/{repo}: {type(e).__name__}: {e}")
         return {}
 
@@ -322,7 +327,7 @@ def file_contains(local_path: str, filename_patterns: list[str], content_pattern
     for pattern in filename_patterns:
         for filepath in glob_module.glob(os.path.join(local_path, pattern), recursive=True):
             try:
-                with open(filepath, encoding='utf-8', errors='ignore') as f:
+                with open(filepath, encoding="utf-8", errors="ignore") as f:
                     if re.search(content_pattern, f.read(), re.IGNORECASE):
                         return True
             except OSError as e:
@@ -336,7 +341,7 @@ def read_file(local_path: str, filename: str) -> str | None:
     filepath = os.path.join(local_path, filename)
     if os.path.exists(filepath):
         try:
-            with open(filepath, encoding='utf-8', errors='ignore') as f:
+            with open(filepath, encoding="utf-8", errors="ignore") as f:
                 return f.read()
         except OSError as e:
             logger.debug(f"Could not read {filepath}: {type(e).__name__}")
@@ -353,10 +358,7 @@ def get_git_commit(local_path: str) -> str | None:
     """Get the current git commit SHA."""
     try:
         result = subprocess.run(
-            ["git", "-C", local_path, "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["git", "-C", local_path, "rev-parse", "HEAD"], capture_output=True, text=True, timeout=10
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -371,10 +373,7 @@ def get_git_ref(local_path: str) -> str | None:
     """Get the current git branch/ref."""
     try:
         result = subprocess.run(
-            ["git", "-C", local_path, "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["git", "-C", local_path, "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, timeout=10
         )
         if result.returncode == 0:
             ref = result.stdout.strip()
@@ -382,10 +381,7 @@ def get_git_ref(local_path: str) -> str | None:
                 return ref
         # Try to get tag
         result = subprocess.run(
-            ["git", "-C", local_path, "describe", "--tags", "--exact-match"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["git", "-C", local_path, "describe", "--tags", "--exact-match"], capture_output=True, text=True, timeout=10
         )
         if result.returncode == 0:
             return result.stdout.strip()

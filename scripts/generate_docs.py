@@ -334,7 +334,7 @@ def generate_architecture_doc(spec_content: str, metadata: dict[str, Any]) -> st
     doc = f"""# Darnit Framework Architecture
 
 > Generated from framework specification
-> Spec Version: {metadata.get('Version', 'Unknown')}
+> Spec Version: {metadata.get("Version", "Unknown")}
 
 This document describes the architecture of the Darnit framework, including
 the sieve orchestrator, plugin system, and TOML configuration schema.
@@ -345,12 +345,18 @@ the sieve orchestrator, plugin system, and TOML configuration schema.
 
     # Include Overview and Architecture sections
     for section in sections:
-        if section.title in [
-            "Overview",
-            "Architecture Diagram",
-            "Sieve Orchestrator",
-            "Plugin Protocol",
-        ] or section.title.startswith("1.") or section.title.startswith("5.") or section.title.startswith("6."):
+        if (
+            section.title
+            in [
+                "Overview",
+                "Architecture Diagram",
+                "Sieve Orchestrator",
+                "Plugin Protocol",
+            ]
+            or section.title.startswith("1.")
+            or section.title.startswith("5.")
+            or section.title.startswith("6.")
+        ):
             doc += f"{'#' * section.level} {section.title}\n\n"
             doc += section.content.strip() + "\n\n"
 
@@ -372,7 +378,7 @@ def generate_schema_reference(spec_content: str, metadata: dict[str, Any]) -> st
     doc = f"""# Darnit TOML Schema Reference
 
 > Generated from framework specification
-> Spec Version: {metadata.get('Version', 'Unknown')}
+> Spec Version: {metadata.get("Version", "Unknown")}
 
 This document provides a complete reference for the TOML configuration schema
 used to define controls, passes, and remediations.
@@ -411,7 +417,7 @@ def generate_usage_guide(spec_content: str, metadata: dict[str, Any]) -> str:
     doc = f"""# Darnit Framework Usage Guide
 
 > Generated from framework specification
-> Spec Version: {metadata.get('Version', 'Unknown')}
+> Spec Version: {metadata.get("Version", "Unknown")}
 
 This guide explains how to use the Darnit framework for compliance auditing.
 
@@ -467,18 +473,10 @@ security controls. Custom frameworks can be registered via Python entry points.
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Generate documentation from framework specification"
-    )
-    parser.add_argument(
-        "--force", action="store_true", help="Force regeneration of LLM sections"
-    )
-    parser.add_argument(
-        "--no-llm", action="store_true", help="Skip LLM generation"
-    )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Show detailed progress"
-    )
+    parser = argparse.ArgumentParser(description="Generate documentation from framework specification")
+    parser.add_argument("--force", action="store_true", help="Force regeneration of LLM sections")
+    parser.add_argument("--no-llm", action="store_true", help="Skip LLM generation")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed progress")
     args = parser.parse_args()
 
     # Verify spec exists

@@ -92,10 +92,7 @@ def _resolve_categories_to_control_ids(
             prefix = DOMAIN_PREFIXES[cat]
             ids.update(cid for cid in all_control_ids if cid.startswith(prefix))
         else:
-            logger.warning(
-                f"Unknown category '{cat}' — ignored. "
-                f"Valid: {sorted(DOMAIN_PREFIXES.keys())}"
-            )
+            logger.warning(f"Unknown category '{cat}' — ignored. Valid: {sorted(DOMAIN_PREFIXES.keys())}")
 
     return ids
 
@@ -122,6 +119,7 @@ def _get_framework_config() -> FrameworkConfig | None:
 
         # Use the package's get_framework_path() function
         from darnit_baseline import get_framework_path
+
         toml_path = get_framework_path()
 
         if not toml_path.exists():
@@ -166,9 +164,7 @@ def _get_declarative_remediation(
     # (manual-only handlers are guidance — handled separately by _get_manual_remediation)
     remediation = control.remediation
     if remediation.handlers:
-        has_executable = any(
-            h.handler != "manual" for h in remediation.handlers
-        )
+        has_executable = any(h.handler != "manual" for h in remediation.handlers)
         if has_executable:
             return remediation, framework.templates
 
@@ -457,6 +453,7 @@ def _apply_declarative_remediation(
         context_values: dict[str, Any] = {}
         try:
             from darnit.context.auto_detect import collect_auto_context
+
             context_values = collect_auto_context(local_path)
         except Exception:
             pass  # Auto-detection is best-effort
@@ -464,6 +461,7 @@ def _apply_declarative_remediation(
         # Confirmed context overrides auto-detected values
         try:
             from darnit.config.context_storage import load_context
+
             all_context = load_context(local_path)
             for _category, values in all_context.items():
                 for key, ctx_val in values.items():
@@ -475,6 +473,7 @@ def _apply_declarative_remediation(
         fw_path: str | None = None
         try:
             from darnit_baseline import get_framework_path
+
             p = get_framework_path()
             if p:
                 fw_path = str(p)
@@ -668,10 +667,7 @@ def _format_preflight_prompt(
     md = []
     md.append("# BLOCKED: Remediation Cannot Proceed")
     md.append("")
-    md.append(
-        "Remediation has **NOT** been applied and **WILL NOT** proceed "
-        "until the following context is confirmed."
-    )
+    md.append("Remediation has **NOT** been applied and **WILL NOT** proceed until the following context is confirmed.")
     md.append("")
     md.append("---")
     md.append("")
@@ -746,7 +742,7 @@ def remediate_audit_findings(
     owner: str | None = None,
     repo: str | None = None,
     categories: list[str] | None = None,
-    dry_run: bool = True
+    dry_run: bool = True,
 ) -> str:
     """Apply automated remediations for failed audit controls.
 
@@ -793,24 +789,19 @@ def remediate_audit_findings(
 
     try:
         from darnit.core.audit_cache import read_audit_cache
+
         cache = read_audit_cache(local_path)
     except Exception:
         cache = None
 
     if cache is not None:
         logger.info("Using cached audit results (skipping redundant audit)")
-        failed_ids = {
-            r.get("id", "") for r in cache["results"] if r.get("status") == "FAIL"
-        }
+        failed_ids = {r.get("id", "") for r in cache["results"] if r.get("status") == "FAIL"}
     else:
         logger.info("No cached audit results, running audit")
-        audit_result, error = _run_baseline_checks(
-            owner=owner, repo=repo, local_path=local_path
-        )
+        audit_result, error = _run_baseline_checks(owner=owner, repo=repo, local_path=local_path)
         if not error and audit_result:
-            failed_ids = {
-                r.get("id", "") for r in audit_result.all_results if r.get("status") == "FAIL"
-            }
+            failed_ids = {r.get("id", "") for r in audit_result.all_results if r.get("status") == "FAIL"}
 
     # ------------------------------------------------------------------
     # Build the list of controls to remediate
@@ -836,14 +827,16 @@ def remediate_audit_findings(
             # without control-level filtering
             logger.warning(f"Audit failed ({error}), proceeding without control-level filtering")
             remediable_ids = sorted(
-                cid for cid in allowed_ids
+                cid
+                for cid in allowed_ids
                 if framework.controls.get(cid)
                 and framework.controls[cid].remediation
                 and framework.controls[cid].remediation.handlers
             )
         elif failed_ids is not None:
             remediable_ids = sorted(
-                cid for cid in allowed_ids
+                cid
+                for cid in allowed_ids
                 if cid in failed_ids
                 and framework.controls.get(cid)
                 and framework.controls[cid].remediation
@@ -851,7 +844,8 @@ def remediate_audit_findings(
             )
         else:
             remediable_ids = sorted(
-                cid for cid in allowed_ids
+                cid
+                for cid in allowed_ids
                 if framework.controls.get(cid)
                 and framework.controls[cid].remediation
                 and framework.controls[cid].remediation.handlers
@@ -893,6 +887,7 @@ def remediate_audit_findings(
         if applied_any:
             try:
                 from darnit.core.audit_cache import invalidate_audit_cache
+
                 invalidate_audit_cache(local_path)
             except Exception as exc:
                 logger.warning(f"Failed to invalidate audit cache: {exc}")

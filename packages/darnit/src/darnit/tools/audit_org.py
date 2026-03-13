@@ -61,9 +61,14 @@ def enumerate_org_repos(
     try:
         result = subprocess.run(
             [
-                "gh", "repo", "list", owner,
-                "--json", "name,isArchived",
-                "--limit", "500",
+                "gh",
+                "repo",
+                "list",
+                owner,
+                "--json",
+                "name,isArchived",
+                "--limit",
+                "500",
             ],
             capture_output=True,
             text=True,
@@ -117,9 +122,7 @@ def clone_repo(owner: str, repo: str, target_dir: str) -> bool:
             timeout=120,
         )
         if result.returncode != 0:
-            logger.warning(
-                "Failed to clone %s/%s: %s", owner, repo, result.stderr.strip()
-            )
+            logger.warning("Failed to clone %s/%s: %s", owner, repo, result.stderr.strip())
             return False
         return True
     except (FileNotFoundError, subprocess.TimeoutExpired) as e:
@@ -153,9 +156,7 @@ def run_org_audit(
         Aggregated audit report (markdown or JSON string)
     """
     # Enumerate repos
-    repo_names, error = enumerate_org_repos(
-        owner, include_archived=include_archived, repos=repos
-    )
+    repo_names, error = enumerate_org_repos(owner, include_archived=include_archived, repos=repos)
     if error:
         return f"❌ Error: {error}"
 
@@ -264,11 +265,13 @@ def aggregate_org_results(
 
         if result["status"] == "ERROR":
             org_summary["error_repos"] += 1
-            org_summary["repos"].append({
-                "repo": repo_name,
-                "status": "ERROR",
-                "error": result.get("error", "Unknown error"),
-            })
+            org_summary["repos"].append(
+                {
+                    "repo": repo_name,
+                    "status": "ERROR",
+                    "error": result.get("error", "Unknown error"),
+                }
+            )
             continue
 
         pass_count = summary.get("PASS", 0)
@@ -285,14 +288,16 @@ def aggregate_org_results(
         else:
             org_summary["non_compliant_repos"] += 1
 
-        org_summary["repos"].append({
-            "repo": repo_name,
-            "status": "COMPLIANT" if is_compliant else "NON_COMPLIANT",
-            "pass": pass_count,
-            "fail": fail_count,
-            "warn": warn_count,
-            "total": total,
-        })
+        org_summary["repos"].append(
+            {
+                "repo": repo_name,
+                "status": "COMPLIANT" if is_compliant else "NON_COMPLIANT",
+                "pass": pass_count,
+                "fail": fail_count,
+                "warn": warn_count,
+                "total": total,
+            }
+        )
 
     return org_summary
 
@@ -320,11 +325,13 @@ def format_org_results_markdown(
     # Header
     lines.append(f"# Org-Wide Audit Report: {owner}")
     lines.append("")
-    lines.append(f"**Level:** {level} | "
-                 f"**Repos:** {org_summary['total_repos']} | "
-                 f"**Compliant:** {org_summary['compliant_repos']} | "
-                 f"**Non-Compliant:** {org_summary['non_compliant_repos']} | "
-                 f"**Errors:** {org_summary['error_repos']}")
+    lines.append(
+        f"**Level:** {level} | "
+        f"**Repos:** {org_summary['total_repos']} | "
+        f"**Compliant:** {org_summary['compliant_repos']} | "
+        f"**Non-Compliant:** {org_summary['non_compliant_repos']} | "
+        f"**Errors:** {org_summary['error_repos']}"
+    )
     lines.append("")
 
     # Summary table
@@ -335,9 +342,7 @@ def format_org_results_markdown(
 
     for repo_info in org_summary["repos"]:
         if repo_info["status"] == "ERROR":
-            lines.append(
-                f"| {repo_info['repo']} | - | - | - | ERROR: {repo_info.get('error', '')} |"
-            )
+            lines.append(f"| {repo_info['repo']} | - | - | - | ERROR: {repo_info.get('error', '')} |")
         else:
             status_icon = "PASS" if repo_info["status"] == "COMPLIANT" else "FAIL"
             lines.append(

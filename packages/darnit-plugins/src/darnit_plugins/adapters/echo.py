@@ -214,6 +214,5 @@ class EchoCheckAdapter(CheckAdapter):
             2
         """
         return [
-            self.check(control_id, owner, repo, local_path, config)
-            for control_id in control_ids
+            self.check(control_id, owner, repo, local_path, config) for control_id in control_ids
         ]

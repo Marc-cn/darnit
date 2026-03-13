@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 class CheckStatus(Enum):
     """Status of a control check."""
+
     PASS = "pass"
     FAIL = "fail"
     WARN = "warn"
@@ -20,6 +21,7 @@ class CheckStatus(Enum):
 @dataclass
 class CheckResult:
     """Result of a single control check."""
+
     control_id: str
     status: CheckStatus
     message: str
@@ -42,6 +44,7 @@ class CheckResult:
 @dataclass
 class RemediationResult:
     """Result of a remediation action."""
+
     control_id: str
     success: bool
     message: str
@@ -54,6 +57,7 @@ class RemediationResult:
 @dataclass
 class AdapterCapability:
     """Describes what controls an adapter can handle."""
+
     control_ids: set[str]  # Specific control IDs, or {"*"} for all
     supports_batch: bool = False  # Can handle multiple controls in one call
     batch_command: str | None = None  # Command for batch mode
@@ -113,6 +117,7 @@ class AdapterCapability:
 @dataclass
 class AuditResult:
     """Complete result structure for baseline audit."""
+
     owner: str
     repo: str
     local_path: str

@@ -76,4 +76,3 @@ class TestGetDefaultImplementation:
         impl = get_default_implementation()
         assert impl is not None
         assert impl.name == "openssf-baseline"
-

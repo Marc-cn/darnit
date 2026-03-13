@@ -53,9 +53,7 @@ def configure_logging(level: str = "INFO") -> None:
     # Only add handler if not already configured
     if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
         handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter(
-            "%(levelname)s: %(message)s"
-        ))
+        handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
         logger.addHandler(handler)
 
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))

@@ -353,9 +353,7 @@ class PluginRegistry:
                 logger.warning(f"Failed to load remediation adapter {ep.name}: {e}")
 
         self._discovered.add(ENTRY_POINT_REMEDIATION_ADAPTERS)
-        logger.info(
-            f"Discovered {len(self._remediation_adapters)} remediation adapter(s)"
-        )
+        logger.info(f"Discovered {len(self._remediation_adapters)} remediation adapter(s)")
         return self._remediation_adapters
 
     # =========================================================================

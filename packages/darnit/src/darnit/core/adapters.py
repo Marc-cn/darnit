@@ -57,24 +57,12 @@ class CheckAdapter(ABC):
         pass
 
     @abstractmethod
-    def check(
-        self,
-        control_id: str,
-        owner: str,
-        repo: str,
-        local_path: str,
-        config: dict[str, Any]
-    ) -> CheckResult:
+    def check(self, control_id: str, owner: str, repo: str, local_path: str, config: dict[str, Any]) -> CheckResult:
         """Run check for a specific control."""
         pass
 
     def check_batch(
-        self,
-        control_ids: list[str],
-        owner: str,
-        repo: str,
-        local_path: str,
-        config: dict[str, Any]
+        self, control_ids: list[str], owner: str, repo: str, local_path: str, config: dict[str, Any]
     ) -> list[CheckResult]:
         """
         Run checks for multiple controls in a single invocation.
@@ -125,25 +113,12 @@ class RemediationAdapter(ABC):
 
     @abstractmethod
     def remediate(
-        self,
-        control_id: str,
-        owner: str,
-        repo: str,
-        local_path: str,
-        config: dict[str, Any],
-        dry_run: bool = True
+        self, control_id: str, owner: str, repo: str, local_path: str, config: dict[str, Any], dry_run: bool = True
     ) -> RemediationResult:
         """Apply remediation for a specific control."""
         pass
 
-    def preview(
-        self,
-        control_id: str,
-        owner: str,
-        repo: str,
-        local_path: str,
-        config: dict[str, Any]
-    ) -> str:
+    def preview(self, control_id: str, owner: str, repo: str, local_path: str, config: dict[str, Any]) -> str:
         """Preview what remediation would do (dry run)."""
         result = self.remediate(control_id, owner, repo, local_path, config, dry_run=True)
         return result.message
@@ -442,9 +417,7 @@ class AdapterRegistry:
 
     # Registered adapter classes
     _check_classes: dict[str, type[CheckAdapter]] = field(default_factory=dict)
-    _remediation_classes: dict[str, type[RemediationAdapter]] = field(
-        default_factory=dict
-    )
+    _remediation_classes: dict[str, type[RemediationAdapter]] = field(default_factory=dict)
 
     # Instantiated adapters (cached)
     _check_instances: dict[str, CheckAdapter] = field(default_factory=dict)
@@ -533,9 +506,7 @@ class AdapterRegistry:
 
         # Try to create from config
         if name in self._adapter_configs:
-            instance = self._create_check_adapter_from_config(
-                name, self._adapter_configs[name]
-            )
+            instance = self._create_check_adapter_from_config(name, self._adapter_configs[name])
             if instance:
                 self._check_instances[name] = instance
                 return instance
@@ -667,9 +638,7 @@ class AdapterRegistry:
             adapter_class = getattr(module, class_name)
 
             if not issubclass(adapter_class, expected_type):
-                logger.error(
-                    f"Adapter {name}: {class_name} is not a {expected_type.__name__}"
-                )
+                logger.error(f"Adapter {name}: {class_name} is not a {expected_type.__name__}")
                 return None
 
             return adapter_class()
@@ -690,9 +659,7 @@ class AdapterRegistry:
         check_names = set(self._check_classes.keys())
         check_names.update(self._check_instances.keys())
         check_names.update(
-            name
-            for name, cfg in self._adapter_configs.items()
-            if cfg.get("type") in ("command", "script", "python")
+            name for name, cfg in self._adapter_configs.items() if cfg.get("type") in ("command", "script", "python")
         )
 
         remediation_names = set(self._remediation_classes.keys())

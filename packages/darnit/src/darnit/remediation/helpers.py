@@ -50,7 +50,7 @@ def write_file_safe(path: str, content: str) -> tuple[bool, str]:
         Tuple of (success: bool, message: str)
     """
     try:
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             f.write(content)
         return True, f"Successfully wrote {path}"
     except OSError as e:
@@ -91,10 +91,15 @@ def get_repo_maintainers(owner: str, repo: str) -> list[str]:
     # Try to get collaborators with admin/maintain permissions
     try:
         result = subprocess.run(
-            ["gh", "api", f"/repos/{owner}/{repo}/collaborators", "--jq",
-             '[.[] | select(.permissions.admin == true or .permissions.maintain == true) | .login] | unique'],
+            [
+                "gh",
+                "api",
+                f"/repos/{owner}/{repo}/collaborators",
+                "--jq",
+                "[.[] | select(.permissions.admin == true or .permissions.maintain == true) | .login] | unique",
+            ],
             capture_output=True,
-            text=True
+            text=True,
         )
         if result.returncode == 0:
             maintainers = json.loads(result.stdout.strip())
@@ -106,7 +111,6 @@ def get_repo_maintainers(owner: str, repo: str) -> list[str]:
         maintainers = [owner]
 
     return maintainers
-
 
 
 def format_success(message: str, details: dict[str, Any], controls: list[str]) -> str:

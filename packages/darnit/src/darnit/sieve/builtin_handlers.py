@@ -250,12 +250,16 @@ def regex_handler(config: dict[str, Any], context: HandlerContext) -> HandlerRes
     pass_if_any = config.get("pass_if_any", True)
 
     return _regex_match_files(
-        file_paths, patterns, min_matches, pass_if_any,
+        file_paths,
+        patterns,
+        min_matches,
+        pass_if_any,
     )
 
 
 def _regex_exclude_evidence(
-    exclude_globs: list[str], context: HandlerContext,
+    exclude_globs: list[str],
+    context: HandlerContext,
 ) -> HandlerResult:
     """Glob for excluded files and return evidence. CEL ``expr`` decides pass/fail."""
     import glob as globmod
@@ -263,7 +267,8 @@ def _regex_exclude_evidence(
     found: list[str] = []
     for pattern in exclude_globs:
         matches = globmod.glob(
-            os.path.join(context.local_path, pattern), recursive=True,
+            os.path.join(context.local_path, pattern),
+            recursive=True,
         )
         found.extend(matches)
 
@@ -292,7 +297,8 @@ def _regex_exclude_evidence(
 
 
 def _resolve_regex_files(
-    config: dict[str, Any], context: HandlerContext,
+    config: dict[str, Any],
+    context: HandlerContext,
 ) -> list[str] | None:
     """Resolve the list of absolute file paths to search.
 
@@ -336,7 +342,8 @@ def _resolve_regex_files(
 
 
 def _regex_no_files_result(
-    config: dict[str, Any], context: HandlerContext,
+    config: dict[str, Any],
+    context: HandlerContext,
 ) -> HandlerResult:
     """Return the appropriate result when no files could be resolved."""
     file_path = config.get("file", "")
@@ -402,14 +409,16 @@ def _regex_match_files(
             match_count = len(matches)
             matched = match_count >= min_matches
 
-            all_results.append({
-                "file": fpath,
-                "pattern_name": pname,
-                "pattern": pregex,
-                "match_count": match_count,
-                "matched": matched,
-                "matches_preview": matches[:3],
-            })
+            all_results.append(
+                {
+                    "file": fpath,
+                    "pattern_name": pname,
+                    "pattern": pregex,
+                    "match_count": match_count,
+                    "matched": matched,
+                    "matches_preview": matches[:3],
+                }
+            )
 
             if matched:
                 any_match = True
@@ -643,25 +652,53 @@ def register_builtin_handlers() -> None:
     registry = get_sieve_handler_registry()
 
     # Verification handlers
-    registry.register("file_exists", phase="deterministic", handler_fn=file_exists_handler,
-                       description="Check file existence from a list of paths")
-    registry.register("exec", phase="deterministic", handler_fn=exec_handler,
-                       description="Run external command, evaluate exit code / CEL expr")
-    registry.register("regex", phase="pattern", handler_fn=regex_handler,
-                       description="Match regex patterns in file content")
-    registry.register("pattern", phase="pattern", handler_fn=regex_handler,
-                       description="Alias for regex handler (match regex patterns in file content)")
-    registry.register("llm_eval", phase="llm", handler_fn=llm_eval_handler,
-                       description="AI evaluation with confidence threshold")
-    registry.register("manual_steps", phase="manual", handler_fn=manual_steps_handler,
-                       description="Human verification checklist")
-    registry.register("manual", phase="manual", handler_fn=manual_steps_handler,
-                       description="Alias for manual_steps handler (human verification checklist)")
+    registry.register(
+        "file_exists",
+        phase="deterministic",
+        handler_fn=file_exists_handler,
+        description="Check file existence from a list of paths",
+    )
+    registry.register(
+        "exec",
+        phase="deterministic",
+        handler_fn=exec_handler,
+        description="Run external command, evaluate exit code / CEL expr",
+    )
+    registry.register(
+        "regex", phase="pattern", handler_fn=regex_handler, description="Match regex patterns in file content"
+    )
+    registry.register(
+        "pattern",
+        phase="pattern",
+        handler_fn=regex_handler,
+        description="Alias for regex handler (match regex patterns in file content)",
+    )
+    registry.register(
+        "llm_eval", phase="llm", handler_fn=llm_eval_handler, description="AI evaluation with confidence threshold"
+    )
+    registry.register(
+        "manual_steps", phase="manual", handler_fn=manual_steps_handler, description="Human verification checklist"
+    )
+    registry.register(
+        "manual",
+        phase="manual",
+        handler_fn=manual_steps_handler,
+        description="Alias for manual_steps handler (human verification checklist)",
+    )
 
     # Remediation handlers
-    registry.register("file_create", phase="deterministic", handler_fn=file_create_handler,
-                       description="Create a file from a template or content")
-    registry.register("api_call", phase="deterministic", handler_fn=api_call_handler,
-                       description="Make an HTTP API call")
-    registry.register("project_update", phase="deterministic", handler_fn=project_update_handler,
-                       description="Update .project/project.yaml values")
+    registry.register(
+        "file_create",
+        phase="deterministic",
+        handler_fn=file_create_handler,
+        description="Create a file from a template or content",
+    )
+    registry.register(
+        "api_call", phase="deterministic", handler_fn=api_call_handler, description="Make an HTTP API call"
+    )
+    registry.register(
+        "project_update",
+        phase="deterministic",
+        handler_fn=project_update_handler,
+        description="Update .project/project.yaml values",
+    )

@@ -217,9 +217,7 @@ class TestResolveContextValue:
                 "maintainers": ["@alice", "@bob"],
             }
         }
-        value, method = resolve_context_value(
-            "maintainers", definition, tmp_path, project_context
-        )
+        value, method = resolve_context_value("maintainers", definition, tmp_path, project_context)
         assert value == ["@alice", "@bob"]
         assert method == "project"
 
@@ -233,9 +231,7 @@ class TestResolveContextValue:
             "source": "CODEOWNERS",
             "parser": "codeowners",
         }
-        value, method = resolve_context_value(
-            "maintainers", definition, tmp_path, None
-        )
+        value, method = resolve_context_value("maintainers", definition, tmp_path, None)
         assert value is not None
         assert "@alice" in value
         assert method == "file"
@@ -249,9 +245,7 @@ class TestResolveContextValue:
         definition = {
             "hint_sources": ["CODEOWNERS", ".github/CODEOWNERS"],
         }
-        value, method = resolve_context_value(
-            "maintainers", definition, tmp_path, None
-        )
+        value, method = resolve_context_value("maintainers", definition, tmp_path, None)
         assert value is not None
         assert "@charlie" in value
         assert "file:CODEOWNERS" in method
@@ -261,9 +255,7 @@ class TestResolveContextValue:
         definition = {
             "store_as": "governance.maintainers",
         }
-        value, method = resolve_context_value(
-            "maintainers", definition, tmp_path, None
-        )
+        value, method = resolve_context_value("maintainers", definition, tmp_path, None)
         assert value is None
         assert method is None
 

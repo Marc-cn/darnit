@@ -47,10 +47,16 @@ class TestEchoAdapterCheck:
     def test_configured_pass(self, temp_repo: Path):
         """Should return PASS when configured."""
         adapter = EchoCheckAdapter()
-        result = adapter.check("TEST-001", "", "", str(temp_repo), {
-            "status": "PASS",
-            "message": "All good!",
-        })
+        result = adapter.check(
+            "TEST-001",
+            "",
+            "",
+            str(temp_repo),
+            {
+                "status": "PASS",
+                "message": "All good!",
+            },
+        )
 
         assert result.status == CheckStatus.PASS
         assert result.message == "All good!"
@@ -58,10 +64,16 @@ class TestEchoAdapterCheck:
     def test_configured_fail(self, temp_repo: Path):
         """Should return FAIL when configured."""
         adapter = EchoCheckAdapter()
-        result = adapter.check("TEST-001", "", "", str(temp_repo), {
-            "status": "FAIL",
-            "message": "Something wrong",
-        })
+        result = adapter.check(
+            "TEST-001",
+            "",
+            "",
+            str(temp_repo),
+            {
+                "status": "FAIL",
+                "message": "Something wrong",
+            },
+        )
 
         assert result.status == CheckStatus.FAIL
         assert result.message == "Something wrong"
@@ -69,45 +81,75 @@ class TestEchoAdapterCheck:
     def test_configured_error(self, temp_repo: Path):
         """Should return ERROR when configured."""
         adapter = EchoCheckAdapter()
-        result = adapter.check("TEST-001", "", "", str(temp_repo), {
-            "status": "ERROR",
-        })
+        result = adapter.check(
+            "TEST-001",
+            "",
+            "",
+            str(temp_repo),
+            {
+                "status": "ERROR",
+            },
+        )
 
         assert result.status == CheckStatus.ERROR
 
     def test_configured_warn(self, temp_repo: Path):
         """Should return WARN when configured."""
         adapter = EchoCheckAdapter()
-        result = adapter.check("TEST-001", "", "", str(temp_repo), {
-            "status": "WARN",
-        })
+        result = adapter.check(
+            "TEST-001",
+            "",
+            "",
+            str(temp_repo),
+            {
+                "status": "WARN",
+            },
+        )
 
         assert result.status == CheckStatus.WARN
 
     def test_configured_na(self, temp_repo: Path):
         """Should return NA when configured."""
         adapter = EchoCheckAdapter()
-        result = adapter.check("TEST-001", "", "", str(temp_repo), {
-            "status": "NA",
-        })
+        result = adapter.check(
+            "TEST-001",
+            "",
+            "",
+            str(temp_repo),
+            {
+                "status": "NA",
+            },
+        )
 
         assert result.status == CheckStatus.NA
 
     def test_invalid_status(self, temp_repo: Path):
         """Should return ERROR for invalid status."""
         adapter = EchoCheckAdapter()
-        result = adapter.check("TEST-001", "", "", str(temp_repo), {
-            "status": "INVALID",
-        })
+        result = adapter.check(
+            "TEST-001",
+            "",
+            "",
+            str(temp_repo),
+            {
+                "status": "INVALID",
+            },
+        )
 
         assert result.status == CheckStatus.ERROR
 
     def test_custom_level(self, temp_repo: Path):
         """Should use configured level."""
         adapter = EchoCheckAdapter()
-        result = adapter.check("TEST-001", "", "", str(temp_repo), {
-            "level": 3,
-        })
+        result = adapter.check(
+            "TEST-001",
+            "",
+            "",
+            str(temp_repo),
+            {
+                "level": 3,
+            },
+        )
 
         assert result.level == 3
 

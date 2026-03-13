@@ -34,6 +34,7 @@ def _load_framework_config():
     """
     try:
         from darnit.config.merger import load_framework_by_name
+
         return load_framework_by_name("openssf-baseline")
     except Exception as e:
         logger.debug(f"Could not load framework config: {e}")
@@ -102,7 +103,7 @@ def _get_control_from_toml(control_id: str) -> dict[str, Any] | None:
         "help_md": control.help_md or "",
         "security_severity": security_severity or 5.0,
         "tags": tag_list,
-        "location_hint": getattr(control, 'location_hint', '') or "",
+        "location_hint": getattr(control, "location_hint", "") or "",
         "default_level": default_level,
         "docs_url": control.docs_url or f"https://baseline.openssf.org/versions/2025-10-10#{control_id}",
     }
@@ -200,41 +201,42 @@ def generate_sarif_audit(
     sarif = {
         "$schema": SARIF_SCHEMA,
         "version": SARIF_VERSION,
-        "runs": [{
-            "tool": {
-                "driver": {
-                    "name": TOOL_NAME,
-                    "version": TOOL_VERSION,
-                    "informationUri": TOOL_INFO_URI,
-                    "rules": rules,
-                }
-            },
-            "results": sarif_results,
-            "invocations": [{
-                "executionSuccessful": True,
-                "endTimeUtc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            }],
-            "properties": {
-                "owner": audit_result.owner,
-                "repo": audit_result.repo,
-                "level": audit_result.level,
-                "compliance": {
-                    f"level{lvl}": compliant
-                    for lvl, compliant in (audit_result.level_compliance or {}).items()
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": TOOL_NAME,
+                        "version": TOOL_VERSION,
+                        "informationUri": TOOL_INFO_URI,
+                        "rules": rules,
+                    }
                 },
-                "summary": audit_result.summary or {},
-                "commit": audit_result.commit,
-                "ref": audit_result.ref,
+                "results": sarif_results,
+                "invocations": [
+                    {
+                        "executionSuccessful": True,
+                        "endTimeUtc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    }
+                ],
+                "properties": {
+                    "owner": audit_result.owner,
+                    "repo": audit_result.repo,
+                    "level": audit_result.level,
+                    "compliance": {
+                        f"level{lvl}": compliant for lvl, compliant in (audit_result.level_compliance or {}).items()
+                    },
+                    "summary": audit_result.summary or {},
+                    "commit": audit_result.commit,
+                    "ref": audit_result.ref,
+                },
             }
-        }]
+        ],
     }
 
     return sarif
 
 
-def build_sarif_rules(
-    control_ids: list[str] | None = None
-) -> list[dict[str, Any]]:
+def build_sarif_rules(control_ids: list[str] | None = None) -> list[dict[str, Any]]:
     """Build SARIF rules array for OSPS controls.
 
     Args:
@@ -291,26 +293,20 @@ def build_sarif_rules(
         rule = {
             "id": control_id,
             "name": rule_meta.get("name", control_id),
-            "shortDescription": {
-                "text": rule_meta.get("short", control_id)[:1024]
-            },
-            "fullDescription": {
-                "text": rule_meta.get("full", "")[:1024]
-            },
+            "shortDescription": {"text": rule_meta.get("short", control_id)[:1024]},
+            "fullDescription": {"text": rule_meta.get("full", "")[:1024]},
             "helpUri": f"https://baseline.openssf.org/versions/2025-10-10#{control_id}",
             "help": {
                 "text": _strip_markdown(rule_meta.get("help_md", "")),
                 "markdown": rule_meta.get("help_md", ""),
             },
-            "defaultConfiguration": {
-                "level": rule_meta.get("default_level", "warning")
-            },
+            "defaultConfiguration": {"level": rule_meta.get("default_level", "warning")},
             "properties": {
                 "tags": unique_tags[:20],  # GitHub limits to 20 tags
                 "precision": "high",
                 "problem.severity": rule_meta.get("default_level", "warning"),
                 "security-severity": str(rule_meta.get("security_severity", 5.0)),
-            }
+            },
         }
         rules.append(rule)
 
@@ -352,17 +348,13 @@ def result_to_sarif_result(
         "ruleId": control_id,
         "ruleIndex": rule_index,
         "level": sarif_level,
-        "message": {
-            "text": details or f"{control_id}: {status}"
-        },
+        "message": {"text": details or f"{control_id}: {status}"},
         "locations": [location],
-        "partialFingerprints": {
-            "primaryLocationLineHash": fingerprint
-        },
+        "partialFingerprints": {"primaryLocationLineHash": fingerprint},
         "properties": {
             "ospsLevel": level,
             "status": status,
-        }
+        },
     }
 
     # Add pass transparency metadata to SARIF properties
@@ -457,14 +449,8 @@ def get_location_for_control(
 
     return {
         "physicalLocation": {
-            "artifactLocation": {
-                "uri": uri,
-                "uriBaseId": "%SRCROOT%"
-            },
-            "region": {
-                "startLine": start_line,
-                "startColumn": 1
-            }
+            "artifactLocation": {"uri": uri, "uriBaseId": "%SRCROOT%"},
+            "region": {"startLine": start_line, "startColumn": 1},
         }
     }
 

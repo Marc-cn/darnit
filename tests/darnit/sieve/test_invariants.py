@@ -52,9 +52,7 @@ class TestInconclusiveNeverPromotesToPass:
             )
         )
 
-        with patch(
-            "darnit.sieve.orchestrator.get_sieve_handler_registry"
-        ) as mock_registry:
+        with patch("darnit.sieve.orchestrator.get_sieve_handler_registry") as mock_registry:
             mock_registry.return_value = {
                 "always_inconclusive": MagicMock(
                     fn=mock_handler,
@@ -95,9 +93,7 @@ class TestInconclusiveNeverPromotesToPass:
             result = orchestrator._dispatch_handler_invocations(control_spec, ctx)
 
         assert result is not None
-        assert result.status == "WARN", (
-            f"Expected WARN when all passes are INCONCLUSIVE, got {result.status}"
-        )
+        assert result.status == "WARN", f"Expected WARN when all passes are INCONCLUSIVE, got {result.status}"
         assert result.status != "PASS", "INCONCLUSIVE must never be promoted to PASS"
 
     def test_sieve_result_statuses_are_valid(self):
@@ -234,9 +230,7 @@ class TestAutoDetectFalseGuard:
         # The guard is at line 535 of context_storage.py:
         # "if current_value is None and definition.auto_detect:"
         # When auto_detect is False, detection is skipped entirely
-        assert not mock_definition.auto_detect, (
-            "auto_detect must be False for this test"
-        )
+        assert not mock_definition.auto_detect, "auto_detect must be False for this test"
 
     def test_context_value_auto_accepted_false_by_default(self):
         """ContextValue defaults to auto_accepted=False."""

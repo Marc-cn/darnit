@@ -60,7 +60,7 @@ def extract_jsonpath(data: Any, path: str | None) -> Any:
             j = i + 1
             while j < len(path) and path[j] != "]":
                 j += 1
-            index_str = path[i + 1:j]
+            index_str = path[i + 1 : j]
             if index_str.isdigit():
                 segments.append(int(index_str))
             i = j
@@ -105,6 +105,7 @@ def normalize_tool_output(
     # Handle string input (try to parse as JSON)
     if isinstance(raw_output, str):
         import json
+
         try:
             raw_output = json.loads(raw_output)
         except json.JSONDecodeError:

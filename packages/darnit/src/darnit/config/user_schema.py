@@ -54,7 +54,8 @@ from .framework_schema import (
 
 class ControlStatus(str, Enum):
     """Override status values for controls."""
-    NA = "n/a"           # Not applicable
+
+    NA = "n/a"  # Not applicable
     ENABLED = "enabled"  # Explicitly enabled
     DISABLED = "disabled"  # Explicitly disabled (skip)
 
@@ -66,6 +67,7 @@ class ControlStatus(str, Enum):
 
 class UserSettings(BaseModel):
     """Global settings for the user configuration."""
+
     # Caching
     cache_results: bool = True
     cache_ttl: int = 300  # seconds
@@ -106,6 +108,7 @@ class ControlOverride(BaseModel):
         reason = "No releases yet"
         ```
     """
+
     # Override status
     status: ControlStatus | None = None
     reason: str | None = None  # Required if status is n/a
@@ -142,6 +145,7 @@ class ControlGroup(BaseModel):
         check = { adapter = "kusari" }
         ```
     """
+
     controls: list[str]  # List of control IDs
     check: CheckConfig | None = None
     remediation: RemediationConfig | None = None
@@ -171,6 +175,7 @@ class CustomControl(ControlConfig):
         check = { adapter = "custom_script" }
         ```
     """
+
     # Inherit everything from ControlConfig
     # Additional fields for custom controls:
     custom: bool = True  # Marker that this is user-defined
@@ -236,6 +241,7 @@ class UserConfig(BaseModel):
         check = { adapter = "custom_script" }
         ```
     """
+
     # Schema version
     version: str = "1.0"
 
@@ -250,9 +256,7 @@ class UserConfig(BaseModel):
 
     # Control overrides and custom controls
     # Values can be ControlOverride (for overrides) or CustomControl (for new controls)
-    controls: dict[str, ControlOverride | CustomControl | dict[str, Any]] = Field(
-        default_factory=dict
-    )
+    controls: dict[str, ControlOverride | CustomControl | dict[str, Any]] = Field(default_factory=dict)
 
     # Control groups for batch configuration
     control_groups: dict[str, ControlGroup] = Field(default_factory=dict)

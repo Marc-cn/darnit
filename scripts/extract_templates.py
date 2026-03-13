@@ -41,7 +41,7 @@ def extract_templates(toml_path: str) -> None:
         line = lines[i]
 
         # Detect [templates.NAME] section header
-        section_match = re.match(r'^\[templates\.(\w+)\]', line)
+        section_match = re.match(r"^\[templates\.(\w+)\]", line)
         if not section_match:
             output_lines.append(line)
             i += 1
@@ -63,7 +63,7 @@ def extract_templates(toml_path: str) -> None:
             sline = lines[j]
 
             # Next section or end of file
-            if re.match(r'^\[', sline) and not in_content:
+            if re.match(r"^\[", sline) and not in_content:
                 break
 
             if not in_content:

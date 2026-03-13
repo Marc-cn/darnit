@@ -19,4 +19,5 @@ def register():
         ExampleFrameworkImplementation: The registered implementation instance.
     """
     from .implementation import ExampleFrameworkImplementation
+
     return ExampleFrameworkImplementation()

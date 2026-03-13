@@ -279,10 +279,7 @@ class TestEndToEnd:
         effective = load_effective_config(get_framework_path(), complete_repo)
 
         # Get applicable controls
-        applicable_ids = [
-            cid for cid, ctrl in effective.controls.items()
-            if ctrl.is_applicable()
-        ]
+        applicable_ids = [cid for cid, ctrl in effective.controls.items() if ctrl.is_applicable()]
 
         # Run checks
         adapter = TrivialCheckAdapter()

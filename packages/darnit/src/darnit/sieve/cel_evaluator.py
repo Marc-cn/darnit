@@ -178,9 +178,7 @@ class CELEvaluator:
             import celpy
             from celpy.c7nlib import C7N_Interpreted_Runner
         except ImportError as e:
-            raise CELCompilationError(
-                "cel-python not installed. Install with: pip install cel-python"
-            ) from e
+            raise CELCompilationError("cel-python not installed. Install with: pip install cel-python") from e
 
         # Create environment with C7N runner that supports custom functions
         self._env = celpy.Environment(runner_class=C7N_Interpreted_Runner)
@@ -214,9 +212,7 @@ class CELEvaluator:
 
         # json_path(obj: any, path: string) -> any
         # Extract value from object using JMESPath expression
-        def json_path_cel(
-            obj: celtypes.Value, path: celtypes.StringType
-        ) -> celtypes.Value:
+        def json_path_cel(obj: celtypes.Value, path: celtypes.StringType) -> celtypes.Value:
             try:
                 import jmespath
 
@@ -251,10 +247,7 @@ class CELEvaluator:
         if isinstance(value, celtypes.ListType):
             return [self._cel_to_python(v) for v in value]
         if isinstance(value, celtypes.MapType):
-            return {
-                self._cel_to_python(k): self._cel_to_python(v)
-                for k, v in value.items()
-            }
+            return {self._cel_to_python(k): self._cel_to_python(v) for k, v in value.items()}
         if hasattr(value, "value"):
             return value.value
         return value
@@ -274,9 +267,7 @@ class CELEvaluator:
         try:
             import celpy
         except ImportError as e:
-            raise CELCompilationError(
-                "cel-python not installed. Install with: pip install cel-python"
-            ) from e
+            raise CELCompilationError("cel-python not installed. Install with: pip install cel-python") from e
 
         env = self._get_environment()
 
@@ -333,9 +324,7 @@ class CELEvaluator:
         except Exception as e:
             return CELResult(success=False, error=f"Evaluation error: {e}")
 
-    def _evaluate_with_timeout(
-        self, program: CELProgram, ctx_dict: dict[str, Any]
-    ) -> Any:
+    def _evaluate_with_timeout(self, program: CELProgram, ctx_dict: dict[str, Any]) -> Any:
         """Evaluate program with timeout protection.
 
         Uses threading-based timeout for cross-platform compatibility.
@@ -343,9 +332,7 @@ class CELEvaluator:
         try:
             import celpy
         except ImportError as e:
-            raise CELEvaluationError(
-                "cel-python not installed. Install with: pip install cel-python"
-            ) from e
+            raise CELEvaluationError("cel-python not installed. Install with: pip install cel-python") from e
 
         result_container: list[Any] = []
         error_container: list[Exception] = []
@@ -368,9 +355,7 @@ class CELEvaluator:
         thread.join(timeout=self.timeout_seconds)
 
         if thread.is_alive():
-            raise CELTimeoutError(
-                f"CEL evaluation timed out after {self.timeout_seconds}s"
-            )
+            raise CELTimeoutError(f"CEL evaluation timed out after {self.timeout_seconds}s")
 
         if error_container:
             raise CELEvaluationError(f"CEL evaluation failed: {error_container[0]}")
@@ -380,9 +365,7 @@ class CELEvaluator:
 
         return result_container[0]
 
-    def _convert_to_cel_types(
-        self, data: dict[str, Any], celpy: Any
-    ) -> dict[str, Any]:
+    def _convert_to_cel_types(self, data: dict[str, Any], celpy: Any) -> dict[str, Any]:
         """Convert Python types to CEL types."""
         return celpy.json_to_cel(data)
 
@@ -413,10 +396,7 @@ class CELEvaluator:
 
         # Handle CEL MapType
         if isinstance(value, celtypes.MapType):
-            return {
-                self._convert_from_cel_types(k): self._convert_from_cel_types(v)
-                for k, v in value.items()
-            }
+            return {self._convert_from_cel_types(k): self._convert_from_cel_types(v) for k, v in value.items()}
 
         # Fallback for other types
         if hasattr(value, "value"):

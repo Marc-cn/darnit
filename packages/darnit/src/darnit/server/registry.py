@@ -105,9 +105,7 @@ class ToolRegistry:
 
         return registry
 
-    def load_handler(
-        self, spec: ToolSpec, framework_name: str | None = None
-    ) -> Callable[..., Any]:
+    def load_handler(self, spec: ToolSpec, framework_name: str | None = None) -> Callable[..., Any]:
         """Dynamically import and return the handler function.
 
         Supports three formats:
@@ -151,9 +149,7 @@ class ToolRegistry:
         module = importlib.import_module(module_path)
         return getattr(module, func_name)
 
-    def _load_builtin(
-        self, spec: ToolSpec, framework_name: str | None
-    ) -> Callable[..., Any]:
+    def _load_builtin(self, spec: ToolSpec, framework_name: str | None) -> Callable[..., Any]:
         """Load a built-in tool and bind it to a framework.
 
         Built-in tools receive the framework name as a bound parameter
@@ -176,10 +172,7 @@ class ToolRegistry:
         builtin_name = spec.builtin
         if builtin_name not in BUILTIN_TOOLS:
             available = ", ".join(sorted(BUILTIN_TOOLS.keys()))
-            raise ValueError(
-                f"Unknown builtin tool '{builtin_name}'. "
-                f"Available builtins: {available}"
-            )
+            raise ValueError(f"Unknown builtin tool '{builtin_name}'. Available builtins: {available}")
 
         base_fn = BUILTIN_TOOLS[builtin_name]
 

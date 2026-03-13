@@ -50,6 +50,7 @@ def clean_registry():
 
 def _make_handler(status, message="ok", evidence=None, confidence=1.0):
     """Create a simple handler function that returns a fixed result."""
+
     def handler(config, context):
         return HandlerResult(
             status=status,
@@ -57,6 +58,7 @@ def _make_handler(status, message="ok", evidence=None, confidence=1.0):
             confidence=confidence,
             evidence=evidence or {},
         )
+
     return handler
 
 
@@ -132,9 +134,7 @@ class TestHandlerRegistry:
     def test_phase_affinity_validation(self):
         """Test phase affinity warning is issued."""
         registry = SieveHandlerRegistry()
-        registry.register(
-            "file_check", "deterministic", _make_handler(HandlerResultStatus.PASS)
-        )
+        registry.register("file_check", "deterministic", _make_handler(HandlerResultStatus.PASS))
         # Should log a warning but not raise
         registry.validate_phase("file_check", "pattern")
 
@@ -297,9 +297,7 @@ class TestLegacyFormatRejection:
             RemediationConfig,
         )
 
-        rem = RemediationConfig(
-            handlers=[HandlerInvocation(handler="file_create", path="SECURITY.md")]
-        )
+        rem = RemediationConfig(handlers=[HandlerInvocation(handler="file_create", path="SECURITY.md")])
         assert len(rem.handlers) == 1
         assert rem.handlers[0].handler == "file_create"
 
@@ -350,19 +348,13 @@ class TestWhenClauseEvaluation:
     def test_when_multiple_conditions_all_must_match(self):
         """All when conditions must be true (AND semantics)."""
         orchestrator = SieveOrchestrator()
-        control = _make_control(
-            "T-01", when={"has_releases": True, "is_library": True}
-        )
+        control = _make_control("T-01", when={"has_releases": True, "is_library": True})
         # Both match
-        ctx_both = _make_context(
-            project_context={"has_releases": True, "is_library": True}
-        )
+        ctx_both = _make_context(project_context={"has_releases": True, "is_library": True})
         assert orchestrator._evaluate_when(control, ctx_both) is True
 
         # One doesn't match
-        ctx_partial = _make_context(
-            project_context={"has_releases": True, "is_library": False}
-        )
+        ctx_partial = _make_context(project_context={"has_releases": True, "is_library": False})
         assert orchestrator._evaluate_when(control, ctx_partial) is False
 
     @pytest.mark.unit
@@ -1032,10 +1024,7 @@ class TestEndToEndIntegration:
         assert "*(inferred)*" in md
         # A-01 should NOT have inference annotation
         lines = md.split("\n")
-        a01_lines = [
-            line for line in lines
-            if "A-01" in line and "PASS" not in line[:10]
-        ]
+        a01_lines = [line for line in lines if "A-01" in line and "PASS" not in line[:10]]
         for line in a01_lines:
             if "A-01" in line and "inferred" not in line.lower():
                 # Normal pass line for A-01 should not have annotation

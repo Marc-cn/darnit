@@ -24,6 +24,7 @@ class ControlSpec:
     The tags dict can hold additional key-value pairs beyond level/domain,
     enabling flexible filtering like --tags severity>=7.0 or --tags category=auth.
     """
+
     control_id: str
     name: str
     description: str

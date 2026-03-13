@@ -167,9 +167,7 @@ def _auto_derive_on_pass(control_config: ControlConfig) -> OnPassConfig | None:
     # Check for file_exists handler in flat list
     for inv in passes:
         if isinstance(inv, HandlerInvocation) and inv.handler == "file_exists":
-            return OnPassConfig(
-                project_update={locator.project_path: "$EVIDENCE.relative_path"}
-            )
+            return OnPassConfig(project_update={locator.project_path: "$EVIDENCE.relative_path"})
 
     return None
 
@@ -247,9 +245,9 @@ def control_from_effective(
     # Transfer handler invocations from effective passes_config to metadata
     if effective.passes_config:
         from darnit.config.framework_schema import HandlerInvocation
+
         metadata["handler_invocations"] = [
-            HandlerInvocation(**p) if isinstance(p, dict) else p
-            for p in effective.passes_config
+            HandlerInvocation(**p) if isinstance(p, dict) else p for p in effective.passes_config
         ]
 
     return ControlSpec(
@@ -409,9 +407,7 @@ def load_controls_from_framework(config: FrameworkConfig) -> list[ControlSpec]:
 
     for control_id, control_config in config.controls.items():
         try:
-            control = control_from_framework(
-                control_id, control_config, shared_handlers=shared_handlers
-            )
+            control = control_from_framework(control_id, control_config, shared_handlers=shared_handlers)
             controls.append(control)
         except (TypeError, ValueError, KeyError) as e:
             logger.warning(f"Could not load control {control_id}: {e}")

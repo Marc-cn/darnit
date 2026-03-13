@@ -91,9 +91,7 @@ class TestAuditOrgTool:
             "results": [],
             "summary": {},
         }
-        result = audit_org(
-            owner="my-org", repo="my-repo", output_format="json"
-        )
+        result = audit_org(owner="my-org", repo="my-repo", output_format="json")
         data = json.loads(result)
         assert data["repo"] == "my-repo"
         assert data["status"] == "OK"

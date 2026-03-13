@@ -84,9 +84,7 @@ class ContextValue(BaseModel):
     auto_accepted: bool = False
 
     @classmethod
-    def user_confirmed(
-        cls, value: Any, confirmed_at: datetime | None = None
-    ) -> "ContextValue":
+    def user_confirmed(cls, value: Any, confirmed_at: datetime | None = None) -> "ContextValue":
         """Create a user-confirmed context value."""
         return cls(
             source=ContextSource.USER_CONFIRMED,
@@ -282,9 +280,7 @@ class ProjectExtensions(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
-    openssf_baseline: BaselineExtension | None = Field(
-        default=None, alias="openssf-baseline"
-    )
+    openssf_baseline: BaselineExtension | None = Field(default=None, alias="openssf-baseline")
     # Other extensions can be added here with similar pattern
 
 

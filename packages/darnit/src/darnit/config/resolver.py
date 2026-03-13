@@ -56,23 +56,17 @@ def resolve_file_for_control(
             if config_path:
                 full_path = os.path.join(local_path, config_path)
                 if os.path.exists(full_path):
-                    logger.debug(
-                        f"Control {control_id}: resolved via .project/ reference: {config_path}"
-                    )
+                    logger.debug(f"Control {control_id}: resolved via .project/ reference: {config_path}")
                     return config_path, "config"
                 else:
-                    logger.debug(
-                        f"Control {control_id}: .project/ reference {config_path} does not exist"
-                    )
+                    logger.debug(f"Control {control_id}: .project/ reference {config_path} does not exist")
 
     # 2. Fall back to pattern discovery
     if ref_path and ref_path in file_locations:
         discovered = discover_files(local_path, {ref_path: file_locations[ref_path]})
         if ref_path in discovered:
             discovered_path = discovered[ref_path]
-            logger.debug(
-                f"Control {control_id}: discovered file {discovered_path} (not in .project/)"
-            )
+            logger.debug(f"Control {control_id}: discovered file {discovered_path} (not in .project/)")
             return discovered_path, "discovered"
 
     logger.debug(f"Control {control_id}: no file found")
@@ -102,9 +96,7 @@ def update_config_after_file_create(
     # Get the reference path for this control
     ref_path = control_reference_mapping.get(control_id)
     if not ref_path:
-        logger.debug(
-            f"Control {control_id}: no reference mapping, cannot update .project/"
-        )
+        logger.debug(f"Control {control_id}: no reference mapping, cannot update .project/")
         return False
 
     parts = ref_path.split(".", 1)
@@ -131,9 +123,7 @@ def update_config_after_file_create(
     # Check if reference already exists
     existing_path = config.get_path(section, field)
     if existing_path == created_file_path:
-        logger.debug(
-            f"Control {control_id}: .project/ reference already set to {created_file_path}"
-        )
+        logger.debug(f"Control {control_id}: .project/ reference already set to {created_file_path}")
         return False  # Already set, no change needed
 
     # Set the path reference
@@ -141,9 +131,7 @@ def update_config_after_file_create(
 
     # Save the config
     save_project_config(config, local_path)
-    logger.info(
-        f"Updated .project/ with {section}.{field} = {created_file_path}"
-    )
+    logger.info(f"Updated .project/ with {section}.{field} = {created_file_path}")
 
     return True
 

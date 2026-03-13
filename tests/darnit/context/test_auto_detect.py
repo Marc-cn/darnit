@@ -176,9 +176,7 @@ class TestDetectLicenseType:
         assert detect_license_type(str(tmp_path)) == "mit"
 
     def test_mit_permission_grant(self, tmp_path):
-        (tmp_path / "LICENSE").write_text(
-            "Permission is hereby granted, free of charge, to any person"
-        )
+        (tmp_path / "LICENSE").write_text("Permission is hereby granted, free of charge, to any person")
         assert detect_license_type(str(tmp_path)) == "mit"
 
     def test_bsd_3_clause(self, tmp_path):
@@ -206,9 +204,7 @@ class TestDetectLicenseType:
         assert detect_license_type(str(tmp_path)) == "unlicense"
 
     def test_unlicense_alt_header(self, tmp_path):
-        (tmp_path / "LICENSE").write_text(
-            "This is free and unencumbered software released into the public domain."
-        )
+        (tmp_path / "LICENSE").write_text("This is free and unencumbered software released into the public domain.")
         assert detect_license_type(str(tmp_path)) == "unlicense"
 
     def test_no_license_file(self, tmp_path):
@@ -277,9 +273,7 @@ class TestCollectAutoContextWithPersisted:
         project_dir = tmp_path / ".project"
         project_dir.mkdir()
         (project_dir / "project.yaml").write_text("name: test-project\n")
-        (project_dir / "darnit.yaml").write_text(
-            "context:\n  ci_provider: github\n"
-        )
+        (project_dir / "darnit.yaml").write_text("context:\n  ci_provider: github\n")
 
         result = collect_auto_context(str(tmp_path))
         # ci_provider is stored under "ci" category with key "provider"
@@ -291,15 +285,11 @@ class TestCollectAutoContextWithPersisted:
     def test_persisted_overrides_auto_detected(self, tmp_path):
         """Persisted platform overrides auto-detected platform."""
         os.system(f"git init {tmp_path} --quiet")
-        os.system(
-            f"git -C {tmp_path} remote add origin https://github.com/owner/repo.git"
-        )
+        os.system(f"git -C {tmp_path} remote add origin https://github.com/owner/repo.git")
         project_dir = tmp_path / ".project"
         project_dir.mkdir()
         (project_dir / "project.yaml").write_text("name: test-project\n")
-        (project_dir / "darnit.yaml").write_text(
-            "context:\n  platform: gitlab\n"
-        )
+        (project_dir / "darnit.yaml").write_text("context:\n  platform: gitlab\n")
 
         result = collect_auto_context(str(tmp_path))
         # Persisted "gitlab" should override auto-detected "github"
@@ -308,9 +298,7 @@ class TestCollectAutoContextWithPersisted:
     def test_works_without_project_dir(self, tmp_path):
         """Auto-detection works normally when no .project/ dir exists."""
         os.system(f"git init {tmp_path} --quiet")
-        os.system(
-            f"git -C {tmp_path} remote add origin https://github.com/owner/repo.git"
-        )
+        os.system(f"git -C {tmp_path} remote add origin https://github.com/owner/repo.git")
 
         result = collect_auto_context(str(tmp_path))
         assert result["platform"] == "github"
@@ -319,17 +307,13 @@ class TestCollectAutoContextWithPersisted:
     def test_mixed_persisted_and_detected(self, tmp_path):
         """Some values from .project/, others auto-detected."""
         os.system(f"git init {tmp_path} --quiet")
-        os.system(
-            f"git -C {tmp_path} remote add origin https://github.com/owner/repo.git"
-        )
+        os.system(f"git -C {tmp_path} remote add origin https://github.com/owner/repo.git")
         (tmp_path / "pyproject.toml").write_text("[project]\n")
 
         project_dir = tmp_path / ".project"
         project_dir.mkdir()
         (project_dir / "project.yaml").write_text("name: test-project\n")
-        (project_dir / "darnit.yaml").write_text(
-            "context:\n  has_releases: true\n"
-        )
+        (project_dir / "darnit.yaml").write_text("context:\n  has_releases: true\n")
 
         result = collect_auto_context(str(tmp_path))
         # Persisted value

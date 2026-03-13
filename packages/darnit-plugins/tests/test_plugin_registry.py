@@ -199,11 +199,14 @@ class TestConfigBasedRegistration:
     def test_register_command_adapter(self):
         """Should register a command adapter from config."""
         registry = PluginRegistry()
-        adapter = registry.register_from_adapter_config("test-cmd", {
-            "type": "command",
-            "command": "echo",
-            "output_format": "json",
-        })
+        adapter = registry.register_from_adapter_config(
+            "test-cmd",
+            {
+                "type": "command",
+                "command": "echo",
+                "output_format": "json",
+            },
+        )
 
         assert adapter is not None
         assert adapter.name() == "test-cmd"
@@ -211,10 +214,13 @@ class TestConfigBasedRegistration:
     def test_register_script_adapter(self):
         """Should register a script adapter from config."""
         registry = PluginRegistry()
-        adapter = registry.register_from_adapter_config("test-script", {
-            "type": "script",
-            "command": "/bin/true",
-        })
+        adapter = registry.register_from_adapter_config(
+            "test-script",
+            {
+                "type": "script",
+                "command": "/bin/true",
+            },
+        )
 
         assert adapter is not None
         assert adapter.name() == "test-script"
@@ -222,9 +228,12 @@ class TestConfigBasedRegistration:
     def test_register_unknown_type(self):
         """Should return None for unknown adapter type."""
         registry = PluginRegistry()
-        adapter = registry.register_from_adapter_config("test", {
-            "type": "unknown",
-        })
+        adapter = registry.register_from_adapter_config(
+            "test",
+            {
+                "type": "unknown",
+            },
+        )
 
         assert adapter is None
 

@@ -820,13 +820,8 @@ governance:
         mapper = DotProjectMapper(temp_dir)
         context = mapper.get_context()
 
-        assert (
-            context.get("project.governance.maintainer_lifecycle.onboarding_doc_path")
-            == "ONBOARDING.md"
-        )
-        assert context.get("project.governance.maintainer_lifecycle.mentoring_program") == [
-            "buddy-system"
-        ]
+        assert context.get("project.governance.maintainer_lifecycle.onboarding_doc_path") == "ONBOARDING.md"
+        assert context.get("project.governance.maintainer_lifecycle.mentoring_program") == ["buddy-system"]
 
     @pytest.mark.unit
     def test_mapper_maps_identity_type(self, temp_dir: Path):
@@ -1316,10 +1311,12 @@ class TestDotProjectIntegration:
 
         # Initial write
         writer = DotProjectWriter(temp_dir)
-        writer.update({
-            "name": "integration-test",
-            "repositories": ["https://github.com/org/repo"],
-        })
+        writer.update(
+            {
+                "name": "integration-test",
+                "repositories": ["https://github.com/org/repo"],
+            }
+        )
         writer.set_security_policy_path("SECURITY.md")
         writer.set_codeowners_path(".github/CODEOWNERS")
 
@@ -1333,10 +1330,12 @@ class TestDotProjectIntegration:
         assert config.governance.codeowners.path == ".github/CODEOWNERS"
 
         # Update
-        writer.update({
-            "description": "Added description",
-            "security": {"threat_model": {"path": "docs/threat-model.md"}},
-        })
+        writer.update(
+            {
+                "description": "Added description",
+                "security": {"threat_model": {"path": "docs/threat-model.md"}},
+            }
+        )
 
         # Read again
         config = reader.read()
@@ -1498,17 +1497,19 @@ project-maintainers:
 
         # Create .project/ via writer
         writer = DotProjectWriter(temp_dir)
-        writer.update({
-            "name": "e2e-test",
-            "repositories": ["https://github.com/org/repo"],
-            "security": {
-                "policy": {"path": "SECURITY.md"},
-            },
-            "governance": {
-                "codeowners": {"path": ".github/CODEOWNERS"},
-                "contributing": {"path": "CONTRIBUTING.md"},
-            },
-        })
+        writer.update(
+            {
+                "name": "e2e-test",
+                "repositories": ["https://github.com/org/repo"],
+                "security": {
+                    "policy": {"path": "SECURITY.md"},
+                },
+                "governance": {
+                    "codeowners": {"path": ".github/CODEOWNERS"},
+                    "contributing": {"path": "CONTRIBUTING.md"},
+                },
+            }
+        )
 
         # Create maintainers.yaml
         project_dir = temp_dir / ".project"
@@ -1586,10 +1587,7 @@ security:
         assert config.security is not None
         assert isinstance(config.security.contact, SecurityContact)
         assert config.security.contact.email == "security@example.com"
-        assert (
-            config.security.contact.advisory_url
-            == "https://github.com/org/repo/security/advisories"
-        )
+        assert config.security.contact.advisory_url == "https://github.com/org/repo/security/advisories"
 
     @pytest.mark.unit
     def test_parse_security_contact_struct_extra_fields(self, temp_dir: Path):
@@ -1637,10 +1635,7 @@ security:
 
         assert context.get("project.security.contact") == "security@example.com"
         assert context.get("project.security.contact_email") == "security@example.com"
-        assert (
-            context.get("project.security.advisory_url")
-            == "https://github.com/org/repo/security/advisories"
-        )
+        assert context.get("project.security.advisory_url") == "https://github.com/org/repo/security/advisories"
 
     @pytest.mark.unit
     def test_mapper_maps_string_contact_backward_compat(self, temp_dir: Path):

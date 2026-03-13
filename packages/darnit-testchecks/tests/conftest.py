@@ -29,9 +29,7 @@ def complete_repo(temp_repo: Path) -> Path:
     (temp_repo / "README.md").write_text("# Test Project\n\nA test project.\n")
     (temp_repo / "LICENSE").write_text("MIT License\n")
     (temp_repo / "CHANGELOG.md").write_text("# Changelog\n\n## v1.0.0\n- Initial release\n")
-    (temp_repo / ".gitignore").write_text(
-        "# Environment\n.env\n*.key\n*.pem\n__pycache__/\n"
-    )
+    (temp_repo / ".gitignore").write_text("# Environment\n.env\n*.key\n*.pem\n__pycache__/\n")
 
     # Level 2 files
     (temp_repo / ".editorconfig").write_text("[*]\nindent_style = space\n")
@@ -41,8 +39,7 @@ def complete_repo(temp_repo: Path) -> Path:
     workflows_dir = temp_repo / ".github" / "workflows"
     workflows_dir.mkdir(parents=True)
     (workflows_dir / "ci.yml").write_text(
-        "name: CI\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n"
-        "    steps:\n      - run: pytest\n"
+        "name: CI\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pytest\n"
     )
 
     # Source code without violations
@@ -64,11 +61,7 @@ def repo_with_violations(temp_repo: Path) -> Path:
     (temp_repo / ".gitignore").write_text("*.pyc\n")  # Missing .env, *.key
 
     # Python file with violations
-    (temp_repo / "app.py").write_text(
-        '# TODO: fix this later\n'
-        'print("Hello world")\n'
-        'password = "secret123"\n'
-    )
+    (temp_repo / "app.py").write_text('# TODO: fix this later\nprint("Hello world")\npassword = "secret123"\n')
 
     return temp_repo
 
@@ -76,7 +69,7 @@ def repo_with_violations(temp_repo: Path) -> Path:
 @pytest.fixture
 def user_config_content() -> str:
     """Sample user config that skips some controls."""
-    return '''
+    return """
 version = "1.0"
 extends = "testchecks"
 
@@ -87,4 +80,4 @@ reason = "TODOs are acceptable"
 [controls."TEST-QA-02"]
 status = "n/a"
 reason = "Print statements OK in scripts"
-'''
+"""

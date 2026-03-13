@@ -276,11 +276,7 @@ class TestJsonPathFunction:
         """Test json_path extracts nested value."""
         evaluator = CELEvaluator()
         program = evaluator.compile('json_path(output.json, "data.items[0].name") == "first"')
-        context = {
-            "output": {
-                "json": {"data": {"items": [{"name": "first"}, {"name": "second"}]}}
-            }
-        }
+        context = {"output": {"json": {"data": {"items": [{"name": "first"}, {"name": "second"}]}}}}
 
         result = evaluator.evaluate(program, context)
 
@@ -424,7 +420,7 @@ class TestOldStyleVsCELComparison:
         evaluator = CELEvaluator()
         # Complex check: exit 0 AND status is pass AND coverage >= 80
         program = evaluator.compile(
-            'output.exit_code == 0 && '
+            "output.exit_code == 0 && "
             'json_path(output.json, "status") == "pass" && '
             'json_path(output.json, "coverage") >= 80'
         )

@@ -228,10 +228,7 @@ class HandlerRegistry:
 
             # Validate module path against allowlist to prevent arbitrary imports
             if not any(module_path.startswith(prefix) for prefix in self.ALLOWED_MODULE_PREFIXES):
-                logger.warning(
-                    f"Module path '{module_path}' not in allowed prefixes: "
-                    f"{self.ALLOWED_MODULE_PREFIXES}"
-                )
+                logger.warning(f"Module path '{module_path}' not in allowed prefixes: {self.ALLOWED_MODULE_PREFIXES}")
                 return None
 
             module = importlib.import_module(module_path)
@@ -263,8 +260,7 @@ class HandlerRegistry:
         if name in self._passes:
             existing = self._passes[name]
             logger.warning(
-                f"Pass '{name}' already registered by plugin '{existing.plugin}', "
-                f"overwriting with plugin '{plugin}'"
+                f"Pass '{name}' already registered by plugin '{existing.plugin}', overwriting with plugin '{plugin}'"
             )
 
         self._passes[name] = PassInfo(

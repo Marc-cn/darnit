@@ -104,5 +104,3 @@ class TestRemediationOrchestratorExecution:
             assert "control_id" in result, f"Control {control_id} missing 'control_id' key"
             assert "status" in result, f"Control {control_id} missing 'status' key"
             break  # One is enough for a smoke test
-
-

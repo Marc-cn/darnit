@@ -20,6 +20,7 @@ class TestCreateReadme:
         assert result["status"] == "created"
 
         import os
+
         assert os.path.exists(os.path.join(empty_project, "README.md"))
 
     @pytest.mark.unit
@@ -32,6 +33,7 @@ class TestCreateReadme:
         create_readme(empty_project, dry_run=False)
 
         import os
+
         with open(os.path.join(empty_project, "README.md")) as f:
             content = f.read()
         # Should include the directory name as the title
@@ -53,6 +55,7 @@ class TestCreateGitignore:
         assert result["status"] == "created"
 
         import os
+
         assert os.path.exists(os.path.join(empty_project, ".gitignore"))
 
     @pytest.mark.unit
@@ -65,6 +68,7 @@ class TestCreateGitignore:
         create_gitignore(empty_project, dry_run=False)
 
         import os
+
         with open(os.path.join(empty_project, ".gitignore")) as f:
             content = f.read()
         assert "__pycache__" in content

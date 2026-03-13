@@ -291,9 +291,7 @@ class TestDarnitBaselineIntegration:
         registry = HandlerRegistry()
 
         # Should resolve darnit_baseline module path
-        handler = registry.get_handler(
-            "darnit_baseline.tools:audit_openssf_baseline"
-        )
+        handler = registry.get_handler("darnit_baseline.tools:audit_openssf_baseline")
         assert handler is not None
         assert callable(handler)
 
@@ -323,13 +321,9 @@ class TestDarnitBaselineIntegration:
         registry = HandlerRegistry()
 
         # Valid darnit_baseline path should resolve
-        handler = registry.get_handler(
-            "darnit_baseline.tools:list_available_checks"
-        )
+        handler = registry.get_handler("darnit_baseline.tools:list_available_checks")
         assert callable(handler)
 
         # Invalid path (bad function name) should return None gracefully
-        handler = registry.get_handler(
-            "darnit_baseline.tools:nonexistent_function"
-        )
+        handler = registry.get_handler("darnit_baseline.tools:nonexistent_function")
         assert handler is None

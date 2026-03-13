@@ -23,14 +23,17 @@ try:
     # sigstore >= 3.0 uses ClientTrustConfig
     try:
         from sigstore.sign import ClientTrustConfig, SigningContext
+
         SIGSTORE_API_VERSION = 3
     except ImportError:
         # sigstore < 3.0 - try older API
         try:
             from sigstore.sign import Signer
+
             SIGSTORE_API_VERSION = 2
         except ImportError:
             from sigstore.sign import SigningContext
+
             SIGSTORE_API_VERSION = 1
 
     ATTESTATION_AVAILABLE = True
@@ -58,11 +61,7 @@ def get_sigstore_api_version() -> int:
 
 
 def sign_attestation(
-    predicate: dict[str, Any],
-    predicate_type: str,
-    subject_name: str,
-    commit: str,
-    use_staging: bool = False
+    predicate: dict[str, Any], predicate_type: str, subject_name: str, commit: str, use_staging: bool = False
 ) -> dict[str, Any]:
     """Sign an attestation using Sigstore.
 
@@ -86,8 +85,7 @@ def sign_attestation(
     """
     if not ATTESTATION_AVAILABLE:
         raise RuntimeError(
-            "Attestation signing requires optional dependencies. "
-            "Install with: pip install baseline-mcp[attestation]"
+            "Attestation signing requires optional dependencies. Install with: pip install baseline-mcp[attestation]"
         )
 
     # Create sigstore-compatible subject
@@ -97,15 +95,11 @@ def sign_attestation(
 
     subject = Subject(
         name=f"{subject_name}@{commit}",  # e.g., git+https://github.com/owner/repo@abc123
-        digest=DigestSet(root={'sha256': commit_digest})
+        digest=DigestSet(root={"sha256": commit_digest}),
     )
 
     # Build the in-toto statement using sigstore's StatementBuilder
-    builder = StatementBuilder(
-        subjects=[subject],
-        predicate_type=predicate_type,
-        predicate=predicate
-    )
+    builder = StatementBuilder(subjects=[subject], predicate_type=predicate_type, predicate=predicate)
     stmt = builder.build()
 
     # Sign with Sigstore using version-appropriate API

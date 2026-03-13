@@ -184,9 +184,7 @@ class DotProjectMapper:
                     context["project.security.contact"] = security.contact.email
                     context["project.security.contact_email"] = security.contact.email
                 if security.contact.advisory_url:
-                    context["project.security.advisory_url"] = (
-                        security.contact.advisory_url
-                    )
+                    context["project.security.advisory_url"] = security.contact.advisory_url
             else:
                 # Legacy plain string format
                 context["project.security.contact"] = security.contact
@@ -229,21 +227,13 @@ class DotProjectMapper:
         if governance.maintainer_lifecycle:
             ml = governance.maintainer_lifecycle
             if ml.onboarding_doc:
-                context["project.governance.maintainer_lifecycle.onboarding_doc_path"] = (
-                    ml.onboarding_doc.path
-                )
+                context["project.governance.maintainer_lifecycle.onboarding_doc_path"] = ml.onboarding_doc.path
             if ml.progression_ladder:
-                context["project.governance.maintainer_lifecycle.progression_ladder_path"] = (
-                    ml.progression_ladder.path
-                )
+                context["project.governance.maintainer_lifecycle.progression_ladder_path"] = ml.progression_ladder.path
             if ml.offboarding_policy:
-                context["project.governance.maintainer_lifecycle.offboarding_policy_path"] = (
-                    ml.offboarding_policy.path
-                )
+                context["project.governance.maintainer_lifecycle.offboarding_policy_path"] = ml.offboarding_policy.path
             if ml.mentoring_program:
-                context["project.governance.maintainer_lifecycle.mentoring_program"] = (
-                    ml.mentoring_program
-                )
+                context["project.governance.maintainer_lifecycle.mentoring_program"] = ml.mentoring_program
 
         # Include any extra fields
         for key, value in governance._extra.items():
@@ -283,9 +273,7 @@ class DotProjectMapper:
         for key, value in documentation._extra.items():
             context[f"project.documentation.{key}"] = value
 
-    def _map_extensions(
-        self, extensions: dict[str, Any], context: dict[str, Any]
-    ) -> None:
+    def _map_extensions(self, extensions: dict[str, Any], context: dict[str, Any]) -> None:
         """Map extensions section to context variables."""
         for ext_name, ext_config in extensions.items():
             # Extension metadata
@@ -304,10 +292,7 @@ class DotProjectMapper:
 
     def has_codeowners(self) -> bool:
         """Check if a CODEOWNERS path is defined."""
-        return (
-            self.config.governance is not None
-            and self.config.governance.codeowners is not None
-        )
+        return self.config.governance is not None and self.config.governance.codeowners is not None
 
     def has_maintainers(self) -> bool:
         """Check if maintainers are defined."""

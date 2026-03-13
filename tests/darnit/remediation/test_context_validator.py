@@ -271,7 +271,6 @@ class TestFormatContextPrompt:
         assert "Provide GitHub usernames" in prompt
         assert "@user1, @user2" in prompt
 
-
     def test_prompt_with_hint_file_shows_parsed_values_and_placeholder(self, temp_repo):
         """When a hint file exists, prompt should show parsed values but use placeholder command."""
         # Create a CODEOWNERS file
@@ -304,7 +303,7 @@ class TestFormatContextPrompt:
         assert "@bob" in prompt
         assert "@charlie" in prompt
         # Should use a placeholder in the command, NOT the filename or actual values
-        assert 'confirm_project_context(maintainers=<user-confirmed values>)' in prompt
+        assert "confirm_project_context(maintainers=<user-confirmed values>)" in prompt
         # Should NOT suggest passing the filename
         assert 'maintainers="CODEOWNERS"' not in prompt
 
@@ -338,7 +337,7 @@ class TestFormatContextPrompt:
         assert "@detected1" in prompt
         assert "@detected2" in prompt
         # Should use a placeholder in the command, NOT the actual detected values
-        assert 'confirm_project_context(maintainers=<user-confirmed values>)' in prompt
+        assert "confirm_project_context(maintainers=<user-confirmed values>)" in prompt
         # Should NOT have executable command with actual values
         assert "['@detected1', '@detected2']" not in prompt
 
@@ -443,11 +442,13 @@ class TestGetContextRequirementsForCategory:
         registry = {
             "codeowners": {
                 "description": "Create CODEOWNERS",
-                "requires_context": [{
-                    "key": "maintainers",
-                    "required": True,
-                    "confidence_threshold": 0.9,
-                }],
+                "requires_context": [
+                    {
+                        "key": "maintainers",
+                        "required": True,
+                        "confidence_threshold": 0.9,
+                    }
+                ],
             },
         }
 

@@ -33,7 +33,7 @@ class TestBuildAssessmentPredicate:
             level=3,
             results=sample_results,
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         assert predicate["assessor"]["name"] == "openssf-baseline-mcp"
@@ -51,7 +51,7 @@ class TestBuildAssessmentPredicate:
             level=3,
             results=sample_results,
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         assert predicate["baseline"]["version"] == "2025.10.10"
@@ -69,7 +69,7 @@ class TestBuildAssessmentPredicate:
             level=3,
             results=sample_results,
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         assert predicate["repository"]["url"] == "https://github.com/testorg/testrepo"
@@ -87,7 +87,7 @@ class TestBuildAssessmentPredicate:
             level=3,
             results=sample_results,
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         assert "ref" not in predicate["repository"]
@@ -103,7 +103,7 @@ class TestBuildAssessmentPredicate:
             level=3,
             results=sample_results,
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         summary = predicate["summary"]
@@ -125,7 +125,7 @@ class TestBuildAssessmentPredicate:
             level=3,
             results=sample_results,
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         levels = predicate["levels"]
@@ -144,7 +144,7 @@ class TestBuildAssessmentPredicate:
             level=3,
             results=sample_results,
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         controls = predicate["controls"]
@@ -170,7 +170,7 @@ class TestBuildAssessmentPredicate:
             level=3,
             results=sample_results,
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         controls = predicate["controls"]
@@ -193,7 +193,7 @@ class TestBuildAssessmentPredicate:
             level=3,
             results=sample_results,
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         # Should not raise
@@ -211,7 +211,7 @@ class TestBuildAssessmentPredicate:
             level=3,
             results=sample_results,
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         config = predicate["configuration"]
@@ -227,7 +227,7 @@ class TestBuildAssessmentPredicate:
                 "status": "PASS",
                 "level": 1,
                 "details": "Found",
-                "evidence": {"file": "SECURITY.md"}
+                "evidence": {"file": "SECURITY.md"},
             }
         ]
         predicate = build_assessment_predicate(
@@ -238,7 +238,7 @@ class TestBuildAssessmentPredicate:
             level=1,
             results=results,
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         controls = predicate["controls"]
@@ -248,15 +248,7 @@ class TestBuildAssessmentPredicate:
     @pytest.mark.unit
     def test_control_with_source(self):
         """Test control source is preserved."""
-        results = [
-            {
-                "id": "OSPS-AC-01.01",
-                "status": "PASS",
-                "level": 1,
-                "details": "OK",
-                "source": "sieve"
-            }
-        ]
+        results = [{"id": "OSPS-AC-01.01", "status": "PASS", "level": 1, "details": "OK", "source": "sieve"}]
         predicate = build_assessment_predicate(
             owner="testorg",
             repo="testrepo",
@@ -265,7 +257,7 @@ class TestBuildAssessmentPredicate:
             level=1,
             results=results,
             project_config=None,
-            adapters_used=["sieve"]
+            adapters_used=["sieve"],
         )
 
         controls = predicate["controls"]
@@ -282,7 +274,7 @@ class TestBuildAssessmentPredicate:
             level=1,
             results=[],
             project_config=None,
-            adapters_used=["builtin"]
+            adapters_used=["builtin"],
         )
 
         assert predicate["summary"]["total_controls"] == 0

@@ -53,7 +53,7 @@ def detect_frameworks(local_path: str) -> list[str]:
                 if os.path.exists(filepath):
                     if pattern:
                         try:
-                            with open(filepath, errors='ignore') as f:
+                            with open(filepath, errors="ignore") as f:
                                 content = f.read()
                                 if re.search(pattern, content):
                                     detected.append(framework)
@@ -71,7 +71,7 @@ def detect_frameworks(local_path: str) -> list[str]:
                         if fn.endswith(SOURCE_EXTENSIONS):
                             filepath = os.path.join(root, fn)
                             try:
-                                with open(filepath, errors='ignore') as f:
+                                with open(filepath, errors="ignore") as f:
                                     content = f.read(10000)  # Read first 10KB
                                     if re.search(pattern, content):
                                         detected.append(framework)
@@ -108,9 +108,9 @@ def discover_entry_points(local_path: str, frameworks: list[str]) -> list[EntryP
             rel_path = os.path.relpath(filepath, local_path)
 
             try:
-                with open(filepath, errors='ignore') as f:
+                with open(filepath, errors="ignore") as f:
                     content = f.read()
-                    lines = content.split('\n')
+                    lines = content.split("\n")
             except OSError:
                 continue
 
@@ -119,26 +119,28 @@ def discover_entry_points(local_path: str, frameworks: list[str]) -> list[EntryP
                 # App Router API routes
                 if re.match(r"app/api/.*/route\.(ts|js)x?$", rel_path.replace("\\", "/")):
                     methods = []
-                    for method in ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']:
+                    for method in ["GET", "POST", "PUT", "DELETE", "PATCH"]:
                         if re.search(rf"export\s+(async\s+)?function\s+{method}\b", content):
                             methods.append(method)
 
-                    for method in methods or ['ALL']:
+                    for method in methods or ["ALL"]:
                         entry_id += 1
                         api_path = "/" + "/".join(rel_path.replace("\\", "/").split("/")[:-1])
                         api_path = api_path.replace("/app", "").replace("/route", "")
                         has_auth = bool(re.search(r"getServerSession|auth\(|currentUser|useAuth", content))
 
-                        entry_points.append(EntryPoint(
-                            id=f"EP-{entry_id:03d}",
-                            entry_type="api_route",
-                            path=api_path,
-                            method=method,
-                            file=rel_path,
-                            line=1,
-                            authentication_required=has_auth,
-                            framework="nextjs"
-                        ))
+                        entry_points.append(
+                            EntryPoint(
+                                id=f"EP-{entry_id:03d}",
+                                entry_type="api_route",
+                                path=api_path,
+                                method=method,
+                                file=rel_path,
+                                line=1,
+                                authentication_required=has_auth,
+                                framework="nextjs",
+                            )
+                        )
 
                 # Server Actions
                 if "'use server'" in content or '"use server"' in content:
@@ -147,56 +149,62 @@ def discover_entry_points(local_path: str, frameworks: list[str]) -> list[EntryP
                             func_match = re.search(r"function\s+(\w+)", line)
                             if func_match:
                                 entry_id += 1
-                                entry_points.append(EntryPoint(
-                                    id=f"EP-{entry_id:03d}",
-                                    entry_type="server_action",
-                                    path=func_match.group(1),
-                                    method="POST",
-                                    file=rel_path,
-                                    line=i + 1,
-                                    authentication_required=False,
-                                    framework="nextjs"
-                                ))
+                                entry_points.append(
+                                    EntryPoint(
+                                        id=f"EP-{entry_id:03d}",
+                                        entry_type="server_action",
+                                        path=func_match.group(1),
+                                        method="POST",
+                                        file=rel_path,
+                                        line=i + 1,
+                                        authentication_required=False,
+                                        framework="nextjs",
+                                    )
+                                )
 
             # Check Express routes
             if "express" in frameworks:
                 for i, line in enumerate(lines):
                     match = re.search(
                         r"(?:app|router)\.(get|post|put|delete|patch|all)\s*\(\s*['\"]([^'\"]+)['\"]",
-                        line, re.IGNORECASE
+                        line,
+                        re.IGNORECASE,
                     )
                     if match:
                         entry_id += 1
-                        entry_points.append(EntryPoint(
-                            id=f"EP-{entry_id:03d}",
-                            entry_type="api_route",
-                            path=match.group(2),
-                            method=match.group(1).upper(),
-                            file=rel_path,
-                            line=i + 1,
-                            authentication_required=False,
-                            framework="express"
-                        ))
+                        entry_points.append(
+                            EntryPoint(
+                                id=f"EP-{entry_id:03d}",
+                                entry_type="api_route",
+                                path=match.group(2),
+                                method=match.group(1).upper(),
+                                file=rel_path,
+                                line=i + 1,
+                                authentication_required=False,
+                                framework="express",
+                            )
+                        )
 
             # Check FastAPI routes
             if "fastapi" in frameworks:
                 for i, line in enumerate(lines):
                     match = re.search(
-                        r"@(?:app|router)\.(get|post|put|delete|patch)\s*\(\s*['\"]([^'\"]+)['\"]",
-                        line, re.IGNORECASE
+                        r"@(?:app|router)\.(get|post|put|delete|patch)\s*\(\s*['\"]([^'\"]+)['\"]", line, re.IGNORECASE
                     )
                     if match:
                         entry_id += 1
-                        entry_points.append(EntryPoint(
-                            id=f"EP-{entry_id:03d}",
-                            entry_type="api_route",
-                            path=match.group(2),
-                            method=match.group(1).upper(),
-                            file=rel_path,
-                            line=i + 1,
-                            authentication_required=False,
-                            framework="fastapi"
-                        ))
+                        entry_points.append(
+                            EntryPoint(
+                                id=f"EP-{entry_id:03d}",
+                                entry_type="api_route",
+                                path=match.group(2),
+                                method=match.group(1).upper(),
+                                file=rel_path,
+                                line=i + 1,
+                                authentication_required=False,
+                                framework="fastapi",
+                            )
+                        )
 
             # Check Django URLs
             if "django" in frameworks:
@@ -204,41 +212,42 @@ def discover_entry_points(local_path: str, frameworks: list[str]) -> list[EntryP
                     match = re.search(r"path\s*\(\s*['\"]([^'\"]+)['\"]", line)
                     if match:
                         entry_id += 1
-                        entry_points.append(EntryPoint(
-                            id=f"EP-{entry_id:03d}",
-                            entry_type="api_route",
-                            path=match.group(1),
-                            method="ANY",
-                            file=rel_path,
-                            line=i + 1,
-                            authentication_required=False,
-                            framework="django"
-                        ))
+                        entry_points.append(
+                            EntryPoint(
+                                id=f"EP-{entry_id:03d}",
+                                entry_type="api_route",
+                                path=match.group(1),
+                                method="ANY",
+                                file=rel_path,
+                                line=i + 1,
+                                authentication_required=False,
+                                framework="django",
+                            )
+                        )
 
             # Check Flask routes
             if "flask" in frameworks:
                 for i, line in enumerate(lines):
                     match = re.search(r"@\w+\.route\s*\(\s*['\"]([^'\"]+)['\"]", line)
                     if match:
-                        methods_match = re.search(
-                            r"methods\s*=\s*\[([^\]]+)\]",
-                            lines[i] if i < len(lines) else ""
-                        )
+                        methods_match = re.search(r"methods\s*=\s*\[([^\]]+)\]", lines[i] if i < len(lines) else "")
                         methods = "GET"
                         if methods_match:
                             methods = methods_match.group(1).replace("'", "").replace('"', "").strip()
 
                         entry_id += 1
-                        entry_points.append(EntryPoint(
-                            id=f"EP-{entry_id:03d}",
-                            entry_type="api_route",
-                            path=match.group(1),
-                            method=methods,
-                            file=rel_path,
-                            line=i + 1,
-                            authentication_required=False,
-                            framework="flask"
-                        ))
+                        entry_points.append(
+                            EntryPoint(
+                                id=f"EP-{entry_id:03d}",
+                                entry_type="api_route",
+                                path=match.group(1),
+                                method=methods,
+                                file=rel_path,
+                                line=i + 1,
+                                authentication_required=False,
+                                framework="flask",
+                            )
+                        )
 
     return entry_points
 
@@ -259,14 +268,14 @@ def discover_authentication(local_path: str) -> list[AuthMechanism]:
         dirs[:] = [d for d in dirs if d not in SKIP_DIRECTORIES]
 
         for filename in files:
-            if not filename.endswith(('.ts', '.tsx', '.js', '.jsx', '.py')):
+            if not filename.endswith((".ts", ".tsx", ".js", ".jsx", ".py")):
                 continue
 
             filepath = os.path.join(root, filename)
             rel_path = os.path.relpath(filepath, local_path)
 
             try:
-                with open(filepath, errors='ignore') as f:
+                with open(filepath, errors="ignore") as f:
                     content = f.read()
             except OSError:
                 continue
@@ -275,17 +284,19 @@ def discover_authentication(local_path: str) -> list[AuthMechanism]:
                 matches = list(re.finditer(config["pattern"], content))
                 if matches:
                     first_match = matches[0]
-                    line_num = content[:first_match.start()].count('\n') + 1
+                    line_num = content[: first_match.start()].count("\n") + 1
 
                     auth_id += 1
-                    auth_mechanisms.append(AuthMechanism(
-                        id=f"AUTH-{auth_id:03d}",
-                        auth_type=auth_type,
-                        file=rel_path,
-                        line=line_num,
-                        framework=config["framework"],
-                        assets=config["assets"]
-                    ))
+                    auth_mechanisms.append(
+                        AuthMechanism(
+                            id=f"AUTH-{auth_id:03d}",
+                            auth_type=auth_type,
+                            file=rel_path,
+                            line=line_num,
+                            framework=config["framework"],
+                            assets=config["assets"],
+                        )
+                    )
                     break  # Only record first occurrence per file
 
     return auth_mechanisms
@@ -307,16 +318,16 @@ def discover_sensitive_data(local_path: str) -> list[SensitiveData]:
         dirs[:] = [d for d in dirs if d not in SKIP_DIRECTORIES]
 
         for filename in files:
-            if not filename.endswith(('.ts', '.tsx', '.js', '.jsx', '.py', '.prisma', '.graphql', '.gql')):
+            if not filename.endswith((".ts", ".tsx", ".js", ".jsx", ".py", ".prisma", ".graphql", ".gql")):
                 continue
 
             filepath = os.path.join(root, filename)
             rel_path = os.path.relpath(filepath, local_path)
 
             try:
-                with open(filepath, errors='ignore') as f:
+                with open(filepath, errors="ignore") as f:
                     content = f.read()
-                    lines = content.split('\n')
+                    lines = content.split("\n")
             except OSError:
                 continue
 
@@ -328,14 +339,16 @@ def discover_sensitive_data(local_path: str) -> list[SensitiveData]:
                             field_name = match if isinstance(match, str) else match[0] if match else ""
                             if field_name:
                                 data_id += 1
-                                sensitive_data.append(SensitiveData(
-                                    id=f"SD-{data_id:03d}",
-                                    data_type=data_type,
-                                    field_name=field_name,
-                                    file=rel_path,
-                                    line=i + 1,
-                                    context=line.strip()[:100]
-                                ))
+                                sensitive_data.append(
+                                    SensitiveData(
+                                        id=f"SD-{data_id:03d}",
+                                        data_type=data_type,
+                                        field_name=field_name,
+                                        file=rel_path,
+                                        line=i + 1,
+                                        context=line.strip()[:100],
+                                    )
+                                )
 
     return sensitive_data
 
@@ -356,21 +369,23 @@ def discover_secrets(local_path: str) -> list[SecretReference]:
         dirs[:] = [d for d in dirs if d not in SKIP_DIRECTORIES]
 
         for filename in files:
-            if not any(filename.endswith(ext) for ext in
-                      ['.ts', '.tsx', '.js', '.jsx', '.py', '.env', '.json', '.yaml', '.yml', '.toml']):
+            if not any(
+                filename.endswith(ext)
+                for ext in [".ts", ".tsx", ".js", ".jsx", ".py", ".env", ".json", ".yaml", ".yml", ".toml"]
+            ):
                 continue
 
             # Skip lock files
-            if 'lock' in filename.lower():
+            if "lock" in filename.lower():
                 continue
 
             filepath = os.path.join(root, filename)
             rel_path = os.path.relpath(filepath, local_path)
 
             try:
-                with open(filepath, errors='ignore') as f:
+                with open(filepath, errors="ignore") as f:
                     content = f.read()
-                    lines = content.split('\n')
+                    lines = content.split("\n")
             except OSError:
                 continue
 
@@ -381,18 +396,20 @@ def discover_secrets(local_path: str) -> list[SecretReference]:
                         if re.search(r"process\.env|os\.environ|getenv|ENV\[", line):
                             continue
                         # Skip if in example/test file
-                        if any(x in rel_path.lower() for x in ['example', 'test', 'mock', 'fixture']):
+                        if any(x in rel_path.lower() for x in ["example", "test", "mock", "fixture"]):
                             continue
 
                         secret_id += 1
-                        secrets.append(SecretReference(
-                            id=f"SEC-{secret_id:03d}",
-                            secret_type=secret_type,
-                            name=line.strip()[:50],
-                            file=rel_path,
-                            line=i + 1,
-                            severity=config["severity"]
-                        ))
+                        secrets.append(
+                            SecretReference(
+                                id=f"SEC-{secret_id:03d}",
+                                secret_type=secret_type,
+                                name=line.strip()[:50],
+                                file=rel_path,
+                                line=i + 1,
+                                severity=config["severity"],
+                            )
+                        )
 
     return secrets
 
@@ -414,14 +431,14 @@ def discover_data_stores(local_path: str) -> list[DataStore]:
         dirs[:] = [d for d in dirs if d not in SKIP_DIRECTORIES]
 
         for filename in files:
-            if not filename.endswith(('.ts', '.tsx', '.js', '.jsx', '.py', '.prisma')):
+            if not filename.endswith((".ts", ".tsx", ".js", ".jsx", ".py", ".prisma")):
                 continue
 
             filepath = os.path.join(root, filename)
             rel_path = os.path.relpath(filepath, local_path)
 
             try:
-                with open(filepath, errors='ignore') as f:
+                with open(filepath, errors="ignore") as f:
                     content = f.read()
             except OSError:
                 continue
@@ -433,15 +450,17 @@ def discover_data_stores(local_path: str) -> list[DataStore]:
                 for pattern in config["patterns"]:
                     match = re.search(pattern, content)
                     if match:
-                        line_num = content[:match.start()].count('\n') + 1
+                        line_num = content[: match.start()].count("\n") + 1
                         store_id += 1
-                        data_stores.append(DataStore(
-                            id=f"DS-{store_id:03d}",
-                            store_type=config["type"],
-                            technology=store_name,
-                            file=rel_path,
-                            line=line_num
-                        ))
+                        data_stores.append(
+                            DataStore(
+                                id=f"DS-{store_id:03d}",
+                                store_type=config["type"],
+                                technology=store_name,
+                                file=rel_path,
+                                line=line_num,
+                            )
+                        )
                         found_stores.add(store_name)
                         break
 
@@ -463,16 +482,16 @@ def discover_injection_sinks(local_path: str) -> list[dict[str, Any]]:
         dirs[:] = [d for d in dirs if d not in SKIP_DIRECTORIES]
 
         for filename in files:
-            if not filename.endswith(('.ts', '.tsx', '.js', '.jsx', '.py')):
+            if not filename.endswith((".ts", ".tsx", ".js", ".jsx", ".py")):
                 continue
 
             filepath = os.path.join(root, filename)
             rel_path = os.path.relpath(filepath, local_path)
 
             try:
-                with open(filepath, errors='ignore') as f:
+                with open(filepath, errors="ignore") as f:
                     content = f.read()
-                    lines = content.split('\n')
+                    lines = content.split("\n")
             except OSError:
                 continue
 
@@ -480,15 +499,17 @@ def discover_injection_sinks(local_path: str) -> list[dict[str, Any]]:
                 for pattern in config["patterns"]:
                     for i, line in enumerate(lines):
                         if re.search(pattern, line):
-                            sinks.append({
-                                "type": injection_type,
-                                "file": rel_path,
-                                "line": i + 1,
-                                "snippet": line.strip()[:100],
-                                "severity": config["severity"],
-                                "cwe": config["cwe"],
-                                "recommendation": config["recommendation"]
-                            })
+                            sinks.append(
+                                {
+                                    "type": injection_type,
+                                    "file": rel_path,
+                                    "line": i + 1,
+                                    "snippet": line.strip()[:100],
+                                    "severity": config["severity"],
+                                    "cwe": config["cwe"],
+                                    "recommendation": config["recommendation"],
+                                }
+                            )
 
     return sinks
 
@@ -512,7 +533,7 @@ def discover_all_assets(local_path: str, frameworks: list[str] | None = None) ->
         sensitive_data=discover_sensitive_data(local_path),
         secrets=discover_secrets(local_path),
         authentication=discover_authentication(local_path),
-        frameworks_detected=frameworks
+        frameworks_detected=frameworks,
     )
 
 

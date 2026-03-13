@@ -255,7 +255,7 @@ This project uses a steering committee model.
         sieve = ContextSieve()
 
         # Mock the API detection to track if it's called
-        with patch.object(sieve, '_detect_maintainers_api'):
+        with patch.object(sieve, "_detect_maintainers_api"):
             result = sieve.detect("maintainers", temp_repo, "owner", "repo")
 
             # API phase should not be called if deterministic was sufficient
@@ -264,14 +264,11 @@ This project uses a steering committee model.
             # The actual behavior depends on threshold
 
     @pytest.mark.unit
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_github_api_detection(self, mock_run, temp_repo):
         """Tests GitHub API detection for maintainers."""
         # Mock successful API call
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout='["alice", "bob"]'
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout='["alice", "bob"]')
 
         sieve = ContextSieve()
         signals = sieve._detect_maintainers_api(temp_repo, "test-owner", "test-repo")
@@ -282,15 +279,11 @@ This project uses a steering committee model.
         assert "@bob" in signals[0].value
 
     @pytest.mark.unit
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_github_api_failure_handled(self, mock_run, temp_repo):
         """Tests that GitHub API failures are handled gracefully."""
         # Mock failed API call
-        mock_run.return_value = MagicMock(
-            returncode=1,
-            stdout='',
-            stderr='API error'
-        )
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="API error")
 
         sieve = ContextSieve()
         signals = sieve._detect_maintainers_api(temp_repo, "test-owner", "test-repo")
@@ -368,7 +361,9 @@ class TestIntegrationWithValidator:
         from darnit.remediation.context_validator import check_context_requirements
 
         # Load the framework config to get hint_sources from TOML
-        framework_path = Path(__file__).parent.parent.parent.parent / "packages" / "darnit-baseline" / "openssf-baseline.toml"
+        framework_path = (
+            Path(__file__).parent.parent.parent.parent / "packages" / "darnit-baseline" / "openssf-baseline.toml"
+        )
         framework = load_framework_config(framework_path)
 
         requirements = [

@@ -4,7 +4,6 @@ This module discovers installed compliance implementations via Python entry poin
 Implementations register under the 'darnit.implementations' group.
 """
 
-
 from .logging import get_logger
 from .plugin import ComplianceImplementation
 
@@ -38,6 +37,7 @@ def discover_implementations() -> dict[str, ComplianceImplementation]:
 
     # Use importlib.metadata for Python 3.9+
     from importlib.metadata import entry_points
+
     eps = entry_points(group="darnit.implementations")
 
     # TODO: Integrate plugin verification before loading.
@@ -59,10 +59,7 @@ def discover_implementations() -> dict[str, ComplianceImplementation]:
                 _implementations[impl.name] = impl
                 logger.info(f"Discovered implementation: {impl.name} v{impl.version}")
             else:
-                logger.warning(
-                    f"Entry point {ep.name} returned {type(impl)}, "
-                    f"expected ComplianceImplementation"
-                )
+                logger.warning(f"Entry point {ep.name} returned {type(impl)}, expected ComplianceImplementation")
         except (ImportError, AttributeError, TypeError) as e:
             logger.error(f"Failed to load implementation {ep.name}: {e}")
             continue

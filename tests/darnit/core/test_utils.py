@@ -101,45 +101,27 @@ class TestFileContains:
     @pytest.mark.unit
     def test_file_contains_match(self, temp_dir: Path):
         """Test file_contains finds matching content."""
-        (temp_dir / "SECURITY.md").write_text(
-            "# Security\n\nEmail: security@example.com"
-        )
-        assert file_contains(
-            str(temp_dir),
-            ["SECURITY.md"],
-            r"security@\w+\.\w+"
-        ) is True
+        (temp_dir / "SECURITY.md").write_text("# Security\n\nEmail: security@example.com")
+        assert file_contains(str(temp_dir), ["SECURITY.md"], r"security@\w+\.\w+") is True
 
     @pytest.mark.unit
     def test_file_contains_no_match(self, temp_dir: Path):
         """Test file_contains returns False when no match."""
         (temp_dir / "SECURITY.md").write_text("# Security\n\nNo email here")
-        assert file_contains(
-            str(temp_dir),
-            ["SECURITY.md"],
-            r"security@\w+\.\w+"
-        ) is False
+        assert file_contains(str(temp_dir), ["SECURITY.md"], r"security@\w+\.\w+") is False
 
     @pytest.mark.unit
     def test_file_contains_case_insensitive(self, temp_dir: Path):
         """Test file_contains is case insensitive."""
         (temp_dir / "README.md").write_text("This is a SECURITY notice")
-        assert file_contains(
-            str(temp_dir),
-            ["README.md"],
-            r"security"
-        ) is True
+        assert file_contains(str(temp_dir), ["README.md"], r"security") is True
 
     @pytest.mark.unit
     def test_file_contains_multiple_files(self, temp_dir: Path):
         """Test file_contains with multiple file patterns."""
         (temp_dir / "README.md").write_text("# Readme")
         (temp_dir / "CONTRIBUTING.md").write_text("Email: contrib@example.com")
-        assert file_contains(
-            str(temp_dir),
-            ["README.md", "CONTRIBUTING.md"],
-            r"\w+@example\.com"
-        ) is True
+        assert file_contains(str(temp_dir), ["README.md", "CONTRIBUTING.md"], r"\w+@example\.com") is True
 
 
 class TestReadFile:

@@ -133,12 +133,8 @@ then fix each failing control.
 
     # -- Initialize git -------------------------------------------------------
     try:
-        subprocess.run(
-            ["git", "init"], cwd=repo_path, capture_output=True, check=True
-        )
-        subprocess.run(
-            ["git", "add", "."], cwd=repo_path, capture_output=True, check=True
-        )
+        subprocess.run(["git", "init"], cwd=repo_path, capture_output=True, check=True)
+        subprocess.run(["git", "add", "."], cwd=repo_path, capture_output=True, check=True)
         subprocess.run(
             [
                 "git",
@@ -203,10 +199,7 @@ def remediate_repo(repo_path_str: str) -> None:
     # PH-DOC-01 + PH-DOC-03: README with description (body must be >20 chars)
     readme = repo_path / "README.md"
     if not readme.exists():
-        readme.write_text(
-            "# hygiene-test-repo\n\n"
-            "A test project for the Project Hygiene Standard demo.\n"
-        )
+        readme.write_text("# hygiene-test-repo\n\nA test project for the Project Hygiene Standard demo.\n")
         created.append("README.md")
 
     # PH-DOC-02: LICENSE
@@ -218,9 +211,7 @@ def remediate_repo(repo_path_str: str) -> None:
     # PH-SEC-01: SECURITY.md
     security = repo_path / "SECURITY.md"
     if not security.exists():
-        security.write_text(
-            "# Security Policy\n\nTo report a vulnerability, open an issue.\n"
-        )
+        security.write_text("# Security Policy\n\nTo report a vulnerability, open an issue.\n")
         created.append("SECURITY.md")
 
     # PH-CFG-01: .gitignore
@@ -232,9 +223,7 @@ def remediate_repo(repo_path_str: str) -> None:
     # PH-CFG-02: .editorconfig
     editorconfig = repo_path / ".editorconfig"
     if not editorconfig.exists():
-        editorconfig.write_text(
-            "root = true\n\n[*]\nindent_style = space\nindent_size = 4\n"
-        )
+        editorconfig.write_text("root = true\n\n[*]\nindent_style = space\nindent_size = 4\n")
         created.append(".editorconfig")
 
     # PH-QA-01: CONTRIBUTING.md
@@ -277,20 +266,12 @@ def _create_github_repo(
 ) -> None:
     """Create a GitHub repository using the gh CLI."""
     try:
-        result = subprocess.run(
-            ["gh", "auth", "status"], capture_output=True
-        )
+        result = subprocess.run(["gh", "auth", "status"], capture_output=True)
         if result.returncode != 0:
-            print(
-                "\033[1;33m⚠ GitHub CLI not authenticated. "
-                "Skipping GitHub repo creation.\033[0m"
-            )
+            print("\033[1;33m⚠ GitHub CLI not authenticated. Skipping GitHub repo creation.\033[0m")
             return
     except FileNotFoundError:
-        print(
-            "\033[1;33m⚠ GitHub CLI (gh) not found. "
-            "Skipping GitHub repo creation.\033[0m"
-        )
+        print("\033[1;33m⚠ GitHub CLI (gh) not found. Skipping GitHub repo creation.\033[0m")
         return
 
     if not github_org:

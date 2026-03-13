@@ -103,9 +103,7 @@ def check_pattern_not_found(
                         matches = re.findall(regex, content, re.MULTILINE)
                         if matches:
                             rel_path = file_path.relative_to(repo)
-                            violations.append(
-                                f"{rel_path}: found {pattern_name} ({len(matches)} occurrences)"
-                            )
+                            violations.append(f"{rel_path}: found {pattern_name} ({len(matches)} occurrences)")
                 except Exception as e:
                     logger.debug(f"Could not read {file_path}: {e}")
 
@@ -489,10 +487,7 @@ class TrivialCheckAdapter(CheckAdapter):
         Returns:
             List of CheckResult for all requested controls
         """
-        return [
-            self.check(control_id, owner, repo, local_path, config)
-            for control_id in control_ids
-        ]
+        return [self.check(control_id, owner, repo, local_path, config) for control_id in control_ids]
 
 
 # =============================================================================
@@ -555,9 +550,7 @@ class TrivialRemediationAdapter(RemediationAdapter):
                 source="testchecks",
             )
 
-    def _create_readme(
-        self, local_path: str, repo: str, dry_run: bool
-    ) -> RemediationResult:
+    def _create_readme(self, local_path: str, repo: str, dry_run: bool) -> RemediationResult:
         """Create a basic README.md file."""
         readme_path = Path(local_path) / "README.md"
         content = f"""# {repo}

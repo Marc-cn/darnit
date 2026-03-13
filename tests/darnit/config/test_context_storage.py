@@ -213,11 +213,14 @@ class TestSaveContextValues:
         """Test saving multiple values at once."""
         (tmp_path / ".git").mkdir()
 
-        save_context_values(str(tmp_path), {
-            "has_releases": True,
-            "is_library": False,
-            "ci_provider": "github",
-        })
+        save_context_values(
+            str(tmp_path),
+            {
+                "has_releases": True,
+                "is_library": False,
+                "ci_provider": "github",
+            },
+        )
 
         assert get_raw_value(str(tmp_path), "has_releases") is True
         assert get_raw_value(str(tmp_path), "is_library") is False
@@ -402,13 +405,16 @@ class TestRunDetectPipelineHasReleases:
 
     def _make_invocation(self, **kwargs):
         from darnit.config.framework_schema import HandlerInvocation
+
         return HandlerInvocation(**kwargs)
 
     def test_detects_changelog(self, tmp_path: Path) -> None:
         """has_releases detected when CHANGELOG.md exists."""
         (tmp_path / "CHANGELOG.md").write_text("# Changelog\n## v1.0.0\n")
         pipeline = [
-            self._make_invocation(handler="file_exists", files=["CHANGELOG.md", "CHANGELOG", "CHANGES.md", "CHANGES"], value_if_pass=True),
+            self._make_invocation(
+                handler="file_exists", files=["CHANGELOG.md", "CHANGELOG", "CHANGES.md", "CHANGES"], value_if_pass=True
+            ),
         ]
         result = _run_detect_pipeline("has_releases", pipeline, str(tmp_path), "owner", "repo")
         assert result is not None
@@ -419,7 +425,9 @@ class TestRunDetectPipelineHasReleases:
         """has_releases detected when CHANGES file exists."""
         (tmp_path / "CHANGES").write_text("Changes\n")
         pipeline = [
-            self._make_invocation(handler="file_exists", files=["CHANGELOG.md", "CHANGELOG", "CHANGES.md", "CHANGES"], value_if_pass=True),
+            self._make_invocation(
+                handler="file_exists", files=["CHANGELOG.md", "CHANGELOG", "CHANGES.md", "CHANGES"], value_if_pass=True
+            ),
         ]
         result = _run_detect_pipeline("has_releases", pipeline, str(tmp_path), "owner", "repo")
         assert result is not None
@@ -452,6 +460,7 @@ class TestRunDetectPipelinePlatform:
 
     def _make_invocation(self, **kwargs):
         from darnit.config.framework_schema import HandlerInvocation
+
         return HandlerInvocation(**kwargs)
 
     @patch("darnit.sieve.builtin_handlers.subprocess.run")

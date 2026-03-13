@@ -434,9 +434,7 @@ class DotProjectReader:
                     config.maintainer_entries = entries
                 return
             if "project-maintainers" in data:
-                handles, entries = self._extract_maintainer_entries(
-                    data["project-maintainers"]
-                )
+                handles, entries = self._extract_maintainer_entries(data["project-maintainers"])
                 if handles:
                     config.maintainers = handles
                 if entries:
@@ -446,9 +444,7 @@ class DotProjectReader:
         except Exception as e:
             logger.warning("Failed to read maintainers.yaml: %s", e)
 
-    def _extract_maintainer_entries(
-        self, data: Any
-    ) -> tuple[list[str], list[MaintainerEntry]]:
+    def _extract_maintainer_entries(self, data: Any) -> tuple[list[str], list[MaintainerEntry]]:
         """Extract maintainer handles and entries from a list.
 
         Returns:
@@ -566,9 +562,7 @@ class DotProjectReader:
 
         # Parse maturity log
         if "maturity_log" in data:
-            config.maturity_log = [
-                self._parse_maturity_entry(entry) for entry in data["maturity_log"]
-            ]
+            config.maturity_log = [self._parse_maturity_entry(entry) for entry in data["maturity_log"]]
 
         # Parse audits
         if "audits" in data:
@@ -673,12 +667,8 @@ class DotProjectReader:
             codeowners=self._parse_file_reference(data.get("codeowners")),
             governance_doc=self._parse_file_reference(data.get("governance_doc")),
             gitvote_config=self._parse_file_reference(data.get("gitvote_config")),
-            vendor_neutrality_statement=self._parse_file_reference(
-                data.get("vendor_neutrality_statement")
-            ),
-            decision_making_process=self._parse_file_reference(
-                data.get("decision_making_process")
-            ),
+            vendor_neutrality_statement=self._parse_file_reference(data.get("vendor_neutrality_statement")),
+            decision_making_process=self._parse_file_reference(data.get("decision_making_process")),
             roles_and_teams=self._parse_file_reference(data.get("roles_and_teams")),
             code_of_conduct=self._parse_file_reference(data.get("code_of_conduct")),
             sub_project_list=self._parse_file_reference(data.get("sub_project_list")),
@@ -692,9 +682,7 @@ class DotProjectReader:
 
         # Parse nested maintainer_lifecycle
         if "maintainer_lifecycle" in data and isinstance(data["maintainer_lifecycle"], dict):
-            config.maintainer_lifecycle = self._parse_maintainer_lifecycle(
-                data["maintainer_lifecycle"]
-            )
+            config.maintainer_lifecycle = self._parse_maintainer_lifecycle(data["maintainer_lifecycle"])
 
         for key, value in data.items():
             if key not in known:

@@ -159,9 +159,7 @@ class ContextSieve:
                 if deterministic_signals:
                     combined = calculate_confidence(deterministic_signals)
                     if combined.confidence >= self.HIGH_CONFIDENCE_THRESHOLD:
-                        logger.debug(
-                            f"High-confidence deterministic result: {combined.confidence:.0%}"
-                        )
+                        logger.debug(f"High-confidence deterministic result: {combined.confidence:.0%}")
                         return ContextDetectionResult(
                             key=key,
                             value=combined.value,
@@ -235,13 +233,15 @@ class ContextSieve:
                     content = filepath.read_text()
                     maintainers = self._parse_maintainers_file(content)
                     if maintainers:
-                        signals.append(ContextSignal(
-                            source=SignalSource.EXPLICIT_FILE,
-                            value=maintainers,
-                            raw_confidence=0.95,
-                            method=f"Parsed {filename}",
-                            evidence={"file": filename, "count": len(maintainers)},
-                        ))
+                        signals.append(
+                            ContextSignal(
+                                source=SignalSource.EXPLICIT_FILE,
+                                value=maintainers,
+                                raw_confidence=0.95,
+                                method=f"Parsed {filename}",
+                                evidence={"file": filename, "count": len(maintainers)},
+                            )
+                        )
                         logger.debug(f"Found {len(maintainers)} maintainers in {filename}")
                 except Exception as e:
                     logger.debug(f"Error reading {filename}: {e}")
@@ -254,13 +254,15 @@ class ContextSieve:
                     content = filepath.read_text()
                     owners = self._parse_codeowners(content)
                     if owners:
-                        signals.append(ContextSignal(
-                            source=SignalSource.EXPLICIT_FILE,
-                            value=owners,
-                            raw_confidence=0.85,  # Slightly lower - CODEOWNERS may have specific paths
-                            method=f"Parsed {codeowners_path}",
-                            evidence={"file": codeowners_path, "count": len(owners)},
-                        ))
+                        signals.append(
+                            ContextSignal(
+                                source=SignalSource.EXPLICIT_FILE,
+                                value=owners,
+                                raw_confidence=0.85,  # Slightly lower - CODEOWNERS may have specific paths
+                                method=f"Parsed {codeowners_path}",
+                                evidence={"file": codeowners_path, "count": len(owners)},
+                            )
+                        )
                         logger.debug(f"Found {len(owners)} owners in {codeowners_path}")
                 except Exception as e:
                     logger.debug(f"Error reading {codeowners_path}: {e}")
@@ -309,13 +311,15 @@ class ContextSieve:
                             authors.append(contrib["name"])
 
                 if authors:
-                    signals.append(ContextSignal(
-                        source=SignalSource.PROJECT_MANIFEST,
-                        value=authors,
-                        raw_confidence=0.75,
-                        method="Parsed package.json author/contributors",
-                        evidence={"file": "package.json", "count": len(authors)},
-                    ))
+                    signals.append(
+                        ContextSignal(
+                            source=SignalSource.PROJECT_MANIFEST,
+                            value=authors,
+                            raw_confidence=0.75,
+                            method="Parsed package.json author/contributors",
+                            evidence={"file": "package.json", "count": len(authors)},
+                        )
+                    )
             except Exception as e:
                 logger.debug(f"Error parsing package.json: {e}")
 
@@ -351,13 +355,15 @@ class ContextSieve:
                             authors.append(maintainer)
 
                     if authors:
-                        signals.append(ContextSignal(
-                            source=SignalSource.PROJECT_MANIFEST,
-                            value=list(set(authors)),  # Dedupe
-                            raw_confidence=0.75,
-                            method="Parsed pyproject.toml authors/maintainers",
-                            evidence={"file": "pyproject.toml", "count": len(authors)},
-                        ))
+                        signals.append(
+                            ContextSignal(
+                                source=SignalSource.PROJECT_MANIFEST,
+                                value=list(set(authors)),  # Dedupe
+                                raw_confidence=0.75,
+                                method="Parsed pyproject.toml authors/maintainers",
+                                evidence={"file": "pyproject.toml", "count": len(authors)},
+                            )
+                        )
                 except Exception as e:
                     logger.debug(f"Error parsing pyproject.toml: {e}")
 
@@ -365,13 +371,15 @@ class ContextSieve:
         try:
             contributors = self._get_git_contributors(local_path, limit=5)
             if contributors:
-                signals.append(ContextSignal(
-                    source=SignalSource.GIT_HISTORY,
-                    value=contributors,
-                    raw_confidence=0.65,
-                    method="Top contributors from git log",
-                    evidence={"count": len(contributors)},
-                ))
+                signals.append(
+                    ContextSignal(
+                        source=SignalSource.GIT_HISTORY,
+                        value=contributors,
+                        raw_confidence=0.65,
+                        method="Top contributors from git log",
+                        evidence={"count": len(contributors)},
+                    )
+                )
         except Exception as e:
             logger.debug(f"Error getting git contributors: {e}")
 
@@ -393,9 +401,11 @@ class ContextSieve:
         try:
             result = subprocess.run(
                 [
-                    "gh", "api", f"/repos/{owner}/{repo}/collaborators",
+                    "gh",
+                    "api",
+                    f"/repos/{owner}/{repo}/collaborators",
                     "--jq",
-                    '[.[] | select(.permissions.admin == true or .permissions.maintain == true) | .login] | unique',
+                    "[.[] | select(.permissions.admin == true or .permissions.maintain == true) | .login] | unique",
                 ],
                 capture_output=True,
                 text=True,
@@ -407,16 +417,18 @@ class ContextSieve:
                 if maintainers:
                     # Format as @username
                     formatted = [f"@{m}" for m in maintainers]
-                    signals.append(ContextSignal(
-                        source=SignalSource.GITHUB_API,
-                        value=formatted,
-                        raw_confidence=0.7,
-                        method="GitHub collaborators API (admin/maintain permissions)",
-                        evidence={
-                            "api": f"/repos/{owner}/{repo}/collaborators",
-                            "count": len(formatted),
-                        },
-                    ))
+                    signals.append(
+                        ContextSignal(
+                            source=SignalSource.GITHUB_API,
+                            value=formatted,
+                            raw_confidence=0.7,
+                            method="GitHub collaborators API (admin/maintain permissions)",
+                            evidence={
+                                "api": f"/repos/{owner}/{repo}/collaborators",
+                                "count": len(formatted),
+                            },
+                        )
+                    )
         except subprocess.TimeoutExpired:
             logger.warning("GitHub API timed out")
         except (subprocess.SubprocessError, json.JSONDecodeError) as e:
@@ -440,13 +452,15 @@ class ContextSieve:
                     content = filepath.read_text()
                     contact = self._parse_security_contact(content)
                     if contact:
-                        signals.append(ContextSignal(
-                            source=SignalSource.EXPLICIT_FILE,
-                            value=contact,
-                            raw_confidence=0.9,
-                            method=f"Parsed {filename}",
-                            evidence={"file": filename},
-                        ))
+                        signals.append(
+                            ContextSignal(
+                                source=SignalSource.EXPLICIT_FILE,
+                                value=contact,
+                                raw_confidence=0.9,
+                                method=f"Parsed {filename}",
+                                evidence={"file": filename},
+                            )
+                        )
                 except Exception as e:
                     logger.debug(f"Error reading {filename}: {e}")
 
@@ -473,13 +487,15 @@ class ContextSieve:
                         section_content = security_section.group(1)
                         contact = self._parse_security_contact(section_content)
                         if contact:
-                            signals.append(ContextSignal(
-                                source=SignalSource.PATTERN_MATCH,
-                                value=contact,
-                                raw_confidence=0.6,
-                                method=f"Security section in {filename}",
-                                evidence={"file": filename},
-                            ))
+                            signals.append(
+                                ContextSignal(
+                                    source=SignalSource.PATTERN_MATCH,
+                                    value=contact,
+                                    raw_confidence=0.6,
+                                    method=f"Security section in {filename}",
+                                    evidence={"file": filename},
+                                )
+                            )
                 except Exception as e:
                     logger.debug(f"Error reading {filename}: {e}")
 
@@ -501,13 +517,15 @@ class ContextSieve:
                     content = filepath.read_text()
                     model = self._parse_governance_model(content)
                     if model:
-                        signals.append(ContextSignal(
-                            source=SignalSource.EXPLICIT_FILE,
-                            value=model,
-                            raw_confidence=0.9,
-                            method=f"Detected from {filename}",
-                            evidence={"file": filename},
-                        ))
+                        signals.append(
+                            ContextSignal(
+                                source=SignalSource.EXPLICIT_FILE,
+                                value=model,
+                                raw_confidence=0.9,
+                                method=f"Detected from {filename}",
+                                evidence={"file": filename},
+                            )
+                        )
                 except Exception as e:
                     logger.debug(f"Error reading {filename}: {e}")
 
@@ -636,7 +654,11 @@ class ContextSieve:
             # Get top contributors by commit count
             result = subprocess.run(
                 [
-                    "git", "shortlog", "-sne", "--no-merges", "HEAD",
+                    "git",
+                    "shortlog",
+                    "-sne",
+                    "--no-merges",
+                    "HEAD",
                 ],
                 cwd=local_path,
                 capture_output=True,
@@ -649,7 +671,7 @@ class ContextSieve:
 
             bot_names = {"dependabot[bot]", "github-actions[bot]", "renovate[bot]"}
             contributors = []
-            for line in result.stdout.strip().split("\n")[:limit * 2]:
+            for line in result.stdout.strip().split("\n")[: limit * 2]:
                 if not line.strip():
                     continue
                 # Format: "   123\tName <email>"
@@ -665,9 +687,7 @@ class ContextSieve:
                 # Try to extract GitHub username from noreply email
                 # Format: 12345+username@users.noreply.github.com
                 # or:     username@users.noreply.github.com
-                noreply_match = re.match(
-                    r"(?:\d+\+)?([^@]+)@users\.noreply\.github\.com", email
-                )
+                noreply_match = re.match(r"(?:\d+\+)?([^@]+)@users\.noreply\.github\.com", email)
                 if noreply_match:
                     username = f"@{noreply_match.group(1)}"
                     if username not in contributors:

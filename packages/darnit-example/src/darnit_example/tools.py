@@ -224,7 +224,10 @@ async def remediate_hygiene(
         remediation_results.append(result)
 
     return _format_remediation_report(
-        str(repo_path), dry_run, remediation_results, skipped,
+        str(repo_path),
+        dry_run,
+        remediation_results,
+        skipped,
     )
 
 
@@ -301,10 +304,7 @@ def _format_hygiene_report(
     if failed:
         lines.append("## Remediation")
         lines.append("")
-        lines.append(
-            "Run `remediate_hygiene` to auto-fix controls with "
-            "TOML-defined templates."
-        )
+        lines.append("Run `remediate_hygiene` to auto-fix controls with TOML-defined templates.")
         lines.append("")
         lines.append("| Control | What to Create |")
         lines.append("|---------|---------------|")
@@ -367,15 +367,11 @@ def _format_remediation_report(
         lines.append("")
 
     if not dry_run and succeeded:
-        lines.append(
-            "Run `example_hygiene_check` to verify the fixes."
-        )
+        lines.append("Run `example_hygiene_check` to verify the fixes.")
         lines.append("")
 
     if dry_run and succeeded:
-        lines.append(
-            "Run `remediate_hygiene` with `dry_run=false` to apply these changes."
-        )
+        lines.append("Run `remediate_hygiene` with `dry_run=false` to apply these changes.")
         lines.append("")
 
     return "\n".join(lines)

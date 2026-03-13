@@ -100,8 +100,7 @@ class TestRemediationE2EFlow:
             dry_run=False,
         )
 
-        assert result["status"] in ("applied", "would_apply", "manual"), \
-            f"Unexpected status: {result['status']}"
+        assert result["status"] in ("applied", "would_apply", "manual"), f"Unexpected status: {result['status']}"
 
 
 class TestControlDefinitionConsistency:
@@ -116,14 +115,10 @@ class TestControlDefinitionConsistency:
         assert framework is not None
 
         total = len(framework.controls)
-        with_remediation = sum(
-            1 for c in framework.controls.values()
-            if c.remediation and c.remediation.handlers
-        )
+        with_remediation = sum(1 for c in framework.controls.values() if c.remediation and c.remediation.handlers)
 
         print(f"\nControls with TOML remediation: {with_remediation}/{total}")
-        assert with_remediation >= 18, \
-            f"Expected at least 18 controls with remediation, got {with_remediation}"
+        assert with_remediation >= 18, f"Expected at least 18 controls with remediation, got {with_remediation}"
 
 
 class TestOutputContainsExpectedContent:

@@ -25,9 +25,11 @@ from typing import Any
 # Data Classes (normally from darnit.core.models)
 # =============================================================================
 
+
 @dataclass
 class CheckResult:
     """Result of a compliance check."""
+
     id: str
     name: str
     status: str  # "PASS", "FAIL", "SKIP", "ERROR"
@@ -51,6 +53,7 @@ class CheckResult:
 # =============================================================================
 # Check Functions - Each control needs its own function
 # =============================================================================
+
 
 def check_readme_exists(local_path: str) -> CheckResult:
     """Check EXAMPLE-DO-01: README file must exist."""
@@ -176,10 +179,12 @@ def check_no_secrets(local_path: str) -> CheckResult:
                     content = f.read()
                 for pattern_name, pattern in secret_patterns.items():
                     if re.search(pattern, content):
-                        secrets_found.append({
-                            "file": filepath,
-                            "pattern": pattern_name,
-                        })
+                        secrets_found.append(
+                            {
+                                "file": filepath,
+                                "pattern": pattern_name,
+                            }
+                        )
             except OSError:
                 continue
 
@@ -448,6 +453,7 @@ def check_sbom_compliance(local_path: str) -> CheckResult:
 # Remediation Functions - Each remediation needs its own function
 # =============================================================================
 
+
 def create_readme(
     local_path: str,
     owner: str,
@@ -620,6 +626,7 @@ def enable_branch_protection(
 # =============================================================================
 # Implementation Class - Ties everything together
 # =============================================================================
+
 
 class ExampleFrameworkImplementation:
     """Example compliance framework implementation.

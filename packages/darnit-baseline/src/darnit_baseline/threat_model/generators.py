@@ -16,11 +16,7 @@ from .models import (
 
 
 def generate_markdown_threat_model(
-    repo_path: str,
-    assets: AssetInventory,
-    threats: list[Threat],
-    control_gaps: list[dict],
-    frameworks: list[str]
+    repo_path: str, assets: AssetInventory, threats: list[Threat], control_gaps: list[dict], frameworks: list[str]
 ) -> str:
     """Generate a markdown-formatted threat model document.
 
@@ -120,7 +116,7 @@ def generate_markdown_threat_model(
                     RiskLevel.HIGH: "🟠",
                     RiskLevel.MEDIUM: "🟡",
                     RiskLevel.LOW: "🟢",
-                    RiskLevel.INFORMATIONAL: "ℹ️"
+                    RiskLevel.INFORMATIONAL: "ℹ️",
                 }.get(threat.risk.level, "⚪")
 
                 md.append(f"#### {risk_icon} {threat.id}: {threat.title}")
@@ -172,7 +168,7 @@ def generate_markdown_threat_model(
     immediate_threats = [t for t in threats if t.risk.level in [RiskLevel.CRITICAL, RiskLevel.HIGH]]
     if immediate_threats:
         for i, threat in enumerate(immediate_threats[:10], 1):
-            control = threat.recommended_controls[0] if threat.recommended_controls else 'Review required'
+            control = threat.recommended_controls[0] if threat.recommended_controls else "Review required"
             md.append(f"{i}. **{threat.title}** - {control}")
     else:
         md.append("No critical or high severity threats identified.")
@@ -226,7 +222,7 @@ def generate_sarif_threat_model(repo_path: str, threats: list[Threat]) -> dict[s
         RiskLevel.HIGH: "error",
         RiskLevel.MEDIUM: "warning",
         RiskLevel.LOW: "note",
-        RiskLevel.INFORMATIONAL: "note"
+        RiskLevel.INFORMATIONAL: "note",
     }
 
     rules = []
@@ -237,18 +233,10 @@ def generate_sarif_threat_model(repo_path: str, threats: list[Threat]) -> dict[s
         rule = {
             "id": threat.id,
             "name": threat.title.replace(" ", ""),
-            "shortDescription": {
-                "text": threat.title
-            },
-            "fullDescription": {
-                "text": threat.description
-            },
-            "help": {
-                "text": "\n".join(threat.recommended_controls)
-            },
-            "defaultConfiguration": {
-                "level": severity_map.get(threat.risk.level, "warning")
-            }
+            "shortDescription": {"text": threat.title},
+            "fullDescription": {"text": threat.description},
+            "help": {"text": "\n".join(threat.recommended_controls)},
+            "defaultConfiguration": {"level": severity_map.get(threat.risk.level, "warning")},
         }
         rules.append(rule)
 
@@ -257,48 +245,41 @@ def generate_sarif_threat_model(repo_path: str, threats: list[Threat]) -> dict[s
             result = {
                 "ruleId": threat.id,
                 "level": severity_map.get(threat.risk.level, "warning"),
-                "message": {
-                    "text": f"{threat.title}: {threat.description}"
-                },
-                "locations": [{
-                    "physicalLocation": {
-                        "artifactLocation": {
-                            "uri": cl.file
-                        },
-                        "region": {
-                            "startLine": cl.line_start,
-                            "startColumn": 1
+                "message": {"text": f"{threat.title}: {threat.description}"},
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {"uri": cl.file},
+                            "region": {"startLine": cl.line_start, "startColumn": 1},
                         }
                     }
-                }]
+                ],
             }
             results.append(result)
 
     sarif = {
         "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
         "version": "2.1.0",
-        "runs": [{
-            "tool": {
-                "driver": {
-                    "name": "threat-model-analyzer",
-                    "version": "1.0.0",
-                    "informationUri": "https://github.com/openssf/baseline",
-                    "rules": rules
-                }
-            },
-            "results": results
-        }]
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "threat-model-analyzer",
+                        "version": "1.0.0",
+                        "informationUri": "https://github.com/openssf/baseline",
+                        "rules": rules,
+                    }
+                },
+                "results": results,
+            }
+        ],
     }
 
     return sarif
 
 
 def generate_json_summary(
-    repo_path: str,
-    frameworks: list[str],
-    assets: AssetInventory,
-    threats: list[Threat],
-    control_gaps: list[dict]
+    repo_path: str, frameworks: list[str], assets: AssetInventory, threats: list[Threat], control_gaps: list[dict]
 ) -> dict[str, Any]:
     """Generate a JSON summary of the threat model.
 
@@ -321,7 +302,7 @@ def generate_json_summary(
             "auth_mechanisms": len(assets.authentication),
             "data_stores": len(assets.data_stores),
             "sensitive_fields": len(assets.sensitive_data),
-            "secrets": len(assets.secrets)
+            "secrets": len(assets.secrets),
         },
         "threats": [
             {
@@ -329,10 +310,11 @@ def generate_json_summary(
                 "category": t.category.value,
                 "title": t.title,
                 "risk_level": t.risk.level.value,
-                "risk_score": t.risk.overall
-            } for t in threats
+                "risk_score": t.risk.overall,
+            }
+            for t in threats
         ],
-        "control_gaps": control_gaps
+        "control_gaps": control_gaps,
     }
 
 

@@ -35,6 +35,7 @@ def clean_registry():
 
 def _make_handler(status, message="ok", evidence=None, confidence=1.0):
     """Create a simple handler function that returns a fixed result."""
+
     def handler(config, context):
         return HandlerResult(
             status=status,
@@ -42,6 +43,7 @@ def _make_handler(status, message="ok", evidence=None, confidence=1.0):
             confidence=confidence,
             evidence=evidence or {},
         )
+
     return handler
 
 
@@ -89,9 +91,7 @@ class TestHandlerAliases:
 
         assert regex_info is not None, "regex handler not registered"
         assert pattern_info is not None, "pattern alias not registered"
-        assert regex_info.fn is pattern_info.fn, (
-            "pattern alias should resolve to same handler function as regex"
-        )
+        assert regex_info.fn is pattern_info.fn, "pattern alias should resolve to same handler function as regex"
 
     @pytest.mark.unit
     def test_manual_alias_resolves_to_manual_steps_handler(self):
@@ -114,8 +114,8 @@ class TestHandlerAliases:
         toml_handler_names = [
             "exec",
             "file_exists",
-            "pattern",       # alias for regex
-            "manual",        # alias for manual_steps
+            "pattern",  # alias for regex
+            "manual",  # alias for manual_steps
             "file_create",
             "api_call",
             # Canonical names should also work
@@ -147,9 +147,7 @@ class TestTomlControlsLoadAsHandlerFormat:
         assert impl is not None, "No implementation found"
 
         toml_path = impl.get_framework_config_path()
-        assert toml_path is not None and Path(toml_path).exists(), (
-            f"Framework TOML not found at {toml_path}"
-        )
+        assert toml_path is not None and Path(toml_path).exists(), f"Framework TOML not found at {toml_path}"
 
         controls = load_controls_from_toml(toml_path)
         assert len(controls) > 0, "No controls loaded from TOML"
@@ -162,24 +160,19 @@ class TestTomlControlsLoadAsHandlerFormat:
             if invocations:
                 controls_with_handlers += 1
                 for inv in invocations:
-                    assert hasattr(inv, "handler"), (
-                        f"Control {spec.control_id}: invocation missing 'handler' field"
-                    )
+                    assert hasattr(inv, "handler"), f"Control {spec.control_id}: invocation missing 'handler' field"
                     # Verify handler name is resolvable
                     registry = get_sieve_handler_registry()
                     handler_name = inv.handler
                     info = registry.get(handler_name)
                     assert info is not None, (
-                        f"Control {spec.control_id}: handler '{handler_name}' "
-                        f"not found in registry"
+                        f"Control {spec.control_id}: handler '{handler_name}' not found in registry"
                     )
             else:
                 controls_without_handlers += 1
 
         # Most controls should have handler invocations
-        assert controls_with_handlers > 50, (
-            f"Expected >50 controls with handlers, got {controls_with_handlers}"
-        )
+        assert controls_with_handlers > 50, f"Expected >50 controls with handlers, got {controls_with_handlers}"
 
 
 # =============================================================================
@@ -436,9 +429,18 @@ class TestUseLocatorEffectivePath:
 
         # Known controls that use use_locator=true
         use_locator_controls = {
-            "OSPS-BR-07.01", "OSPS-DO-01.01", "OSPS-DO-02.01", "OSPS-GV-03.01",
-            "OSPS-LE-01.01", "OSPS-LE-03.01", "OSPS-QA-02.01", "OSPS-VM-02.01",
-            "OSPS-GV-01.01", "OSPS-VM-05.03", "OSPS-DO-03.01", "OSPS-SA-03.02",
+            "OSPS-BR-07.01",
+            "OSPS-DO-01.01",
+            "OSPS-DO-02.01",
+            "OSPS-GV-03.01",
+            "OSPS-LE-01.01",
+            "OSPS-LE-03.01",
+            "OSPS-QA-02.01",
+            "OSPS-VM-02.01",
+            "OSPS-GV-01.01",
+            "OSPS-VM-05.03",
+            "OSPS-DO-03.01",
+            "OSPS-SA-03.02",
         }
 
         for ctrl in controls:

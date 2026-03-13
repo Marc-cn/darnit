@@ -16,11 +16,7 @@ class TestCheckResult:
     @pytest.mark.unit
     def test_basic_creation(self):
         """Test basic CheckResult creation."""
-        result = CheckResult(
-            control_id="OSPS-AC-01.01",
-            status=CheckStatus.PASS,
-            message="Control satisfied"
-        )
+        result = CheckResult(control_id="OSPS-AC-01.01", status=CheckStatus.PASS, message="Control satisfied")
         assert result.control_id == "OSPS-AC-01.01"
         assert result.status == CheckStatus.PASS
         assert result.message == "Control satisfied"
@@ -31,11 +27,7 @@ class TestCheckResult:
     def test_to_dict(self):
         """Test CheckResult.to_dict() output format."""
         result = CheckResult(
-            control_id="OSPS-AC-01.01",
-            status=CheckStatus.PASS,
-            message="Control satisfied",
-            level=2,
-            source="sieve"
+            control_id="OSPS-AC-01.01", status=CheckStatus.PASS, message="Control satisfied", level=2, source="sieve"
         )
         d = result.to_dict()
         assert d["id"] == "OSPS-AC-01.01"
@@ -55,7 +47,7 @@ class TestRemediationResult:
             control_id="OSPS-VM-02.01",
             success=True,
             message="Created SECURITY.md",
-            changes_made=["Created SECURITY.md"]
+            changes_made=["Created SECURITY.md"],
         )
         assert result.success is True
         assert len(result.changes_made) == 1
@@ -69,7 +61,7 @@ class TestRemediationResult:
             success=False,
             message="Cannot automate governance structure",
             requires_manual_action=True,
-            manual_steps=["Define governance roles", "Document in GOVERNANCE.md"]
+            manual_steps=["Define governance roles", "Document in GOVERNANCE.md"],
         )
         assert result.success is False
         assert result.requires_manual_action is True
@@ -83,12 +75,7 @@ class TestAuditResult:
     def test_default_values(self):
         """Test AuditResult default values."""
         result = AuditResult(
-            owner="test",
-            repo="test",
-            local_path="/test",
-            level=1,
-            default_branch="main",
-            all_results=[]
+            owner="test", repo="test", local_path="/test", level=1, default_branch="main", all_results=[]
         )
         assert result.summary is None
         assert result.level_compliance is None

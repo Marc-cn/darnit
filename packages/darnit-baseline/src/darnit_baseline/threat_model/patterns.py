@@ -28,7 +28,7 @@ FRAMEWORK_PATTERNS: dict[str, dict[str, Any]] = {
             "api_routes_pages": r"pages/api/.*\.(ts|js)x?$",
             "server_actions": r"['\"]use server['\"]",
             "middleware": r"middleware\.(ts|js)x?$",
-        }
+        },
     },
     "express": {
         "indicators": [
@@ -40,7 +40,7 @@ FRAMEWORK_PATTERNS: dict[str, dict[str, Any]] = {
             "routes": r"app\.(get|post|put|delete|patch|all)\s*\(",
             "middleware": r"app\.use\s*\(",
             "router": r"router\.(get|post|put|delete|patch|all)\s*\(",
-        }
+        },
     },
     "fastapi": {
         "indicators": [
@@ -50,7 +50,7 @@ FRAMEWORK_PATTERNS: dict[str, dict[str, Any]] = {
         "entry_patterns": {
             "routes": r"@(app|router)\.(get|post|put|delete|patch)\s*\(",
             "websocket": r"@(app|router)\.websocket\s*\(",
-        }
+        },
     },
     "django": {
         "indicators": [
@@ -61,7 +61,7 @@ FRAMEWORK_PATTERNS: dict[str, dict[str, Any]] = {
         "entry_patterns": {
             "urls": r"path\s*\(|re_path\s*\(|url\s*\(",
             "views": r"def\s+\w+\s*\(\s*request",
-        }
+        },
     },
     "flask": {
         "indicators": [
@@ -71,14 +71,14 @@ FRAMEWORK_PATTERNS: dict[str, dict[str, Any]] = {
         "entry_patterns": {
             "routes": r"@app\.route\s*\(",
             "blueprint": r"@\w+\.route\s*\(",
-        }
+        },
     },
     "react": {
         "indicators": [
             (None, r"from ['\"]react['\"]"),
             (None, r"import React"),
         ],
-        "entry_patterns": {}
+        "entry_patterns": {},
     },
     "vue": {
         "indicators": [
@@ -86,7 +86,7 @@ FRAMEWORK_PATTERNS: dict[str, dict[str, Any]] = {
             ("nuxt.config.ts", None),
             (None, r"from ['\"]vue['\"]"),
         ],
-        "entry_patterns": {}
+        "entry_patterns": {},
     },
 }
 
@@ -96,47 +96,47 @@ AUTH_PATTERNS: dict[str, dict[str, Any]] = {
     "nextauth": {
         "pattern": r"NextAuth|getServerSession|useSession|authOptions",
         "assets": ["session tokens", "OAuth credentials", "CSRF tokens"],
-        "framework": "nextjs"
+        "framework": "nextjs",
     },
     "clerk": {
         "pattern": r"@clerk/nextjs|ClerkProvider|useAuth|useUser|currentUser",
         "assets": ["JWT tokens", "user metadata", "session"],
-        "framework": "nextjs"
+        "framework": "nextjs",
     },
     "supabase_auth": {
         "pattern": r"createClient.*supabase|supabase\.auth|useSupabaseClient",
         "assets": ["Supabase session", "JWT tokens", "refresh tokens"],
-        "framework": "any"
+        "framework": "any",
     },
     "passport": {
         "pattern": r"passport\.|PassportStrategy|passport\.authenticate",
         "assets": ["session", "OAuth tokens"],
-        "framework": "express"
+        "framework": "express",
     },
     "jwt": {
         "pattern": r"jsonwebtoken|jwt\.sign|jwt\.verify|jose|@auth/core",
         "assets": ["JWT tokens", "signing keys"],
-        "framework": "any"
+        "framework": "any",
     },
     "firebase_auth": {
         "pattern": r"firebase/auth|getAuth\(\)|signInWith|onAuthStateChanged",
         "assets": ["Firebase tokens", "user credentials"],
-        "framework": "any"
+        "framework": "any",
     },
     "auth0": {
         "pattern": r"@auth0|Auth0Provider|useAuth0|auth0\.com",
         "assets": ["Auth0 tokens", "user profile"],
-        "framework": "any"
+        "framework": "any",
     },
     "django_auth": {
         "pattern": r"@login_required|@permission_required|authenticate\(|login\(",
         "assets": ["session", "CSRF token"],
-        "framework": "django"
+        "framework": "django",
     },
     "fastapi_security": {
         "pattern": r"OAuth2PasswordBearer|HTTPBearer|APIKeyHeader|Depends.*security",
         "assets": ["bearer tokens", "API keys"],
-        "framework": "fastapi"
+        "framework": "fastapi",
     },
 }
 
@@ -155,7 +155,7 @@ SENSITIVE_DATA_PATTERNS: dict[str, dict[str, Any]] = {
             r"(driver_license|drivers_license)",
             r"(national_id|id_number)",
         ],
-        "requirements": ["encryption", "access logging", "retention policy", "GDPR compliance"]
+        "requirements": ["encryption", "access logging", "retention policy", "GDPR compliance"],
     },
     "financial": {
         "patterns": [
@@ -165,7 +165,7 @@ SENSITIVE_DATA_PATTERNS: dict[str, dict[str, Any]] = {
             r"(payment|stripe|paypal).*(?:key|secret|token)",
             r"(billing|invoice).*(?:amount|total)",
         ],
-        "requirements": ["PCI-DSS compliance", "tokenization", "audit trail", "encryption"]
+        "requirements": ["PCI-DSS compliance", "tokenization", "audit trail", "encryption"],
     },
     "health": {
         "patterns": [
@@ -174,7 +174,7 @@ SENSITIVE_DATA_PATTERNS: dict[str, dict[str, Any]] = {
             r"(patient|health_)(?:id|data|info)",
             r"(insurance|hipaa)",
         ],
-        "requirements": ["HIPAA compliance", "encryption", "access controls", "audit logging"]
+        "requirements": ["HIPAA compliance", "encryption", "access controls", "audit logging"],
     },
     "authentication": {
         "patterns": [
@@ -184,7 +184,7 @@ SENSITIVE_DATA_PATTERNS: dict[str, dict[str, Any]] = {
             r"(token|auth_token|access_token|refresh_token)",
             r"(bearer|authorization).*(?:header|token)",
         ],
-        "requirements": ["secure storage", "rotation policy", "never log", "encryption"]
+        "requirements": ["secure storage", "rotation policy", "never log", "encryption"],
     },
 }
 
@@ -204,7 +204,7 @@ INJECTION_PATTERNS: dict[str, dict[str, Any]] = {
         ],
         "severity": "critical",
         "cwe": "CWE-89",
-        "recommendation": "Use parameterized queries or ORM"
+        "recommendation": "Use parameterized queries or ORM",
     },
     "command_injection": {
         "patterns": [
@@ -219,7 +219,7 @@ INJECTION_PATTERNS: dict[str, dict[str, Any]] = {
         ],
         "severity": "critical",
         "cwe": "CWE-78",
-        "recommendation": "Avoid shell execution or use strict input validation"
+        "recommendation": "Avoid shell execution or use strict input validation",
     },
     "xss": {
         "patterns": [
@@ -233,7 +233,7 @@ INJECTION_PATTERNS: dict[str, dict[str, Any]] = {
         ],
         "severity": "high",
         "cwe": "CWE-79",
-        "recommendation": "Use framework's built-in escaping, avoid raw HTML rendering"
+        "recommendation": "Use framework's built-in escaping, avoid raw HTML rendering",
     },
     "path_traversal": {
         "patterns": [
@@ -245,7 +245,7 @@ INJECTION_PATTERNS: dict[str, dict[str, Any]] = {
         ],
         "severity": "high",
         "cwe": "CWE-22",
-        "recommendation": "Validate and sanitize file paths, use allowlists"
+        "recommendation": "Validate and sanitize file paths, use allowlists",
     },
     "ssrf": {
         "patterns": [
@@ -257,7 +257,7 @@ INJECTION_PATTERNS: dict[str, dict[str, Any]] = {
         ],
         "severity": "high",
         "cwe": "CWE-918",
-        "recommendation": "Validate URLs against allowlist, block internal IPs"
+        "recommendation": "Validate URLs against allowlist, block internal IPs",
     },
     "code_injection": {
         "patterns": [
@@ -269,7 +269,7 @@ INJECTION_PATTERNS: dict[str, dict[str, Any]] = {
         ],
         "severity": "critical",
         "cwe": "CWE-94",
-        "recommendation": "Avoid dynamic code evaluation entirely"
+        "recommendation": "Avoid dynamic code evaluation entirely",
     },
 }
 
@@ -279,27 +279,27 @@ SECRET_PATTERNS: dict[str, dict[str, Any]] = {
     "hardcoded_secret": {
         "pattern": r"(api[_-]?key|secret|password|token|credential)\s*[=:]\s*['\"][^'\"]{8,}['\"]",
         "severity": "critical",
-        "recommendation": "Use environment variables or secret management"
+        "recommendation": "Use environment variables or secret management",
     },
     "aws_key": {
         "pattern": r"AKIA[0-9A-Z]{16}",
         "severity": "critical",
-        "recommendation": "Rotate AWS credentials immediately"
+        "recommendation": "Rotate AWS credentials immediately",
     },
     "private_key": {
         "pattern": r"-----BEGIN\s+(RSA|DSA|EC|OPENSSH)?\s*PRIVATE KEY-----",
         "severity": "critical",
-        "recommendation": "Remove private keys from code, use secret management"
+        "recommendation": "Remove private keys from code, use secret management",
     },
     "jwt_secret": {
         "pattern": r"jwt[_-]?secret\s*[=:]\s*['\"][^'\"]+['\"]",
         "severity": "critical",
-        "recommendation": "Store JWT secrets in environment variables"
+        "recommendation": "Store JWT secrets in environment variables",
     },
     "database_url": {
         "pattern": r"(postgres|mysql|mongodb)://[^'\"\s]+:[^@'\"\s]+@",
         "severity": "high",
-        "recommendation": "Use environment variables for database credentials"
+        "recommendation": "Use environment variables for database credentials",
     },
 }
 
@@ -346,14 +346,11 @@ DATASTORE_PATTERNS: dict[str, dict[str, Any]] = {
 
 
 # Directories to skip during scanning
-SKIP_DIRECTORIES = [
-    'node_modules', '.git', 'venv', '__pycache__',
-    '.next', 'dist', 'build', '.venv', 'env'
-]
+SKIP_DIRECTORIES = ["node_modules", ".git", "venv", "__pycache__", ".next", "dist", "build", ".venv", "env"]
 
 
 # File extensions to scan
-SOURCE_EXTENSIONS = ('.ts', '.tsx', '.js', '.jsx', '.py', '.go')
+SOURCE_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx", ".py", ".go")
 
 
 __all__ = [

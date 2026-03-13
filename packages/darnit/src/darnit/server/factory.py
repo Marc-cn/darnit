@@ -45,9 +45,7 @@ def _bind_tool_config(handler, config: dict):
 
     # Remove _tool_config from the wrapper signature so FastMCP
     # doesn't expose it as an MCP tool parameter
-    new_params = [
-        p for name, p in sig.parameters.items() if name != "_tool_config"
-    ]
+    new_params = [p for name, p in sig.parameters.items() if name != "_tool_config"]
     wrapper.__signature__ = sig.replace(parameters=new_params)
     return wrapper
 
@@ -153,9 +151,7 @@ def create_server(config_path: str | Path) -> FastMCP:
             logger.warning(f"Failed to load tool '{name}': {e}")
             continue
 
-    logger.info(
-        f"Created MCP server '{server_name}' with {registered_count} tools"
-    )
+    logger.info(f"Created MCP server '{server_name}' with {registered_count} tools")
 
     return server
 

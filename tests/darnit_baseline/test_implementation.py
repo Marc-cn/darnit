@@ -85,6 +85,7 @@ class TestOSPSBaselineImplementation:
             assert "name" in rule or "shortDescription" in rule
             assert "level" in rule
 
+
 class TestHandlerRegistration:
     """Tests for auto-registration of handlers."""
 
@@ -132,6 +133,7 @@ class TestHandlerRegistration:
         assert handler_info is not None
         assert handler_info.plugin == "openssf-baseline"
 
+
 class TestRegisterFunction:
     """Tests for the register() entry point function."""
 
@@ -140,4 +142,3 @@ class TestRegisterFunction:
         """Test register() returns an OSPSBaselineImplementation."""
         impl = register()
         assert isinstance(impl, OSPSBaselineImplementation)
-

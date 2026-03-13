@@ -334,10 +334,12 @@ class TestRegexHandler:
         result = regex_handler(
             {
                 "files": ["ci.yml"],
-                "pattern": {"patterns": {
-                    "runner": "runs-on",
-                    "checkout": "actions/checkout",
-                }},
+                "pattern": {
+                    "patterns": {
+                        "runner": "runs-on",
+                        "checkout": "actions/checkout",
+                    }
+                },
             },
             ctx,
         )

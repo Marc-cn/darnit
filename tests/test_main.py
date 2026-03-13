@@ -97,12 +97,7 @@ class TestAuditWorkflow:
         from darnit_baseline.tools import audit_openssf_baseline
 
         # Provide dummy owner/repo since auto-detect may not work in test env
-        result = audit_openssf_baseline(
-            owner="test",
-            repo="test-repo",
-            local_path=str(test_repo),
-            level=1
-        )
+        result = audit_openssf_baseline(owner="test", repo="test-repo", local_path=str(test_repo), level=1)
 
         # Should mention OSPS controls or audit results
         assert "OSPS" in result or "Level 1" in result or "control" in result.lower() or "Result" in result
@@ -114,54 +109,39 @@ class TestCLI:
     def test_cli_help(self):
         """Test that CLI --help works."""
         import subprocess
-        result = subprocess.run(
-            ["uv", "run", "darnit", "--help"],
-            capture_output=True,
-            text=True
-        )
+
+        result = subprocess.run(["uv", "run", "darnit", "--help"], capture_output=True, text=True)
         assert result.returncode == 0
         assert "darnit" in result.stdout.lower()
 
     def test_cli_serve_help(self):
         """Test that serve subcommand help works."""
         import subprocess
-        result = subprocess.run(
-            ["uv", "run", "darnit", "serve", "--help"],
-            capture_output=True,
-            text=True
-        )
+
+        result = subprocess.run(["uv", "run", "darnit", "serve", "--help"], capture_output=True, text=True)
         assert result.returncode == 0
         assert "framework" in result.stdout.lower()
 
     def test_cli_version(self):
         """Test that --version flag prints the version."""
         import subprocess
-        result = subprocess.run(
-            ["uv", "run", "darnit", "--version"],
-            capture_output=True,
-            text=True
-        )
+
+        result = subprocess.run(["uv", "run", "darnit", "--version"], capture_output=True, text=True)
         assert result.returncode == 0
         assert "darnit" in result.stdout.lower()
 
     def test_cli_version_short_flag(self):
         """Test that -V flag prints the version."""
         import subprocess
-        result = subprocess.run(
-            ["uv", "run", "darnit", "-V"],
-            capture_output=True,
-            text=True
-        )
+
+        result = subprocess.run(["uv", "run", "darnit", "-V"], capture_output=True, text=True)
         assert result.returncode == 0
         assert "darnit" in result.stdout.lower()
 
     def test_cli_list_frameworks(self):
         """Test that list command shows available frameworks."""
         import subprocess
-        result = subprocess.run(
-            ["uv", "run", "darnit", "list"],
-            capture_output=True,
-            text=True
-        )
+
+        result = subprocess.run(["uv", "run", "darnit", "list"], capture_output=True, text=True)
         assert result.returncode == 0
         assert "openssf-baseline" in result.stdout.lower()

@@ -17,12 +17,7 @@ from mcp.client.session import ClientSession
 from mcp.client.stdio import stdio_client
 
 # Path to the openssf-baseline.toml config
-BASELINE_TOML = (
-    Path(__file__).parent.parent.parent
-    / "packages"
-    / "darnit-baseline"
-    / "openssf-baseline.toml"
-)
+BASELINE_TOML = Path(__file__).parent.parent.parent / "packages" / "darnit-baseline" / "openssf-baseline.toml"
 
 
 @pytest.fixture
@@ -30,9 +25,7 @@ def test_repo(tmp_path):
     """Create a minimal test repository for auditing."""
     # Create basic repo structure
     (tmp_path / ".git").mkdir()
-    (tmp_path / ".git" / "config").write_text(
-        "[remote \"origin\"]\n\turl = https://github.com/test-org/test-repo.git\n"
-    )
+    (tmp_path / ".git" / "config").write_text('[remote "origin"]\n\turl = https://github.com/test-org/test-repo.git\n')
     (tmp_path / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
 
     # Create a README

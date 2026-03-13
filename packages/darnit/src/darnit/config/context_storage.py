@@ -292,25 +292,16 @@ def save_context_value(
     mapped_key = key_mapping.get(key)
     if mapped_key is None:
         # Check if it's a new context key we don't have direct storage for yet
-        logger.warning(
-            f"Context key '{key}' does not have direct storage support yet. "
-            "Storing in generic context."
-        )
+        logger.warning(f"Context key '{key}' does not have direct storage support yet. Storing in generic context.")
         # For now, we can't store arbitrary keys in the legacy format
         # This will be addressed when we implement CNCF format support
-        raise ValueError(
-            f"Unknown context key: {key}. "
-            f"Supported keys: {list(key_mapping.keys())}"
-        )
+        raise ValueError(f"Unknown context key: {key}. Supported keys: {list(key_mapping.keys())}")
 
     # Set the value
     setattr(ctx, mapped_key, value)
 
     # Log provenance (even though we can't store it in legacy format)
-    logger.info(
-        f"Saved context {key}={value} "
-        f"(source={source.value}, confidence={confidence})"
-    )
+    logger.info(f"Saved context {key}={value} (source={source.value}, confidence={confidence})")
 
     # Save config
     config_path = save_project_config(config, str(resolved_path))
@@ -529,18 +520,13 @@ def get_pending_context(
         current_value = None
         if detect_pipeline:
             # Primary: handler-based detection from TOML detect pipeline
-            current_value = _run_detect_pipeline(
-                key, detect_pipeline, local_path, owner, repo
-            )
+            current_value = _run_detect_pipeline(key, detect_pipeline, local_path, owner, repo)
         if current_value is None and definition.auto_detect:
             # Fallback: context sieve (hardcoded Python detectors)
             current_value = _try_sieve_detection(key, local_path, owner, repo)
 
         # Auto-accept high-confidence detections without user prompting
-        if (
-            current_value is not None
-            and current_value.confidence >= auto_accept_threshold
-        ):
+        if current_value is not None and current_value.confidence >= auto_accept_threshold:
             current_value.auto_accepted = True
             auto_accepted_keys.append(key)
             logger.debug(
@@ -552,7 +538,9 @@ def get_pending_context(
             # Save auto-accepted value directly
             try:
                 save_context_value(
-                    local_path, key, current_value.value,
+                    local_path,
+                    key,
+                    current_value.value,
                     source=ContextSource.AUTO_DETECTED,
                     detection_method=current_value.detection_method,
                     confidence=current_value.confidence,
@@ -564,13 +552,15 @@ def get_pending_context(
                 auto_accepted_keys.pop()
 
         if key not in auto_accepted_keys:
-            pending.append(ContextPromptRequest(
-                key=key,
-                definition=definition,
-                control_ids=affected,
-                current_value=current_value,
-                priority=len(affected),  # Priority = number of controls affected
-            ))
+            pending.append(
+                ContextPromptRequest(
+                    key=key,
+                    definition=definition,
+                    control_ids=affected,
+                    current_value=current_value,
+                    priority=len(affected),  # Priority = number of controls affected
+                )
+            )
 
     if auto_accepted_keys:
         logger.info(
@@ -676,9 +666,7 @@ def _run_detect_pipeline(
                         confidence=result.confidence,
                     )
                 # Fallback: extract value from evidence
-                detected_value = result.evidence.get("value") or result.evidence.get(
-                    key
-                )
+                detected_value = result.evidence.get("value") or result.evidence.get(key)
                 if detected_value is not None:
                     return ContextValue.auto_detected(
                         value=detected_value,
@@ -689,9 +677,7 @@ def _run_detect_pipeline(
             # INCONCLUSIVE or FAIL — try next handler in pipeline
 
     except ImportError:
-        logger.debug(
-            "Sieve handler registry not available for context detection"
-        )
+        logger.debug("Sieve handler registry not available for context detection")
     except Exception as e:
         logger.warning(f"Context detect pipeline failed for '{key}': {e}")
 

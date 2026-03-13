@@ -22,7 +22,7 @@ class TestBuildUnsignedStatement:
         return {
             "assessor": {"name": "test", "version": "0.1.0"},
             "summary": {"level_assessed": 1, "passed": 10, "failed": 0},
-            "controls": []
+            "controls": [],
         }
 
     @pytest.mark.unit
@@ -32,13 +32,14 @@ class TestBuildUnsignedStatement:
             subject_name="git+https://github.com/test/repo",
             commit="abc123def456",
             predicate_type=BASELINE_PREDICATE_TYPE,
-            predicate=sample_predicate
+            predicate=sample_predicate,
         )
 
         assert len(statement["subject"]) == 1
         subject = statement["subject"][0]
         assert subject["name"] == "git+https://github.com/test/repo"
         assert subject["digest"]["gitCommit"] == "abc123def456"
+
 
 class TestGenerateAttestationFromResults:
     """Tests for generate_attestation_from_results function."""
@@ -59,7 +60,7 @@ class TestGenerateAttestationFromResults:
             summary={"passed": 2, "failed": 0, "warnings": 0},
             level_compliance={1: True},
             commit="abc123def456",
-            ref="main"
+            ref="main",
         )
 
     @pytest.fixture
@@ -75,16 +76,13 @@ class TestGenerateAttestationFromResults:
             summary={},
             level_compliance={},
             commit=None,
-            ref=None
+            ref=None,
         )
 
     @pytest.mark.unit
     def test_no_commit_returns_error(self, audit_result_no_commit):
         """Test that missing commit returns error."""
-        result = generate_attestation_from_results(
-            audit_result=audit_result_no_commit,
-            sign=False
-        )
+        result = generate_attestation_from_results(audit_result=audit_result_no_commit, sign=False)
 
         parsed = json.loads(result)
         assert "error" in parsed
@@ -94,9 +92,7 @@ class TestGenerateAttestationFromResults:
     def test_unsigned_attestation(self, sample_audit_result, temp_dir: Path):
         """Test generating unsigned attestation."""
         result = generate_attestation_from_results(
-            audit_result=sample_audit_result,
-            sign=False,
-            output_path=str(temp_dir / "test.intoto.json")
+            audit_result=sample_audit_result, sign=False, output_path=str(temp_dir / "test.intoto.json")
         )
 
         # Should contain success message
@@ -116,9 +112,7 @@ class TestGenerateAttestationFromResults:
     def test_unsigned_attestation_subject(self, sample_audit_result, temp_dir: Path):
         """Test unsigned attestation has correct subject."""
         generate_attestation_from_results(
-            audit_result=sample_audit_result,
-            sign=False,
-            output_path=str(temp_dir / "test.intoto.json")
+            audit_result=sample_audit_result, sign=False, output_path=str(temp_dir / "test.intoto.json")
         )
 
         with open(temp_dir / "test.intoto.json") as f:
@@ -132,9 +126,7 @@ class TestGenerateAttestationFromResults:
     def test_unsigned_attestation_predicate(self, sample_audit_result, temp_dir: Path):
         """Test unsigned attestation has correct predicate."""
         generate_attestation_from_results(
-            audit_result=sample_audit_result,
-            sign=False,
-            output_path=str(temp_dir / "test.intoto.json")
+            audit_result=sample_audit_result, sign=False, output_path=str(temp_dir / "test.intoto.json")
         )
 
         with open(temp_dir / "test.intoto.json") as f:
@@ -150,10 +142,7 @@ class TestGenerateAttestationFromResults:
     @pytest.mark.unit
     def test_default_output_path(self, sample_audit_result, temp_dir: Path):
         """Test default output path is used."""
-        generate_attestation_from_results(
-            audit_result=sample_audit_result,
-            sign=False
-        )
+        generate_attestation_from_results(audit_result=sample_audit_result, sign=False)
 
         # Default filename
         expected_file = temp_dir / "testrepo-baseline-attestation.intoto.json"
@@ -165,11 +154,7 @@ class TestGenerateAttestationFromResults:
         output_dir = temp_dir / "output"
         output_dir.mkdir()
 
-        generate_attestation_from_results(
-            audit_result=sample_audit_result,
-            sign=False,
-            output_dir=str(output_dir)
-        )
+        generate_attestation_from_results(audit_result=sample_audit_result, sign=False, output_dir=str(output_dir))
 
         expected_file = output_dir / "testrepo-baseline-attestation.intoto.json"
         assert expected_file.exists()
@@ -179,9 +164,7 @@ class TestGenerateAttestationFromResults:
         """Test signing behavior when sigstore not available."""
         # Try to sign - should return unsigned with error if sigstore not available
         result = generate_attestation_from_results(
-            audit_result=sample_audit_result,
-            sign=True,
-            output_path=str(temp_dir / "test.sigstore.json")
+            audit_result=sample_audit_result, sign=True, output_path=str(temp_dir / "test.sigstore.json")
         )
 
         # Result should either be signed attestation or error with unsigned statement

@@ -45,10 +45,7 @@ def _check_ruff_available() -> bool:
 
 
 # Skip all tests in this module if ruff is not available
-pytestmark = pytest.mark.skipif(
-    not _check_ruff_available(),
-    reason="ruff is not installed"
-)
+pytestmark = pytest.mark.skipif(not _check_ruff_available(), reason="ruff is not installed")
 
 
 class TestRuffLint:
@@ -62,8 +59,7 @@ class TestRuffLint:
         if result.returncode != 0:
             output = result.stdout or result.stderr
             pytest.fail(
-                f"Unused imports found (F401). Run 'ruff check --select F401 --fix packages/' to fix.\n\n"
-                f"{output}"
+                f"Unused imports found (F401). Run 'ruff check --select F401 --fix packages/' to fix.\n\n{output}"
             )
 
     @pytest.mark.unit
@@ -73,10 +69,7 @@ class TestRuffLint:
 
         if result.returncode != 0:
             output = result.stdout or result.stderr
-            pytest.fail(
-                f"Unused variables found (F841). Review and remove unused assignments.\n\n"
-                f"{output}"
-            )
+            pytest.fail(f"Unused variables found (F841). Review and remove unused assignments.\n\n{output}")
 
     @pytest.mark.unit
     def test_no_undefined_names(self) -> None:
@@ -85,10 +78,7 @@ class TestRuffLint:
 
         if result.returncode != 0:
             output = result.stdout or result.stderr
-            pytest.fail(
-                f"Undefined names found (F821). Fix missing imports or typos.\n\n"
-                f"{output}"
-            )
+            pytest.fail(f"Undefined names found (F821). Fix missing imports or typos.\n\n{output}")
 
     @pytest.mark.unit
     def test_no_redefined_unused(self) -> None:
@@ -97,7 +87,4 @@ class TestRuffLint:
 
         if result.returncode != 0:
             output = result.stdout or result.stderr
-            pytest.fail(
-                f"Redefined while unused found (F811). Remove duplicate definitions.\n\n"
-                f"{output}"
-            )
+            pytest.fail(f"Redefined while unused found (F811). Remove duplicate definitions.\n\n{output}")

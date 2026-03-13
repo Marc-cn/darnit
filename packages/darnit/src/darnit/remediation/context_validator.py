@@ -43,6 +43,7 @@ class ContextCheckResult:
         prompts: User-friendly prompt messages for missing context
         auto_detected: Values that were auto-detected (may need confirmation)
     """
+
     ready: bool = True
     missing_context: list[str] = field(default_factory=list)
     prompts: list[str] = field(default_factory=list)
@@ -87,10 +88,14 @@ def check_context_requirements(
             definition = _get_context_definition(req.key, framework)
             hint_sources = definition.hint_sources if definition else []
             stale_names = set(hint_sources)
-            stale_names.update({
-                "CODEOWNERS", ".github/CODEOWNERS",
-                "MAINTAINERS", "MAINTAINERS.md",
-            })
+            stale_names.update(
+                {
+                    "CODEOWNERS",
+                    ".github/CODEOWNERS",
+                    "MAINTAINERS",
+                    "MAINTAINERS.md",
+                }
+            )
             if context_value.value in stale_names:
                 logger.info(
                     "Stale file reference '%s' stored for '%s', treating as missing",
@@ -102,9 +107,7 @@ def check_context_requirements(
         # Check 1: Is context missing entirely?
         if context_value is None:
             # NEW: Try context sieve auto-detection before giving up
-            detected_value = _try_sieve_detection(
-                req.key, local_path, owner, repo, framework=framework
-            )
+            detected_value = _try_sieve_detection(req.key, local_path, owner, repo, framework=framework)
 
             if detected_value is not None:
                 # Found via sieve - use it as a ContextValue for consistency
@@ -191,7 +194,9 @@ def format_context_prompt(
     lines.append("")
     lines.append("🚨 **DO NOT** directly edit `.project/` files! Use `confirm_project_context()` instead.")
     lines.append("")
-    lines.append("🛑 **AI Agents:** You MUST ask the user for this value. Do NOT guess or infer from repository owner, git history, or other sources.")
+    lines.append(
+        "🛑 **AI Agents:** You MUST ask the user for this value. Do NOT guess or infer from repository owner, git history, or other sources."
+    )
     lines.append("")
 
     # Warning from requirement
@@ -283,9 +288,9 @@ def format_context_prompt(
         # Show example based on context type
         if definition and definition.examples:
             example = definition.examples[0]
-            lines.append(f'confirm_project_context({context_key}={example})')
+            lines.append(f"confirm_project_context({context_key}={example})")
         else:
-            lines.append(f'confirm_project_context({context_key}=<value>)')
+            lines.append(f"confirm_project_context({context_key}=<value>)")
         lines.append("```")
 
     return "\n".join(lines)

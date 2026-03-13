@@ -95,9 +95,7 @@ class UnifiedLocator:
         if locator_config.project_path:
             result = self._locate_via_config(control_id, locator_config)
             if result.success:
-                logger.debug(
-                    f"Control {control_id}: located via .project/ reference: {result.found.location}"
-                )
+                logger.debug(f"Control {control_id}: located via .project/ reference: {result.found.location}")
                 return result
             searched_locations.extend(result.searched_locations)
 
@@ -105,9 +103,7 @@ class UnifiedLocator:
         if locator_config.discover:
             result = self._locate_via_discovery(control_id, locator_config)
             if result.success:
-                logger.debug(
-                    f"Control {control_id}: located via discovery: {result.found.location}"
-                )
+                logger.debug(f"Control {control_id}: located via discovery: {result.found.location}")
                 # Mark for sync since it was discovered, not in config
                 result.sync_recommended = True
                 result.searched_locations = searched_locations + result.searched_locations
@@ -210,10 +206,7 @@ class UnifiedLocator:
         # We need a ref_path for the discovery function, use a synthetic one
         ref_path = locator_config.project_path or f"locate.{control_id}"
 
-        discovered = discover_files(
-            self.local_path,
-            {ref_path: locator_config.discover}
-        )
+        discovered = discover_files(self.local_path, {ref_path: locator_config.discover})
 
         searched.extend(locator_config.discover)
 
@@ -252,15 +245,11 @@ class UnifiedLocator:
             True if config was updated, False otherwise
         """
         if not locator_config.project_path:
-            logger.debug(
-                f"Control {control_id}: no project_path in locator config, cannot sync"
-            )
+            logger.debug(f"Control {control_id}: no project_path in locator config, cannot sync")
             return False
 
         if not found.path:
-            logger.debug(
-                f"Control {control_id}: found evidence has no path, cannot sync"
-            )
+            logger.debug(f"Control {control_id}: found evidence has no path, cannot sync")
             return False
 
         parts = locator_config.project_path.split(".", 1)
@@ -287,9 +276,7 @@ class UnifiedLocator:
         # Check if already set to same value
         existing_path = config.get_path(section, field)
         if existing_path == found.path:
-            logger.debug(
-                f"Control {control_id}: .project/{section}.{field} already set to {found.path}"
-            )
+            logger.debug(f"Control {control_id}: .project/{section}.{field} already set to {found.path}")
             return False
 
         # Set the path reference
@@ -297,9 +284,7 @@ class UnifiedLocator:
 
         # Save the config
         save_project_config(config, self.local_path)
-        logger.info(
-            f"Updated .project/ with {section}.{field} = {found.path}"
-        )
+        logger.info(f"Updated .project/ with {section}.{field} = {found.path}")
 
         return True
 

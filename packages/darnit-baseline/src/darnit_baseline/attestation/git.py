@@ -21,12 +21,7 @@ def get_git_commit(local_path: str) -> str | None:
         The full commit SHA or None if not a git repository
     """
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=local_path,
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=local_path, capture_output=True, text=True)
         if result.returncode == 0:
             return result.stdout.strip()
     except (subprocess.SubprocessError, FileNotFoundError, OSError):
@@ -46,10 +41,7 @@ def get_git_ref(local_path: str) -> str | None:
     try:
         # Try to get branch name
         result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=local_path,
-            capture_output=True,
-            text=True
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=local_path, capture_output=True, text=True
         )
         if result.returncode == 0:
             ref = result.stdout.strip()
@@ -58,10 +50,7 @@ def get_git_ref(local_path: str) -> str | None:
 
         # Try to get tag if in detached HEAD
         result = subprocess.run(
-            ["git", "describe", "--tags", "--exact-match"],
-            cwd=local_path,
-            capture_output=True,
-            text=True
+            ["git", "describe", "--tags", "--exact-match"], cwd=local_path, capture_output=True, text=True
         )
         if result.returncode == 0:
             return result.stdout.strip()

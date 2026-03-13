@@ -119,6 +119,7 @@ class TestHandlerRegistration:
         assert handler_info is not None
         assert handler_info.plugin == "example-hygiene"
 
+
 class TestRegisterFunction:
     """Tests for the register() entry point function."""
 
@@ -126,4 +127,3 @@ class TestRegisterFunction:
     def test_register_returns_implementation(self):
         impl = register()
         assert isinstance(impl, ExampleHygieneImplementation)
-

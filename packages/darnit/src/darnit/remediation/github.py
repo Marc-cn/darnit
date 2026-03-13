@@ -45,46 +45,50 @@ def detect_workflow_checks(local_path: str) -> list[dict[str, Any]]:
         return checks
 
     for filename in filenames:
-        if not filename.endswith(('.yml', '.yaml')):
+        if not filename.endswith((".yml", ".yaml")):
             continue
 
         filepath = os.path.join(workflow_dir, filename)
         try:
-            with open(filepath, encoding='utf-8') as f:
+            with open(filepath, encoding="utf-8") as f:
                 content = f.read()
 
             workflow = yaml.safe_load(content)
             if workflow and isinstance(workflow, dict):
-                workflow_name = workflow.get('name', filename.replace('.yml', '').replace('.yaml', ''))
-                jobs = workflow.get('jobs', {})
+                workflow_name = workflow.get("name", filename.replace(".yml", "").replace(".yaml", ""))
+                jobs = workflow.get("jobs", {})
 
                 for job_id, job_config in jobs.items():
                     if isinstance(job_config, dict):
-                        job_name = job_config.get('name', job_id)
+                        job_name = job_config.get("name", job_id)
                         # Check for matrix builds
-                        strategy = job_config.get('strategy', {})
-                        matrix = strategy.get('matrix', {})
+                        strategy = job_config.get("strategy", {})
+                        matrix = strategy.get("matrix", {})
 
                         if matrix:
                             # Expand matrix combinations for common patterns
                             for _key, values in matrix.items():
                                 if isinstance(values, list):
                                     for val in values:
-                                        checks.append({
-                                            'workflow': workflow_name,
-                                            'job_id': job_id,
-                                            'job_name': job_name,
-                                            'check_name': f"{job_name} ({val})",
-                                            'source': filename
-                                        })
+                                        checks.append(
+                                            {
+                                                "workflow": workflow_name,
+                                                "job_id": job_id,
+                                                "job_name": job_name,
+                                                "check_name": f"{job_name} ({val})",
+                                                "source": filename,
+                                            }
+                                        )
                         else:
-                            checks.append({
-                                'workflow': workflow_name,
-                                'job_id': job_id,
-                                'job_name': job_name,
-                                'check_name': job_name,
-                                'source': filename
-                            })
+                            checks.append(
+                                {
+                                    "workflow": workflow_name,
+                                    "job_id": job_id,
+                                    "job_name": job_name,
+                                    "check_name": job_name,
+                                    "source": filename,
+                                }
+                            )
         except OSError as e:
             logger.debug(f"Cannot read workflow file {filename}: {e}")
             continue
@@ -105,7 +109,7 @@ def enable_branch_protection(
     require_status_checks: bool = False,
     status_checks: list[str] | None = None,
     local_path: str = ".",
-    dry_run: bool = False
+    dry_run: bool = False,
 ) -> str:
     """
     Enable branch protection rules to satisfy OSPS-AC-03.01, OSPS-AC-03.02, and OSPS-QA-07.01.
@@ -149,11 +153,9 @@ def enable_branch_protection(
                     ref_name = conditions.get("ref_name", {})
                     includes = ref_name.get("include", [])
                     if any(inc in ["~DEFAULT_BRANCH", f"refs/heads/{branch}", branch] for inc in includes):
-                        conflicting_rulesets.append({
-                            "name": rs["name"],
-                            "id": rs["id"],
-                            "rules": rs_detail.get("rules", [])
-                        })
+                        conflicting_rulesets.append(
+                            {"name": rs["name"], "id": rs["id"], "rules": rs_detail.get("rules", [])}
+                        )
 
             if conflicting_rulesets:
                 ruleset_warning = f"""
@@ -163,10 +165,10 @@ The following rulesets target `{branch}`:
 """
                 for rs in conflicting_rulesets:
                     ruleset_warning += f"- **{rs['name']}** (ID: {rs['id']})\n"
-                    for rule in rs['rules']:
-                        if rule.get('type') == 'pull_request':
-                            params = rule.get('parameters', {})
-                            rs_approvals = params.get('required_approving_review_count', 0)
+                    for rule in rs["rules"]:
+                        if rule.get("type") == "pull_request":
+                            params = rule.get("parameters", {})
+                            rs_approvals = params.get("required_approving_review_count", 0)
                             if rs_approvals != required_approvals:
                                 ruleset_warning += f"  - Ruleset requires {rs_approvals} approvals (you requested {required_approvals})\n"
 
@@ -186,7 +188,7 @@ To modify rulesets, go to: Settings → Rules → Rulesets
         "restrictions": None,
         "required_linear_history": False,
         "allow_force_pushes": False,
-        "allow_deletions": False
+        "allow_deletions": False,
     }
 
     # Only require PRs if explicitly enabled
@@ -194,16 +196,13 @@ To modify rulesets, go to: Settings → Rules → Rulesets
         protection_config["required_pull_request_reviews"] = {
             "required_approving_review_count": required_approvals,
             "dismiss_stale_reviews": True,
-            "require_code_owner_reviews": False
+            "require_code_owner_reviews": False,
         }
     else:
         protection_config["required_pull_request_reviews"] = None
 
     if require_status_checks and status_checks:
-        protection_config["required_status_checks"] = {
-            "strict": True,
-            "contexts": status_checks
-        }
+        protection_config["required_status_checks"] = {"strict": True, "contexts": status_checks}
     else:
         protection_config["required_status_checks"] = None
 
@@ -232,9 +231,13 @@ To modify rulesets, go to: Settings → Rules → Rulesets
 
     # Dry run - show what would be configured
     if dry_run:
-        pr_config_display = f"""- Require pull requests: {require_pull_request}
+        pr_config_display = (
+            f"""- Require pull requests: {require_pull_request}
 - Required approvals: {required_approvals}
-- Dismiss stale reviews: Yes""" if require_pull_request else "- Require pull requests: No (direct pushes allowed)"
+- Dismiss stale reviews: Yes"""
+            if require_pull_request
+            else "- Require pull requests: No (direct pushes allowed)"
+        )
 
         return f"""🔍 **DRY RUN** - Branch protection preview for {owner}/{repo}:{branch}
 {ruleset_warning}{compliance_warning}
@@ -266,17 +269,11 @@ To modify rulesets, go to: Settings → Rules → Rulesets
     # "is not an object" errors from GitHub's API
     try:
         result = subprocess.run(
-            [
-                "gh", "api",
-                "-X", "PUT",
-                endpoint,
-                "-H", "Accept: application/vnd.github+json",
-                "--input", "-"
-            ],
+            ["gh", "api", "-X", "PUT", endpoint, "-H", "Accept: application/vnd.github+json", "--input", "-"],
             input=config_json,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
 
         if result.returncode != 0:
@@ -293,9 +290,13 @@ To modify rulesets, go to: Settings → Rules → Rulesets
 
         logger.info(f"Enabled branch protection for {owner}/{repo}:{branch}")
 
-        pr_config_display = f"""- Require pull requests: Yes
+        pr_config_display = (
+            f"""- Require pull requests: Yes
 - Required approvals: {required_approvals}
-- Dismiss stale reviews: Yes""" if require_pull_request else "- Require pull requests: No (direct pushes allowed)"
+- Dismiss stale reviews: Yes"""
+            if require_pull_request
+            else "- Require pull requests: No (direct pushes allowed)"
+        )
 
         return f"""✅ Branch protection enabled for {owner}/{repo}:{branch}
 {ruleset_warning}{compliance_warning}

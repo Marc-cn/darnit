@@ -11,6 +11,7 @@ from typing import Any
 
 class StrideCategory(Enum):
     """STRIDE threat categories."""
+
     SPOOFING = "spoofing"
     TAMPERING = "tampering"
     REPUDIATION = "repudiation"
@@ -21,6 +22,7 @@ class StrideCategory(Enum):
 
 class RiskLevel(Enum):
     """Risk severity levels."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -31,6 +33,7 @@ class RiskLevel(Enum):
 @dataclass
 class CodeLocation:
     """Location of code relevant to a threat."""
+
     file: str
     line_start: int
     line_end: int
@@ -41,6 +44,7 @@ class CodeLocation:
 @dataclass
 class EntryPoint:
     """An API entry point discovered in the codebase."""
+
     id: str
     entry_type: str  # api_route, graphql, websocket, webhook, scheduled, server_action
     path: str
@@ -55,6 +59,7 @@ class EntryPoint:
 @dataclass
 class DataStore:
     """A data storage system detected in the codebase."""
+
     id: str
     store_type: str  # database, cache, file_system, external_storage
     technology: str
@@ -68,6 +73,7 @@ class DataStore:
 @dataclass
 class SensitiveData:
     """A field or variable that may contain sensitive data."""
+
     id: str
     data_type: str  # pii, financial, health, authentication, business
     field_name: str
@@ -79,6 +85,7 @@ class SensitiveData:
 @dataclass
 class SecretReference:
     """A potential secret or credential in the codebase."""
+
     id: str
     secret_type: str  # hardcoded, env_reference
     name: str
@@ -90,6 +97,7 @@ class SecretReference:
 @dataclass
 class AuthMechanism:
     """An authentication mechanism detected in the codebase."""
+
     id: str
     auth_type: str  # nextauth, clerk, supabase, passport, jwt, custom
     file: str
@@ -101,6 +109,7 @@ class AuthMechanism:
 @dataclass
 class RiskScore:
     """Calculated risk score for a threat."""
+
     overall: float
     level: RiskLevel
     likelihood: float
@@ -112,6 +121,7 @@ class RiskScore:
 @dataclass
 class Threat:
     """A security threat identified through STRIDE analysis."""
+
     id: str
     category: StrideCategory
     title: str
@@ -129,6 +139,7 @@ class Threat:
 @dataclass
 class AssetInventory:
     """Inventory of security-relevant assets discovered in the codebase."""
+
     entry_points: list[EntryPoint]
     data_stores: list[DataStore]
     sensitive_data: list[SensitiveData]
@@ -141,6 +152,7 @@ class AssetInventory:
 @dataclass
 class ThreatAnalysis:
     """Complete threat analysis result."""
+
     methodology: str
     threats: list[Threat]
     control_gaps: list[dict[str, Any]]

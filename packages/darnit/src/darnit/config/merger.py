@@ -93,6 +93,7 @@ class EffectiveControl:
     maturity levels or domain categorization. Use the tags dict for
     flexible key-value metadata that can be filtered uniformly.
     """
+
     control_id: str
     name: str
     description: str
@@ -138,6 +139,7 @@ class EffectiveConfig:
 
     This is the runtime configuration used by the audit engine.
     """
+
     # Framework metadata
     framework_name: str
     framework_version: str
@@ -163,20 +165,14 @@ class EffectiveConfig:
 
         Note: Controls without a level (level=None) are not included.
         """
-        return {
-            cid: ctrl for cid, ctrl in self.controls.items()
-            if ctrl.level == level and ctrl.is_applicable()
-        }
+        return {cid: ctrl for cid, ctrl in self.controls.items() if ctrl.level == level and ctrl.is_applicable()}
 
     def get_controls_by_domain(self, domain: str) -> dict[str, EffectiveControl]:
         """Get all applicable controls in a specific domain.
 
         Note: Controls without a domain (domain=None) are not included.
         """
-        return {
-            cid: ctrl for cid, ctrl in self.controls.items()
-            if ctrl.domain == domain and ctrl.is_applicable()
-        }
+        return {cid: ctrl for cid, ctrl in self.controls.items() if ctrl.domain == domain and ctrl.is_applicable()}
 
     def get_excluded_controls(self) -> dict[str, str]:
         """Get all non-applicable controls with reasons."""
@@ -540,9 +536,7 @@ def load_framework_by_name(name: str) -> FrameworkConfig:
         )
 
     if not path.exists():
-        raise FileNotFoundError(
-            f"Framework '{name}' resolved to {path}, but file not found"
-        )
+        raise FileNotFoundError(f"Framework '{name}' resolved to {path}, but file not found")
 
     return load_framework_config(path)
 
@@ -700,10 +694,7 @@ def validate_framework_config(config: FrameworkConfig) -> list[str]:
         # Check adapter references exist
         if control.check and control.check.adapter != "builtin":
             if control.check.adapter not in config.adapters:
-                errors.append(
-                    f"Control {control_id} references unknown adapter: "
-                    f"{control.check.adapter}"
-                )
+                errors.append(f"Control {control_id} references unknown adapter: {control.check.adapter}")
 
     return errors
 
@@ -737,9 +728,7 @@ def validate_user_config(
             if adapter not in user.adapters:
                 # Check framework adapters too
                 if not framework or adapter not in framework.adapters:
-                    errors.append(
-                        f"Control {control_id} references unknown adapter: {adapter}"
-                    )
+                    errors.append(f"Control {control_id} references unknown adapter: {adapter}")
 
     # Check control groups reference valid controls
     if framework:

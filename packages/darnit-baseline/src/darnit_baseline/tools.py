@@ -92,9 +92,7 @@ def audit_openssf_baseline(
     # Auto-detect owner/repo from git (upstream-first by default)
     from darnit.core.utils import detect_owner_repo
 
-    detected_owner, detected_repo = detect_owner_repo(
-        str(repo_path), prefer_upstream=prefer_upstream
-    )
+    detected_owner, detected_repo = detect_owner_repo(str(repo_path), prefer_upstream=prefer_upstream)
     owner = owner or detected_owner
     repo = repo or detected_repo
 
@@ -136,13 +134,16 @@ def audit_openssf_baseline(
 
     # Format output
     if output_format == "json":
-        return json.dumps({
-            "owner": owner,
-            "repo": repo,
-            "level": level,
-            "summary": summary,
-            "results": results,
-        }, indent=2)
+        return json.dumps(
+            {
+                "owner": owner,
+                "repo": repo,
+                "level": level,
+                "summary": summary,
+                "results": results,
+            },
+            indent=2,
+        )
     else:
         compliance = calculate_compliance(results, level)
         return format_results_markdown(
@@ -174,11 +175,13 @@ def list_available_checks() -> str:
         level = control.tags.get("level", 1) if control.tags else 1
         level_key = f"level{level}"
         if level_key in checks:
-            checks[level_key].append({
-                "id": control_id,
-                "name": control.name,
-                "description": control.description[:100] if control.description else "",
-            })
+            checks[level_key].append(
+                {
+                    "id": control_id,
+                    "name": control.name,
+                    "description": control.description[:100] if control.description else "",
+                }
+            )
 
     return json.dumps(checks, indent=2)
 
@@ -205,11 +208,7 @@ def get_project_config(local_path: str = ".") -> str:
     repo_path = Path(local_path).resolve()
 
     if not config_exists(repo_path):
-        return (
-            "No .project.yaml found.\n\n"
-            "To create one, use: init_project_config()\n"
-            "Or run: darnit init"
-        )
+        return "No .project.yaml found.\n\nTo create one, use: init_project_config()\nOr run: darnit init"
 
     try:
         config = _get_config(repo_path)
@@ -266,6 +265,7 @@ def create_security_policy(
         fw_path = None
         try:
             from darnit_baseline import get_framework_path
+
             p = get_framework_path()
             if p:
                 fw_path = str(p)
@@ -538,11 +538,14 @@ def get_pending_context(
         )
 
         if not pending:
-            return json.dumps({
-                "status": "complete",
-                "message": "All context has been confirmed. No additional input needed.",
-                "questions": [],
-            }, indent=2)
+            return json.dumps(
+                {
+                    "status": "complete",
+                    "message": "All context has been confirmed. No additional input needed.",
+                    "questions": [],
+                },
+                indent=2,
+            )
 
         total = len(pending)
 
@@ -625,10 +628,13 @@ def get_pending_context(
         return result
 
     except Exception as e:
-        return json.dumps({
-            "status": "error",
-            "message": f"Error getting pending context: {e}",
-        }, indent=2)
+        return json.dumps(
+            {
+                "status": "error",
+                "message": f"Error getting pending context: {e}",
+            },
+            indent=2,
+        )
 
 
 def _build_context_question(req) -> dict:
@@ -663,31 +669,21 @@ def _build_context_question(req) -> dict:
         question["detection_method"] = method
         question["confidence"] = int(confidence * 100)
         question["auto_accepted"] = getattr(req.current_value, "auto_accepted", False)
-        question["instruction"] = (
-            "Show the detected value and ask the user to confirm or correct it."
-        )
+        question["instruction"] = "Show the detected value and ask the user to confirm or correct it."
         if isinstance(value, list):
-            question["confirm_command"] = (
-                f"confirm_project_context({req.key}={repr(value)})"
-            )
+            question["confirm_command"] = f"confirm_project_context({req.key}={repr(value)})"
         else:
-            question["confirm_command"] = (
-                f'confirm_project_context({req.key}="{value}")'
-            )
+            question["confirm_command"] = f'confirm_project_context({req.key}="{value}")'
 
     elif req.definition.type == "enum" and req.definition.values:
         # Enum type — provide the exact options
         question["input_type"] = "select"
         question["question"] = req.definition.prompt
         question["options"] = req.definition.values
-        question["instruction"] = (
-            "Present ONLY these options. Do NOT add other options."
-        )
+        question["instruction"] = "Present ONLY these options. Do NOT add other options."
         if req.definition.hint:
             question["hint"] = req.definition.hint
-        question["command_template"] = (
-            f'confirm_project_context({req.key}="<selected_value>")'
-        )
+        question["command_template"] = f'confirm_project_context({req.key}="<selected_value>")'
 
     elif req.definition.type == "boolean":
         # Boolean — yes/no only
@@ -697,9 +693,7 @@ def _build_context_question(req) -> dict:
         question["instruction"] = "Ask yes or no. Do NOT add other options."
         if req.definition.hint:
             question["hint"] = req.definition.hint
-        question["command_template"] = (
-            f"confirm_project_context({req.key}=<true_or_false>)"
-        )
+        question["command_template"] = f"confirm_project_context({req.key}=<true_or_false>)"
 
     else:
         # Free text — the user must type their answer
@@ -715,9 +709,7 @@ def _build_context_question(req) -> dict:
             question["hint"] = req.definition.hint
         if req.definition.examples:
             question["example_format"] = req.definition.examples
-        question["command_template"] = (
-            f"confirm_project_context({req.key}=<user_answer>)"
-        )
+        question["command_template"] = f"confirm_project_context({req.key}=<user_answer>)"
 
     # Add ask_user params for interactive presentation (AskUserQuestion)
     ask_user = _build_ask_user_params(req.key, question, req.definition)
@@ -755,10 +747,7 @@ def _build_ask_user_params(key: str, question_dict: dict, definition) -> dict | 
         else:
             # Enum: show up to 4 values, "Other" is always available
             display = getattr(definition, "allowed_values", None) or raw_options
-            options = [
-                {"label": str(v), "description": f"Select '{v}'"}
-                for v in display[:4]
-            ]
+            options = [{"label": str(v), "description": f"Select '{v}'"} for v in display[:4]]
 
         return {
             "question": question_text,
@@ -784,10 +773,7 @@ def _build_ask_user_params(key: str, question_dict: dict, definition) -> dict | 
         # Use examples as options if available
         examples = getattr(definition, "examples", None)
         if examples and isinstance(examples, list) and len(examples) >= 2:
-            options = [
-                {"label": str(ex), "description": f"Use '{ex}'"}
-                for ex in examples[:4]
-            ]
+            options = [{"label": str(ex), "description": f"Use '{ex}'"} for ex in examples[:4]]
             return {
                 "question": question_text,
                 "header": header,
@@ -869,7 +855,9 @@ def generate_threat_model(
         if output_format == "sarif":
             content = json.dumps(generate_sarif_threat_model(str(repo_path), threats), indent=2)
         elif output_format == "json":
-            content = json.dumps(generate_json_summary(str(repo_path), frameworks, assets, threats, control_gaps), indent=2)
+            content = json.dumps(
+                generate_json_summary(str(repo_path), frameworks, assets, threats, control_gaps), indent=2
+            )
         else:
             content = generate_markdown_threat_model(str(repo_path), assets, threats, control_gaps, frameworks)
 
@@ -1150,7 +1138,6 @@ def create_test_repository(
 # =============================================================================
 
 
-
 def _detect_default_branch(repo_path: Path) -> str:
     """Detect the default branch name."""
     import subprocess
@@ -1192,17 +1179,17 @@ def list_org_repos(
     """
     from darnit.tools.audit_org import enumerate_org_repos
 
-    repo_names, error = enumerate_org_repos(
-        owner, include_archived=include_archived
-    )
+    repo_names, error = enumerate_org_repos(owner, include_archived=include_archived)
     if error:
         return json.dumps({"error": error, "repos": [], "count": 0})
 
-    return json.dumps({
-        "owner": owner,
-        "repos": repo_names,
-        "count": len(repo_names),
-    })
+    return json.dumps(
+        {
+            "owner": owner,
+            "repos": repo_names,
+            "count": len(repo_names),
+        }
+    )
 
 
 def audit_org(

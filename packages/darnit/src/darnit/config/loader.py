@@ -38,10 +38,21 @@ PROJECT_FILE = "project.yaml"
 
 # CNCF standard fields (go in project.yaml)
 CNCF_STANDARD_FIELDS = {
-    "name", "description", "schema_version", "type",
-    "maturity_log", "repositories", "website", "artwork",
-    "social", "mailing_lists", "audits",
-    "security", "governance", "legal", "documentation",
+    "name",
+    "description",
+    "schema_version",
+    "type",
+    "maturity_log",
+    "repositories",
+    "website",
+    "artwork",
+    "social",
+    "mailing_lists",
+    "audits",
+    "security",
+    "governance",
+    "legal",
+    "documentation",
 }
 
 
@@ -49,9 +60,11 @@ CNCF_STANDARD_FIELDS = {
 # Extension Registry
 # =============================================================================
 
+
 @dataclass
 class ExtensionSpec:
     """Specification for an extension file."""
+
     filename: str
     schema_key: str  # Key in ProjectConfig (e.g., "x-openssf-baseline")
     header: list[str]  # Comment lines for file header
@@ -112,16 +125,18 @@ _config_cache: dict[str, ProjectConfig] = {}
 # Custom YAML Dumper
 # =============================================================================
 
+
 class CleanDumper(yaml.SafeDumper):
     """YAML dumper with clean multiline string handling."""
+
     pass
 
 
 def _str_representer(dumper: yaml.SafeDumper, data: str) -> yaml.Node:
     """Represent multiline strings with literal block style."""
-    if '\n' in data:
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
-    return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+    if "\n" in data:
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 
 
 CleanDumper.add_representer(str, _str_representer)
@@ -131,10 +146,11 @@ CleanDumper.add_representer(str, _str_representer)
 # Loading Functions
 # =============================================================================
 
+
 def _load_yaml_file(path: str) -> dict[str, Any] | None:
     """Load a YAML file and return its contents."""
     try:
-        with open(path, encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return data if data else None
     except (yaml.YAMLError, OSError) as e:
@@ -194,9 +210,8 @@ def load_project_config(local_path: str) -> ProjectConfig | None:
 # Saving Functions
 # =============================================================================
 
-def _split_config_data(
-    data: dict[str, Any]
-) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+
+def _split_config_data(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     """Split config data into CNCF fields and extension files.
 
     Returns:
@@ -231,7 +246,7 @@ def _split_config_data(
 
 def _write_yaml_file(path: str, data: dict[str, Any], header_lines: list[str]) -> None:
     """Write data to a YAML file with header comments."""
-    with open(path, 'w', encoding='utf-8') as f:
+    with open(path, "w", encoding="utf-8") as f:
         for line in header_lines:
             f.write(f"# {line}\n")
         f.write("\n")
@@ -263,10 +278,7 @@ def save_project_config(config: ProjectConfig, local_path: str) -> str:
 
     # Export config to dict
     data = config.model_dump(
-        mode='json',
-        by_alias=True,
-        exclude_none=True,
-        exclude={'config_path', 'local_path', '_type_exclusions'}
+        mode="json", by_alias=True, exclude_none=True, exclude={"config_path", "local_path", "_type_exclusions"}
     )
 
     # Split data into project.yaml and extension files
@@ -283,7 +295,7 @@ def save_project_config(config: ProjectConfig, local_path: str) -> str:
             "",
             "This file contains standard CNCF .project fields.",
             "Extension fields are in separate files (darnit.yaml, etc.)",
-        ]
+        ],
     )
 
     # Write each extension file
@@ -300,10 +312,8 @@ def save_project_config(config: ProjectConfig, local_path: str) -> str:
 # Utility Functions
 # =============================================================================
 
-def get_project_config(
-    local_path: str,
-    force_reload: bool = False
-) -> ProjectConfig | None:
+
+def get_project_config(local_path: str, force_reload: bool = False) -> ProjectConfig | None:
     """Get project config, using cache if available."""
     abs_path = os.path.abspath(local_path)
 
@@ -323,10 +333,7 @@ def clear_config_cache():
 
 
 def init_project_config(
-    local_path: str,
-    name: str | None = None,
-    project_type: str = "software",
-    description: str = ""
+    local_path: str, name: str | None = None, project_type: str = "software", description: str = ""
 ) -> ProjectConfig:
     """Initialize a new project configuration with discovered values."""
     from darnit.config.discovery import discover_project_name

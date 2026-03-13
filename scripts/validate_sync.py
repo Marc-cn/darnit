@@ -28,9 +28,7 @@ from typing import NamedTuple
 PROJECT_ROOT = Path(__file__).parent.parent
 SPEC_PATH = PROJECT_ROOT / "openspec" / "specs" / "framework-design" / "spec.md"
 TOML_PATH = PROJECT_ROOT / "packages" / "darnit-baseline" / "openssf-baseline.toml"
-FRAMEWORK_SCHEMA_PATH = (
-    PROJECT_ROOT / "packages" / "darnit" / "src" / "darnit" / "config" / "framework_schema.py"
-)
+FRAMEWORK_SCHEMA_PATH = PROJECT_ROOT / "packages" / "darnit" / "src" / "darnit" / "config" / "framework_schema.py"
 GENERATED_DOCS_DIR = PROJECT_ROOT / "docs" / "generated"
 
 
@@ -241,15 +239,7 @@ def validate_sarif_reads_from_toml() -> ValidationResult:
     Returns:
         ValidationResult with pass/fail status
     """
-    sarif_path = (
-        PROJECT_ROOT
-        / "packages"
-        / "darnit-baseline"
-        / "src"
-        / "darnit_baseline"
-        / "formatters"
-        / "sarif.py"
-    )
+    sarif_path = PROJECT_ROOT / "packages" / "darnit-baseline" / "src" / "darnit_baseline" / "formatters" / "sarif.py"
 
     if not sarif_path.exists():
         return ValidationResult(
@@ -348,9 +338,7 @@ def main():
         action="store_true",
         help="Only validate changed files (for pre-commit)",
     )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Show detailed output"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed output")
     args = parser.parse_args()
 
     exit_code = run_validations(verbose=args.verbose)

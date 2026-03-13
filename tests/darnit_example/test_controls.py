@@ -26,9 +26,12 @@ class TestReadmeHasDescription:
     @pytest.mark.unit
     def test_pass_with_description(self, tmp_path):
         """README with substantive content should pass."""
-        ctx = _make_handler_context(tmp_path, {
-            "README.md": "# My Project\n\nThis project provides a tool for managing compliance checks across open source repositories.\n"
-        })
+        ctx = _make_handler_context(
+            tmp_path,
+            {
+                "README.md": "# My Project\n\nThis project provides a tool for managing compliance checks across open source repositories.\n"
+            },
+        )
         result = readme_description_handler({}, ctx)
         assert result.status == HandlerResultStatus.PASS
 
@@ -49,9 +52,12 @@ class TestReadmeHasDescription:
     @pytest.mark.unit
     def test_pattern_pass_with_good_structure(self, tmp_path):
         """README with multiple sections should pass quality check."""
-        ctx = _make_handler_context(tmp_path, {
-            "README.md": "# Project\n\nDescription here.\n\n## Installation\n\npip install it\n\n## Usage\n\nUse it.\n"
-        })
+        ctx = _make_handler_context(
+            tmp_path,
+            {
+                "README.md": "# Project\n\nDescription here.\n\n## Installation\n\npip install it\n\n## Usage\n\nUse it.\n"
+            },
+        )
         result = readme_quality_handler({}, ctx)
         assert result.status == HandlerResultStatus.PASS
 
@@ -62,9 +68,7 @@ class TestCIConfigExists:
     @pytest.mark.unit
     def test_pass_with_github_actions(self, tmp_path):
         """GitHub Actions workflow should be detected."""
-        ctx = _make_handler_context(tmp_path, {
-            ".github/workflows/ci.yml": "name: CI\non: push\n"
-        })
+        ctx = _make_handler_context(tmp_path, {".github/workflows/ci.yml": "name: CI\non: push\n"})
         result = ci_config_handler({}, ctx)
         assert result.status == HandlerResultStatus.PASS
 

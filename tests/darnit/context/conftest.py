@@ -8,9 +8,7 @@ import pytest
 
 # Path to store the tracked hash
 HASH_FILE = Path(__file__).parent.parent.parent.parent / ".github" / "dot-project-spec-hash.txt"
-UPSTREAM_URL = (
-    "https://raw.githubusercontent.com/cncf/automation/main/utilities/dot-project/types.go"
-)
+UPSTREAM_URL = "https://raw.githubusercontent.com/cncf/automation/main/utilities/dot-project/types.go"
 
 
 def pytest_addoption(parser):
@@ -26,7 +24,8 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     """Register the upstream marker."""
     config.addinivalue_line(
-        "markers", "upstream: marks tests that check upstream spec synchronization (deselect with '-m \"not upstream\"')"
+        "markers",
+        "upstream: marks tests that check upstream spec synchronization (deselect with '-m \"not upstream\"')",
     )
 
 

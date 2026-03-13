@@ -233,9 +233,7 @@ class VerificationCache:
                 attestation = AttestationInfo(
                     issuer=data["attestation"].get("issuer"),
                     subject=data["attestation"].get("subject"),
-                    subject_alternative_name=data["attestation"].get(
-                        "subject_alternative_name"
-                    ),
+                    subject_alternative_name=data["attestation"].get("subject_alternative_name"),
                     repository=data["attestation"].get("repository"),
                     workflow=data["attestation"].get("workflow"),
                 )
@@ -255,9 +253,7 @@ class VerificationCache:
             logger.debug(f"Could not read cache for {package_name}: {e}")
             return None
 
-    def set(
-        self, package_name: str, version: str, result: VerificationResult
-    ) -> None:
+    def set(self, package_name: str, version: str, result: VerificationResult) -> None:
         """Cache a verification result.
 
         Args:
@@ -326,7 +322,8 @@ class PluginVerifier:
         """
         self.config = config or VerificationConfig()
         self.cache = VerificationCache(
-            self.config.cache_dir, self.config.cache_ttl  # type: ignore[arg-type]
+            self.config.cache_dir,
+            self.config.cache_ttl,  # type: ignore[arg-type]
         )
         self._sigstore_available: bool | None = None
 
@@ -341,9 +338,7 @@ class PluginVerifier:
             self._sigstore_available = True
         except ImportError:
             self._sigstore_available = False
-            logger.info(
-                "Sigstore not available. Install with: pip install darnit[attestation]"
-            )
+            logger.info("Sigstore not available. Install with: pip install darnit[attestation]")
 
         return self._sigstore_available
 
@@ -371,9 +366,7 @@ class PluginVerifier:
             logger.debug(f"Could not get package info for {package_name}: {e}")
             return None
 
-    def _fetch_pypi_attestation(
-        self, package_name: str, version: str
-    ) -> dict[str, Any] | None:
+    def _fetch_pypi_attestation(self, package_name: str, version: str) -> dict[str, Any] | None:
         """Fetch attestation from PyPI for a package.
 
         PyPI provides attestations via the integrity API for packages
@@ -468,6 +461,7 @@ class PluginVerifier:
                 envelope = provenance["dsseEnvelope"]
                 if "payload" in envelope:
                     import base64
+
                     payload = json.loads(base64.b64decode(envelope["payload"]))
                     predicate = payload.get("predicate", {})
 
@@ -569,9 +563,7 @@ class PluginVerifier:
         except Exception:
             return None
 
-    def _verify_with_sigstore(
-        self, package_name: str, version: str
-    ) -> VerificationResult:
+    def _verify_with_sigstore(self, package_name: str, version: str) -> VerificationResult:
         """Verify package signature using Sigstore.
 
         This fetches attestations from PyPI and verifies them using
@@ -589,18 +581,12 @@ class PluginVerifier:
 
         if attestation_data and attestation_data.get("has_provenance"):
             # Verify the attestation
-            attestation_info = self._verify_attestation_sigstore(
-                attestation_data, package_name
-            )
+            attestation_info = self._verify_attestation_sigstore(attestation_data, package_name)
 
             if attestation_info:
                 # Check if publisher is trusted
                 trusted = self._is_publisher_trusted(attestation_info)
-                publisher = (
-                    attestation_info.subject
-                    or attestation_info.repository
-                    or "unknown"
-                )
+                publisher = attestation_info.subject or attestation_info.repository or "unknown"
 
                 if trusted:
                     return VerificationResult(
@@ -651,9 +637,7 @@ class PluginVerifier:
             warning=f"Package '{package_name}' has no Sigstore attestation",
         )
 
-    def verify_plugin(
-        self, package_name: str, use_cache: bool = True
-    ) -> VerificationResult:
+    def verify_plugin(self, package_name: str, use_cache: bool = True) -> VerificationResult:
         """Verify a plugin package.
 
         Args:
@@ -689,15 +673,9 @@ class PluginVerifier:
         # Log appropriate messages
         if result.verified:
             if result.signed and result.trusted:
-                logger.info(
-                    f"Plugin '{package_name}' verified "
-                    f"(signed by trusted publisher: {result.publisher})"
-                )
+                logger.info(f"Plugin '{package_name}' verified (signed by trusted publisher: {result.publisher})")
             elif result.signed:
-                logger.warning(
-                    f"Plugin '{package_name}' signed by untrusted publisher: "
-                    f"{result.publisher}"
-                )
+                logger.warning(f"Plugin '{package_name}' signed by untrusted publisher: {result.publisher}")
             elif result.warning:
                 logger.warning(result.warning)
         else:
@@ -706,9 +684,7 @@ class PluginVerifier:
 
         return result
 
-    def verify_plugins(
-        self, package_names: list[str]
-    ) -> dict[str, VerificationResult]:
+    def verify_plugins(self, package_names: list[str]) -> dict[str, VerificationResult]:
         """Verify multiple plugin packages.
 
         Args:

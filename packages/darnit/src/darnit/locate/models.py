@@ -32,6 +32,7 @@ class FoundEvidence:
         api_endpoint: API endpoint that was checked (e.g., GitHub API)
         kind: Type of evidence (file, url, api, config)
     """
+
     path: str | None = None
     url: str | None = None
     api_endpoint: str | None = None
@@ -68,6 +69,7 @@ class LocateResult:
         searched_locations: List of locations that were checked
         sync_recommended: Whether the found evidence should be synced to .project/
     """
+
     found: FoundEvidence | None = None
     source: Literal["config", "discovered", "llm", "none"] = "none"
     searched_locations: list[str] = field(default_factory=list)
@@ -113,6 +115,7 @@ class CheckOutput:
         issues: List of issues found
         suggestions: Remediation suggestions
     """
+
     # Core result
     status: Literal["pass", "fail", "error", "inconclusive"]
     message: str

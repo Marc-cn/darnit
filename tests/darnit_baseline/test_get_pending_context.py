@@ -31,12 +31,14 @@ def _make_pending(count: int) -> list[ContextPromptRequest]:
             prompt=f"Question {i + 1}?",
             affects=[f"CTRL-{i + 1:02d}"],
         )
-        items.append(ContextPromptRequest(
-            key=f"key_{i + 1}",
-            definition=defn,
-            control_ids=[f"CTRL-{i + 1:02d}"],
-            priority=count - i,  # highest priority first
-        ))
+        items.append(
+            ContextPromptRequest(
+                key=f"key_{i + 1}",
+                definition=defn,
+                control_ids=[f"CTRL-{i + 1:02d}"],
+                priority=count - i,  # highest priority first
+            )
+        )
     return items
 
 
@@ -271,9 +273,7 @@ class TestAskUserParams:
             definition=defn,
             control_ids=["CTRL-01"],
             priority=1,
-            current_value=ContextValue.auto_detected(
-                value="github", method="detected from .github/workflows/"
-            ),
+            current_value=ContextValue.auto_detected(value="github", method="detected from .github/workflows/"),
         )
         question = _build_context_question(req)
 
@@ -391,12 +391,14 @@ class TestAskUserBatch:
             prompt="Has releases?",
             affects=["CTRL-01"],
         )
-        mock_get.return_value = [ContextPromptRequest(
-            key="has_releases",
-            definition=defn,
-            control_ids=["CTRL-01"],
-            priority=1,
-        )]
+        mock_get.return_value = [
+            ContextPromptRequest(
+                key="has_releases",
+                definition=defn,
+                control_ids=["CTRL-01"],
+                priority=1,
+            )
+        ]
 
         result = get_pending_context(local_path="/tmp/repo")
         data = _parse_json_from_result(result)
@@ -415,13 +417,15 @@ class TestAskUserBatch:
             auto_detect=True,
             affects=["CTRL-01"],
         )
-        mock_get.return_value = [ContextPromptRequest(
-            key="ci_provider",
-            definition=defn,
-            control_ids=["CTRL-01"],
-            priority=1,
-            current_value=ContextValue.auto_detected(value="github", method="detected"),
-        )]
+        mock_get.return_value = [
+            ContextPromptRequest(
+                key="ci_provider",
+                definition=defn,
+                control_ids=["CTRL-01"],
+                priority=1,
+                current_value=ContextValue.auto_detected(value="github", method="detected"),
+            )
+        ]
 
         result = get_pending_context(local_path="/tmp/repo")
         data = _parse_json_from_result(result)
@@ -441,12 +445,14 @@ class TestAskUserBatch:
             prompt="Project name?",
             affects=["CTRL-01"],
         )
-        mock_get.return_value = [ContextPromptRequest(
-            key="project_name",
-            definition=defn,
-            control_ids=["CTRL-01"],
-            priority=1,
-        )]
+        mock_get.return_value = [
+            ContextPromptRequest(
+                key="project_name",
+                definition=defn,
+                control_ids=["CTRL-01"],
+                priority=1,
+            )
+        ]
 
         result = get_pending_context(local_path="/tmp/repo")
         data = _parse_json_from_result(result)
@@ -472,12 +478,14 @@ class TestTomlDefinitionOrder:
                 prompt=f"{key}?",
                 affects=["CTRL-01"],
             )
-            items.append(ContextPromptRequest(
-                key=key,
-                definition=defn,
-                control_ids=["CTRL-01"],
-                priority=10,  # all same priority
-            ))
+            items.append(
+                ContextPromptRequest(
+                    key=key,
+                    definition=defn,
+                    control_ids=["CTRL-01"],
+                    priority=10,  # all same priority
+                )
+            )
         mock_get.return_value = items
 
         result = get_pending_context(local_path="/tmp/repo", limit=0)
@@ -500,12 +508,14 @@ class TestTomlDefinitionOrder:
                 prompt=f"{key}?",
                 affects=["CTRL-01"],
             )
-            items.append(ContextPromptRequest(
-                key=key,
-                definition=defn,
-                control_ids=["CTRL-01"],
-                priority=1,
-            ))
+            items.append(
+                ContextPromptRequest(
+                    key=key,
+                    definition=defn,
+                    control_ids=["CTRL-01"],
+                    priority=1,
+                )
+            )
         mock_get.return_value = items
 
         result = get_pending_context(local_path="/tmp/repo", limit=0)

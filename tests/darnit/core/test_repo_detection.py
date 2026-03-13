@@ -45,9 +45,7 @@ class TestDetectRepoFromGit:
     def test_explicit_owner_repo_short_circuits(self, temp_git_repo: Path):
         """Both owner and repo provided → no subprocess calls."""
         with patch("darnit.core.utils._get_remote_url") as mock_remote:
-            result = detect_repo_from_git(
-                str(temp_git_repo), owner="my-org", repo="my-repo"
-            )
+            result = detect_repo_from_git(str(temp_git_repo), owner="my-org", repo="my-repo")
             mock_remote.assert_not_called()
 
         assert result is not None
@@ -108,9 +106,7 @@ class TestDetectRepoFromGit:
             patch("darnit.core.utils._get_remote_url", side_effect=fake_remote),
             patch("darnit.core.utils._gh_enrich", return_value={}),
         ):
-            result = detect_repo_from_git(
-                str(temp_git_repo), prefer_upstream=False
-            )
+            result = detect_repo_from_git(str(temp_git_repo), prefer_upstream=False)
 
         assert result is not None
         assert result["owner"] == "fork-user"
@@ -158,9 +154,7 @@ class TestDetectRepoFromGit:
             patch("darnit.core.utils._get_remote_url", side_effect=fake_remote),
             patch("darnit.core.utils._gh_enrich", return_value={}),
         ):
-            result = detect_repo_from_git(
-                str(temp_git_repo), owner="explicit-org"
-            )
+            result = detect_repo_from_git(str(temp_git_repo), owner="explicit-org")
 
         assert result is not None
         assert result["owner"] == "explicit-org"
@@ -212,9 +206,7 @@ class TestDetectOwnerRepo:
 
     def test_returns_empty_owner_and_dirname_on_failure(self, temp_git_repo: Path):
         """Returns ("", dir_name) when detection fails."""
-        with patch(
-            "darnit.core.utils.detect_repo_from_git", return_value=None
-        ):
+        with patch("darnit.core.utils.detect_repo_from_git", return_value=None):
             owner, repo = detect_owner_repo(str(temp_git_repo))
 
         assert owner == ""
@@ -222,9 +214,7 @@ class TestDetectOwnerRepo:
 
     def test_passes_prefer_upstream(self, temp_git_repo: Path):
         """prefer_upstream parameter is forwarded."""
-        with patch(
-            "darnit.core.utils.detect_repo_from_git", return_value=None
-        ) as mock:
+        with patch("darnit.core.utils.detect_repo_from_git", return_value=None) as mock:
             detect_owner_repo(str(temp_git_repo), prefer_upstream=False)
             mock.assert_called_once_with(
                 str(temp_git_repo),

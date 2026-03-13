@@ -138,10 +138,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 class AdapterType(str, Enum):
     """Types of adapters for check/remediation execution."""
-    PYTHON = "python"      # Python module + function
-    COMMAND = "command"    # External CLI tool
-    SCRIPT = "script"      # Shell script
-    HTTP = "http"          # REST API endpoint
+
+    PYTHON = "python"  # Python module + function
+    COMMAND = "command"  # External CLI tool
+    SCRIPT = "script"  # Shell script
+    HTTP = "http"  # REST API endpoint
 
 
 # =============================================================================
@@ -151,6 +152,7 @@ class AdapterType(str, Enum):
 
 class PythonAdapterConfig(BaseModel):
     """Configuration for Python module-based adapters."""
+
     type: AdapterType = AdapterType.PYTHON
     module: str  # e.g., "darnit_baseline.tools"
     class_name: str | None = Field(default=None, alias="class")
@@ -170,6 +172,7 @@ class CommandAdapterConfig(BaseModel):
     # batch_controls = true        # Single run serves multiple controls
     # ```
     """
+
     type: AdapterType = AdapterType.COMMAND
     command: str  # e.g., "kusari", "trivy"
     output_format: str = "json"  # json, text, sarif
@@ -182,6 +185,7 @@ class CommandAdapterConfig(BaseModel):
 
 class ScriptAdapterConfig(BaseModel):
     """Configuration for shell script adapters."""
+
     type: AdapterType = AdapterType.SCRIPT
     command: str  # e.g., "./scripts/check.sh"
     output_format: str = "json"
@@ -192,6 +196,7 @@ class ScriptAdapterConfig(BaseModel):
 
 class HttpAdapterConfig(BaseModel):
     """Configuration for HTTP API adapters."""
+
     type: AdapterType = AdapterType.HTTP
     endpoint: str  # e.g., "https://api.example.com/check"
     method: str = "POST"
@@ -216,7 +221,6 @@ AdapterConfig = (
 # =============================================================================
 
 
-
 class HandlerInvocation(BaseModel):
     """A single handler call within a pipeline phase.
 
@@ -237,6 +241,7 @@ class HandlerInvocation(BaseModel):
         expr = "..."
         ```
     """
+
     # Handler name (registered in the sieve handler registry)
     handler: str
 
@@ -274,6 +279,7 @@ class LocatorLLMHints(BaseModel):
         look_for_urls = true
         ```
     """
+
     # Keywords to search for in the codebase
     search_for: str | None = None
 
@@ -307,6 +313,7 @@ class LocatorConfig(BaseModel):
         look_for_urls = true
         ```
     """
+
     # .project/ field reference (e.g., "security.policy", "governance.contributing")
     # Uses dot notation: section.field
     project_path: str | None = None
@@ -344,6 +351,7 @@ class OutputMapping(BaseModel):
         found_path = "$.checks.BranchProtection.details.url"
         ```
     """
+
     # JSONPath to extract pass/fail status (bool or "pass"/"fail" string)
     status_path: str | None = None
 
@@ -416,6 +424,7 @@ class CheckConfig(BaseModel):
     # The 'extract' field would be a JSONPath or dot-notation path to extract
     # the specific result from the cached tool output.
     """
+
     adapter: str = "builtin"  # Adapter name
     handler: str | None = None  # Specific handler function
     config: dict[str, Any] = Field(default_factory=dict)  # Adapter-specific config
@@ -448,6 +457,7 @@ class RemediationConfig(BaseModel):
         template = "security_policy"
         ```
     """
+
     # Flat ordered list of remediation handler invocations
     handlers: list[HandlerInvocation] = Field(default_factory=list)
 
@@ -474,7 +484,6 @@ class RemediationConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
-
 class ProjectUpdateRemediationConfig(BaseModel):
     """Configuration for .project/ file update remediation.
 
@@ -491,6 +500,7 @@ class ProjectUpdateRemediationConfig(BaseModel):
     - "security.policy.path" -> updates security.policy.path in project.yaml
     - "governance.codeowners.path" -> updates governance.codeowners.path
     """
+
     # Values to set in .project/project.yaml
     # Keys are dotted paths, values are the new values
     set: dict[str, Any] = Field(default_factory=dict)
@@ -499,7 +509,6 @@ class ProjectUpdateRemediationConfig(BaseModel):
     create_if_missing: bool = True
 
     model_config = ConfigDict(extra="allow")
-
 
 
 # =============================================================================
@@ -530,6 +539,7 @@ class SharedHandlerConfig(BaseModel):
         expr = "json.required_pull_request_reviews != null"
         ```
     """
+
     # Handler name (registered in the sieve handler registry)
     handler: str
 
@@ -559,6 +569,7 @@ class OnPassConfig(BaseModel):
         project_update = { "security.policy.path" = "SECURITY.md" }
         ```
     """
+
     # Values to set in .project/project.yaml on pass
     # Keys are dotted paths, values are literals or $EVIDENCE references
     project_update: dict[str, Any] = Field(default_factory=dict)
@@ -594,6 +605,7 @@ class TemplateConfig(BaseModel):
         '''
         ```
     """
+
     # Template content (inline)
     content: str | None = None
 
@@ -609,13 +621,9 @@ class TemplateConfig(BaseModel):
     def _check_content_or_file(self) -> "TemplateConfig":
         """Validate that exactly one of ``content`` or ``file`` is set."""
         if self.content and self.file:
-            raise ValueError(
-                "Template must have either 'content' or 'file', not both"
-            )
+            raise ValueError("Template must have either 'content' or 'file', not both")
         if not self.content and not self.file:
-            raise ValueError(
-                "Template must have either 'content' or 'file'"
-            )
+            raise ValueError("Template must have either 'content' or 'file'")
         return self
 
 
@@ -656,6 +664,7 @@ class ControlConfig(BaseModel):
         steps = ["Enable branch protection for the default branch"]
         ```
     """
+
     # Required fields
     name: str
     description: str
@@ -764,6 +773,7 @@ class ContextDefinitionConfig(BaseModel):
         allow_sieve_hints = true
         ```
     """
+
     # Type of the context value (for validation)
     type: str  # boolean, string, enum, list, path, list_or_path, email, url
 
@@ -842,6 +852,7 @@ class ContextRequirement(BaseModel):
     3. If context confidence < threshold → prompt user
     4. Otherwise → proceed with remediation
     """
+
     # Context key name (e.g., "maintainers", "has_releases")
     key: str
 
@@ -887,6 +898,7 @@ class FrameworkContextConfig(BaseModel):
         affects = ["OSPS-GV-01.01"]
         ```
     """
+
     # Confidence threshold for auto-accepting detected context values.
     # Values with confidence >= this threshold are auto-accepted without
     # user confirmation. Set to 1.0 to force manual confirmation for all fields.
@@ -946,11 +958,7 @@ class FrameworkContextConfig(BaseModel):
 
     def get_definitions_for_control(self, control_id: str) -> dict[str, ContextDefinitionConfig]:
         """Get all context definitions that affect a specific control."""
-        return {
-            key: defn
-            for key, defn in self.definitions.items()
-            if control_id in defn.affects
-        }
+        return {key: defn for key, defn in self.definitions.items() if control_id in defn.affects}
 
     def get_all_affected_controls(self) -> set:
         """Get all control IDs that are affected by context."""
@@ -989,6 +997,7 @@ class PluginConfig(BaseModel):
         trusted_publishers list specifies GitHub organizations/users whose
         signatures are trusted.
     """
+
     # Version constraint (pip-style specifier)
     # Examples: ">=1.0.0", ">=1.0.0,<2.0.0", "==1.2.3"
     version: str | None = None
@@ -1030,6 +1039,7 @@ class PluginsConfig(BaseModel):
         allow_unsigned = true
         ```
     """
+
     # Dictionary of plugin name -> configuration
     plugins: dict[str, PluginConfig] = Field(default_factory=dict)
 
@@ -1127,6 +1137,7 @@ class PluginsConfig(BaseModel):
 
 class FrameworkDefaults(BaseModel):
     """Default settings for the framework."""
+
     check_adapter: str = "builtin"
     remediation_adapter: str = "builtin"
 
@@ -1151,6 +1162,7 @@ class FrameworkMetadata(BaseModel):
     - Breaking changes may occur between minor versions
     - Framework authors should expect to update their TOML files
     """
+
     name: str  # e.g., "openssf-baseline"
     display_name: str  # e.g., "OpenSSF Baseline"
     version: str  # e.g., "0.1.0"
@@ -1200,6 +1212,7 @@ class FrameworkConfig(BaseModel):
         description = "Prevent direct commits to primary branch"
         ```
     """
+
     # Framework identification
     metadata: FrameworkMetadata
 
@@ -1238,22 +1251,14 @@ class FrameworkConfig(BaseModel):
 
         Note: Controls without a level (level=None) are not included.
         """
-        return {
-            control_id: control
-            for control_id, control in self.controls.items()
-            if control.level == level
-        }
+        return {control_id: control for control_id, control in self.controls.items() if control.level == level}
 
     def get_controls_by_domain(self, domain: str) -> dict[str, ControlConfig]:
         """Get all controls in a specific domain.
 
         Note: Controls without a domain (domain=None) are not included.
         """
-        return {
-            control_id: control
-            for control_id, control in self.controls.items()
-            if control.domain == domain
-        }
+        return {control_id: control for control_id, control in self.controls.items() if control.domain == domain}
 
     def get_adapter_config(self, name: str) -> AdapterConfig | None:
         """Get adapter configuration by name."""

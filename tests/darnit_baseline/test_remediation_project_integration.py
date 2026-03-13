@@ -48,8 +48,8 @@ schema_version: "1.0"
     if control_overrides:
         controls_yaml = "\n".join(
             f"""  {ctrl_id}:
-    status: {info['status']}
-    reason: "{info['reason']}" """
+    status: {info["status"]}
+    reason: "{info["reason"]}" """
             for ctrl_id, info in control_overrides.items()
         )
         darnit_yaml = f"""# .project/darnit.yaml - Darnit Extension
@@ -73,7 +73,7 @@ class TestProjectConfigIntegration:
             tmp_path,
             control_overrides={
                 "OSPS-VM-02.01": {"status": "n/a", "reason": "Security policy exists in parent organization"},
-            }
+            },
         )
 
         result = _apply_control_remediation(
@@ -94,7 +94,7 @@ class TestProjectConfigIntegration:
             tmp_path,
             control_overrides={
                 "OSPS-VM-01.01": {"status": "n/a", "reason": "Only this one is N/A"},
-            }
+            },
         )
 
         result = _apply_control_remediation(
@@ -127,7 +127,7 @@ class TestProjectConfigIntegration:
             tmp_path,
             control_overrides={
                 "OSPS-VM-02.01": {"status": "enabled", "reason": "Explicitly enabled"},
-            }
+            },
         )
 
         result = _apply_control_remediation(
@@ -151,7 +151,7 @@ class TestDeclarativeRemediationWithProjectConfig:
             tmp_path,
             control_overrides={
                 "OSPS-GV-03.01": {"status": "n/a", "reason": "Contributing guide maintained externally"},
-            }
+            },
         )
 
         result = _apply_control_remediation(

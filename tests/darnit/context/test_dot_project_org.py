@@ -70,9 +70,7 @@ security:
             patch.object(
                 resolver,
                 "_fetch_file_content",
-                side_effect=lambda owner, path: project_yaml
-                if path == "project.yaml"
-                else None,
+                side_effect=lambda owner, path: project_yaml if path == "project.yaml" else None,
             ),
         ):
             config = resolver.resolve("test-org")

@@ -25,10 +25,12 @@ class TestEnumerateOrgRepos:
             MagicMock(returncode=0),  # auth check
             MagicMock(
                 returncode=0,
-                stdout=json.dumps([
-                    {"name": "repo-a", "isArchived": False},
-                    {"name": "repo-b", "isArchived": False},
-                ]),
+                stdout=json.dumps(
+                    [
+                        {"name": "repo-a", "isArchived": False},
+                        {"name": "repo-b", "isArchived": False},
+                    ]
+                ),
             ),
         ]
         repos, error = enumerate_org_repos("my-org")
@@ -42,10 +44,12 @@ class TestEnumerateOrgRepos:
             MagicMock(returncode=0),
             MagicMock(
                 returncode=0,
-                stdout=json.dumps([
-                    {"name": "active", "isArchived": False},
-                    {"name": "archived", "isArchived": True},
-                ]),
+                stdout=json.dumps(
+                    [
+                        {"name": "active", "isArchived": False},
+                        {"name": "archived", "isArchived": True},
+                    ]
+                ),
             ),
         ]
         repos, error = enumerate_org_repos("my-org")
@@ -59,10 +63,12 @@ class TestEnumerateOrgRepos:
             MagicMock(returncode=0),
             MagicMock(
                 returncode=0,
-                stdout=json.dumps([
-                    {"name": "active", "isArchived": False},
-                    {"name": "archived", "isArchived": True},
-                ]),
+                stdout=json.dumps(
+                    [
+                        {"name": "active", "isArchived": False},
+                        {"name": "archived", "isArchived": True},
+                    ]
+                ),
             ),
         ]
         repos, error = enumerate_org_repos("my-org", include_archived=True)
@@ -76,11 +82,13 @@ class TestEnumerateOrgRepos:
             MagicMock(returncode=0),
             MagicMock(
                 returncode=0,
-                stdout=json.dumps([
-                    {"name": "repo-a", "isArchived": False},
-                    {"name": "repo-b", "isArchived": False},
-                    {"name": "repo-c", "isArchived": False},
-                ]),
+                stdout=json.dumps(
+                    [
+                        {"name": "repo-a", "isArchived": False},
+                        {"name": "repo-b", "isArchived": False},
+                        {"name": "repo-c", "isArchived": False},
+                    ]
+                ),
             ),
         ]
         repos, error = enumerate_org_repos("my-org", repos=["repo-a", "repo-c"])
@@ -94,9 +102,11 @@ class TestEnumerateOrgRepos:
             MagicMock(returncode=0),
             MagicMock(
                 returncode=0,
-                stdout=json.dumps([
-                    {"name": "repo-a", "isArchived": False},
-                ]),
+                stdout=json.dumps(
+                    [
+                        {"name": "repo-a", "isArchived": False},
+                    ]
+                ),
             ),
         ]
         repos, error = enumerate_org_repos("my-org", repos=["repo-a", "missing"])
@@ -161,6 +171,7 @@ class TestCloneRepo:
     def test_timeout(self, mock_run, tmp_path):
         """Returns False on timeout."""
         import subprocess
+
         mock_run.side_effect = subprocess.TimeoutExpired("gh", 120)
         assert clone_repo("org", "repo", str(tmp_path / "repo")) is False
 

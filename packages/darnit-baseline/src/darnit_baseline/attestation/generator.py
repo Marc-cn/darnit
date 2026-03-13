@@ -24,10 +24,7 @@ BASELINE_PREDICATE_TYPE = "https://openssf.org/baseline/assessment/v1"
 
 
 def build_unsigned_statement(
-    subject_name: str,
-    commit: str,
-    predicate_type: str,
-    predicate: dict[str, Any]
+    subject_name: str, commit: str, predicate_type: str, predicate: dict[str, Any]
 ) -> dict[str, Any]:
     """Build an unsigned in-toto statement.
 
@@ -44,7 +41,7 @@ def build_unsigned_statement(
         "_type": "https://in-toto.io/Statement/v1",
         "subject": [{"name": subject_name, "digest": {"gitCommit": commit}}],
         "predicateType": predicate_type,
-        "predicate": predicate
+        "predicate": predicate,
     }
 
 
@@ -53,7 +50,7 @@ def generate_attestation_from_results(
     sign: bool = True,
     staging: bool = False,
     output_path: str | None = None,
-    output_dir: str | None = None
+    output_dir: str | None = None,
 ) -> str:
     """Generate attestation from audit results.
 
@@ -68,9 +65,7 @@ def generate_attestation_from_results(
         JSON string with attestation or error message
     """
     if not audit_result.commit:
-        return json.dumps({
-            "error": "Could not determine git commit. Is this a git repository?"
-        }, indent=2)
+        return json.dumps({"error": "Could not determine git commit. Is this a git repository?"}, indent=2)
 
     # Build the predicate
     predicate = build_assessment_predicate(
@@ -81,7 +76,7 @@ def generate_attestation_from_results(
         level=audit_result.level,
         results=audit_result.all_results,
         project_config=audit_result.project_config,
-        adapters_used=["builtin"]
+        adapters_used=["builtin"],
     )
 
     predicate_type = BASELINE_PREDICATE_TYPE
@@ -89,13 +84,14 @@ def generate_attestation_from_results(
 
     if sign:
         if not ATTESTATION_AVAILABLE:
-            unsigned = build_unsigned_statement(
-                subject_name, audit_result.commit, predicate_type, predicate
+            unsigned = build_unsigned_statement(subject_name, audit_result.commit, predicate_type, predicate)
+            return json.dumps(
+                {
+                    "error": "Signing requires optional dependencies. Install with: pip install baseline-mcp[attestation]",
+                    "unsigned_statement": unsigned,
+                },
+                indent=2,
             )
-            return json.dumps({
-                "error": "Signing requires optional dependencies. Install with: pip install baseline-mcp[attestation]",
-                "unsigned_statement": unsigned
-            }, indent=2)
 
         try:
             bundle = sign_attestation(
@@ -103,22 +99,21 @@ def generate_attestation_from_results(
                 predicate_type=predicate_type,
                 subject_name=subject_name,
                 commit=audit_result.commit,
-                use_staging=staging
+                use_staging=staging,
             )
             output = json.dumps(bundle, indent=2)
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            unsigned = build_unsigned_statement(
-                subject_name, audit_result.commit, predicate_type, predicate
+            unsigned = build_unsigned_statement(subject_name, audit_result.commit, predicate_type, predicate)
+            return json.dumps(
+                {
+                    "error": f"Signing failed: {str(e)}",
+                    "hint": "In CI, ensure 'id-token: write' permission is set. Locally, ensure browser access for OIDC.",
+                    "unsigned_statement": unsigned,
+                },
+                indent=2,
             )
-            return json.dumps({
-                "error": f"Signing failed: {str(e)}",
-                "hint": "In CI, ensure 'id-token: write' permission is set. Locally, ensure browser access for OIDC.",
-                "unsigned_statement": unsigned
-            }, indent=2)
     else:
-        unsigned = build_unsigned_statement(
-            subject_name, audit_result.commit, predicate_type, predicate
-        )
+        unsigned = build_unsigned_statement(subject_name, audit_result.commit, predicate_type, predicate)
         output = json.dumps(unsigned, indent=2)
 
     # Determine output file path
@@ -131,14 +126,13 @@ def generate_attestation_from_results(
     # Save the attestation
     try:
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             f.write(output)
         return f"✅ Attestation saved to: {output_path}\n\n{output}"
     except OSError as e:
-        return json.dumps({
-            "error": f"Failed to write to {output_path}: {e}",
-            "attestation": json.loads(output)
-        }, indent=2)
+        return json.dumps(
+            {"error": f"Failed to write to {output_path}: {e}", "attestation": json.loads(output)}, indent=2
+        )
 
 
 __all__ = [

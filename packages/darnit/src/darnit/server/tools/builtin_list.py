@@ -65,10 +65,7 @@ async def builtin_list_controls(
 
     registry = get_control_registry()
     toml_ids = {c.control_id for c in toml_controls}
-    python_controls = [
-        spec for spec in registry.get_all_specs()
-        if spec.control_id not in toml_ids
-    ]
+    python_controls = [spec for spec in registry.get_all_specs() if spec.control_id not in toml_ids]
 
     all_controls = toml_controls + python_controls
     all_controls.sort(key=lambda c: c.control_id)
@@ -79,12 +76,14 @@ async def builtin_list_controls(
         lvl = control.level or 0
         if lvl not in by_level:
             by_level[lvl] = []
-        by_level[lvl].append({
-            "id": control.control_id,
-            "name": control.name,
-            "description": control.description,
-            "domain": control.domain or "",
-        })
+        by_level[lvl].append(
+            {
+                "id": control.control_id,
+                "name": control.name,
+                "description": control.description,
+                "domain": control.domain or "",
+            }
+        )
 
     result = {
         "framework": _framework_name,

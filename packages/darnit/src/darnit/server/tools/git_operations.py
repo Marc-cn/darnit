@@ -10,9 +10,7 @@ from darnit.core.utils import validate_local_path
 
 
 def create_remediation_branch_impl(
-    branch_name: str = "fix/compliance",
-    local_path: str = ".",
-    base_branch: str | None = None
+    branch_name: str = "fix/compliance", local_path: str = ".", base_branch: str | None = None
 ) -> str:
     """Create a new branch for remediation work.
 
@@ -32,10 +30,7 @@ def create_remediation_branch_impl(
         # Get current branch if base not specified
         if not base_branch:
             result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=resolved_path,
-                capture_output=True,
-                text=True
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=resolved_path, capture_output=True, text=True
             )
             if result.returncode != 0:
                 return "❌ Error: Not a git repository or git not available"
@@ -43,19 +38,11 @@ def create_remediation_branch_impl(
 
         # Check if branch already exists
         result = subprocess.run(
-            ["git", "rev-parse", "--verify", branch_name],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
+            ["git", "rev-parse", "--verify", branch_name], cwd=resolved_path, capture_output=True, text=True
         )
         if result.returncode == 0:
             # Branch exists, check it out
-            result = subprocess.run(
-                ["git", "checkout", branch_name],
-                cwd=resolved_path,
-                capture_output=True,
-                text=True
-            )
+            result = subprocess.run(["git", "checkout", branch_name], cwd=resolved_path, capture_output=True, text=True)
             if result.returncode != 0:
                 return f"❌ Error checking out existing branch: {result.stderr.strip()}"
             return f"""✅ Switched to existing branch '{branch_name}'
@@ -68,10 +55,7 @@ def create_remediation_branch_impl(
 
         # Create and checkout new branch
         result = subprocess.run(
-            ["git", "checkout", "-b", branch_name],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
+            ["git", "checkout", "-b", branch_name], cwd=resolved_path, capture_output=True, text=True
         )
         if result.returncode != 0:
             return f"❌ Error creating branch: {result.stderr.strip()}"
@@ -92,11 +76,7 @@ def create_remediation_branch_impl(
         return f"❌ Error: {str(e)}"
 
 
-def commit_remediation_changes_impl(
-    local_path: str = ".",
-    message: str | None = None,
-    add_all: bool = True
-) -> str:
+def commit_remediation_changes_impl(local_path: str = ".", message: str | None = None, add_all: bool = True) -> str:
     """Commit remediation changes with a descriptive message.
 
     Args:
@@ -113,12 +93,7 @@ def commit_remediation_changes_impl(
 
     try:
         # Check for changes
-        result = subprocess.run(
-            ["git", "status", "--porcelain"],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run(["git", "status", "--porcelain"], cwd=resolved_path, capture_output=True, text=True)
         if result.returncode != 0:
             return "❌ Error: Not a git repository"
 
@@ -128,7 +103,7 @@ def commit_remediation_changes_impl(
 
         # Parse changed files for commit message
         changed_files = []
-        for line in changes.split('\n'):
+        for line in changes.split("\n"):
             if line.strip():
                 # Format: "XY filename" where XY is status
                 parts = line.split(None, 1)
@@ -137,12 +112,7 @@ def commit_remediation_changes_impl(
 
         # Stage changes
         if add_all:
-            result = subprocess.run(
-                ["git", "add", "-A"],
-                cwd=resolved_path,
-                capture_output=True,
-                text=True
-            )
+            result = subprocess.run(["git", "add", "-A"], cwd=resolved_path, capture_output=True, text=True)
             if result.returncode != 0:
                 return f"❌ Error staging changes: {result.stderr.strip()}"
 
@@ -179,10 +149,7 @@ Applied via darnit compliance server."""
 
         # Commit
         result = subprocess.run(
-            ["git", "commit", "-m", full_message],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
+            ["git", "commit", "-m", full_message], cwd=resolved_path, capture_output=True, text=True
         )
         if result.returncode != 0:
             error_msg = result.stderr.strip()
@@ -192,15 +159,12 @@ Applied via darnit compliance server."""
 
         # Get commit hash
         result = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
+            ["git", "rev-parse", "--short", "HEAD"], cwd=resolved_path, capture_output=True, text=True
         )
         commit_hash = result.stdout.strip() if result.returncode == 0 else "unknown"
 
-        files_list = '\n'.join(f'  - {f}' for f in changed_files[:10])
-        more_files = f'\n  ... and {len(changed_files) - 10} more' if len(changed_files) > 10 else ''
+        files_list = "\n".join(f"  - {f}" for f in changed_files[:10])
+        more_files = f"\n  ... and {len(changed_files) - 10} more" if len(changed_files) > 10 else ""
 
         return f"""✅ Changes committed successfully
 
@@ -226,7 +190,7 @@ def create_remediation_pr_impl(
     title: str | None = None,
     body: str | None = None,
     base_branch: str | None = None,
-    draft: bool = False
+    draft: bool = False,
 ) -> str:
     """Create a pull request for remediation changes.
 
@@ -247,10 +211,7 @@ def create_remediation_pr_impl(
     try:
         # Get current branch
         result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=resolved_path, capture_output=True, text=True
         )
         if result.returncode != 0:
             return "❌ Error: Not a git repository"
@@ -265,10 +226,7 @@ Create a remediation branch first:
 
         # Push branch to remote
         result = subprocess.run(
-            ["git", "push", "-u", "origin", current_branch],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
+            ["git", "push", "-u", "origin", current_branch], cwd=resolved_path, capture_output=True, text=True
         )
         if result.returncode != 0:
             error_msg = result.stderr.strip()
@@ -278,22 +236,16 @@ Create a remediation branch first:
         # Get list of commits on this branch vs base
         base = base_branch or "main"
         result = subprocess.run(
-            ["git", "log", f"{base}..HEAD", "--oneline"],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
+            ["git", "log", f"{base}..HEAD", "--oneline"], cwd=resolved_path, capture_output=True, text=True
         )
-        commits = result.stdout.strip().split('\n') if result.returncode == 0 else []
+        commits = result.stdout.strip().split("\n") if result.returncode == 0 else []
         commits = [c for c in commits if c.strip()]
 
         # Get changed files
         result = subprocess.run(
-            ["git", "diff", "--name-only", f"{base}..HEAD"],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
+            ["git", "diff", "--name-only", f"{base}..HEAD"], cwd=resolved_path, capture_output=True, text=True
         )
-        changed_files = result.stdout.strip().split('\n') if result.returncode == 0 else []
+        changed_files = result.stdout.strip().split("\n") if result.returncode == 0 else []
         changed_files = [f for f in changed_files if f.strip()]
 
         # Generate title if not provided
@@ -328,7 +280,7 @@ This PR addresses compliance requirements.
                     file_changes.append("- Added issue templates for bug reports")
 
             if file_changes:
-                body += '\n'.join(sorted(set(file_changes)))
+                body += "\n".join(sorted(set(file_changes)))
             else:
                 body += f"- Modified {len(changed_files)} file(s) for compliance"
 
@@ -351,12 +303,7 @@ This PR addresses compliance requirements.
         if draft:
             cmd.append("--draft")
 
-        result = subprocess.run(
-            cmd,
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run(cmd, cwd=resolved_path, capture_output=True, text=True)
 
         if result.returncode != 0:
             error_msg = result.stderr.strip()
@@ -366,7 +313,7 @@ This PR addresses compliance requirements.
                     ["gh", "pr", "view", "--json", "url", "-q", ".url"],
                     cwd=resolved_path,
                     capture_output=True,
-                    text=True
+                    text=True,
                 )
                 if result.returncode == 0:
                     pr_url = result.stdout.strip()
@@ -412,43 +359,32 @@ def get_remediation_status_impl(local_path: str = ".") -> str:
     try:
         # Get current branch
         result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=resolved_path, capture_output=True, text=True
         )
         if result.returncode != 0:
             return "❌ Error: Not a git repository"
         current_branch = result.stdout.strip()
 
         # Get status
-        result = subprocess.run(
-            ["git", "status", "--porcelain"],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run(["git", "status", "--porcelain"], cwd=resolved_path, capture_output=True, text=True)
         changes = result.stdout.strip()
-        changed_files = [line.split(None, 1)[1] if len(line.split(None, 1)) > 1 else line
-                        for line in changes.split('\n') if line.strip()]
+        changed_files = [
+            line.split(None, 1)[1] if len(line.split(None, 1)) > 1 else line
+            for line in changes.split("\n")
+            if line.strip()
+        ]
 
         # Check for unpushed commits
         result = subprocess.run(
-            ["git", "log", "@{u}..HEAD", "--oneline"],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
+            ["git", "log", "@{u}..HEAD", "--oneline"], cwd=resolved_path, capture_output=True, text=True
         )
-        unpushed = result.stdout.strip().split('\n') if result.returncode == 0 and result.stdout.strip() else []
+        unpushed = result.stdout.strip().split("\n") if result.returncode == 0 and result.stdout.strip() else []
         unpushed = [c for c in unpushed if c.strip()]
 
         # Check for existing PR
         pr_url = None
         result = subprocess.run(
-            ["gh", "pr", "view", "--json", "url", "-q", ".url"],
-            cwd=resolved_path,
-            capture_output=True,
-            text=True
+            ["gh", "pr", "view", "--json", "url", "-q", ".url"], cwd=resolved_path, capture_output=True, text=True
         )
         if result.returncode == 0:
             pr_url = result.stdout.strip()

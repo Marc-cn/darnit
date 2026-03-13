@@ -231,10 +231,7 @@ def _scalar_agreement(signals: list[ContextSignal], primary_value: Any) -> float
     if not signals:
         return 0.0
 
-    matches = sum(
-        1 for s in signals
-        if s.value is not None and _values_equal(s.value, primary_value)
-    )
+    matches = sum(1 for s in signals if s.value is not None and _values_equal(s.value, primary_value))
     return matches / len(signals)
 
 
@@ -274,11 +271,7 @@ def format_confidence_explanation(result: CombinedConfidence) -> str:
         lines.append("**Detection sources:**")
         for signal in result.signals:
             weight = SIGNAL_WEIGHTS.get(signal.source, 0.5)
-            lines.append(
-                f"- {signal.source.value}: "
-                f"{signal.raw_confidence:.0%} raw "
-                f"(weight: {weight:.0%})"
-            )
+            lines.append(f"- {signal.source.value}: {signal.raw_confidence:.0%} raw (weight: {weight:.0%})")
             if signal.method:
                 lines.append(f"  Method: {signal.method}")
 

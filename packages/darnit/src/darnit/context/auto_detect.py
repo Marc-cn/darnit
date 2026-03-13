@@ -76,9 +76,7 @@ def detect_ci_provider(local_path: str) -> str | None:
             if os.path.isdir(full_path):
                 try:
                     entries = os.listdir(full_path)
-                    if any(
-                        e.endswith((".yml", ".yaml")) for e in entries
-                    ):
+                    if any(e.endswith((".yml", ".yaml")) for e in entries):
                         return provider
                 except OSError:
                     continue
@@ -118,9 +116,7 @@ def detect_primary_language(local_path: str) -> str | None:
             break
 
     # Refine: if package.json detected, check for TypeScript
-    if detected == "javascript" and os.path.isfile(
-        os.path.join(local_path, "tsconfig.json")
-    ):
+    if detected == "javascript" and os.path.isfile(os.path.join(local_path, "tsconfig.json")):
         detected = "typescript"
 
     return detected
@@ -156,9 +152,7 @@ def detect_languages(local_path: str) -> list[str]:
     for filename, language in _MANIFEST_CHECKS:
         if os.path.isfile(os.path.join(local_path, filename)):
             # TypeScript refinement
-            if language == "javascript" and os.path.isfile(
-                os.path.join(local_path, "tsconfig.json")
-            ):
+            if language == "javascript" and os.path.isfile(os.path.join(local_path, "tsconfig.json")):
                 language = "typescript"
 
             if language not in seen:
@@ -222,17 +216,10 @@ def detect_governance_model(local_path: str) -> str | None:
         "maintainer-council", "bdfl", "community", or None.
     """
     p = Path(local_path)
-    has_governance = any(
-        (p / name).is_file()
-        for name in ("GOVERNANCE.md", "governance.md", ".github/GOVERNANCE.md")
-    )
-    has_codeowners = any(
-        (p / name).is_file()
-        for name in ("CODEOWNERS", ".github/CODEOWNERS")
-    )
+    has_governance = any((p / name).is_file() for name in ("GOVERNANCE.md", "governance.md", ".github/GOVERNANCE.md"))
+    has_codeowners = any((p / name).is_file() for name in ("CODEOWNERS", ".github/CODEOWNERS"))
     has_contributing = any(
-        (p / name).is_file()
-        for name in ("CONTRIBUTING.md", "contributing.md", ".github/CONTRIBUTING.md")
+        (p / name).is_file() for name in ("CONTRIBUTING.md", "contributing.md", ".github/CONTRIBUTING.md")
     )
 
     if has_governance:
@@ -266,15 +253,25 @@ def detect_project_type(local_path: str) -> str | None:
 
     # Library indicators (has package manifest but no main entry)
     manifest_names = [
-        "setup.py", "pyproject.toml", "package.json", "Cargo.toml",
-        "go.mod", "Gemfile", "pom.xml",
+        "setup.py",
+        "pyproject.toml",
+        "package.json",
+        "Cargo.toml",
+        "go.mod",
+        "Gemfile",
+        "pom.xml",
     ]
     has_manifest = any((p / name).is_file() for name in manifest_names)
 
     # Application indicators
     app_indicators = [
-        "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
-        "Procfile", "app.py", "main.py", "server.py",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "Procfile",
+        "app.py",
+        "main.py",
+        "server.py",
     ]
     has_app = any((p / name).is_file() for name in app_indicators)
 
@@ -295,7 +292,9 @@ def detect_has_subprojects(local_path: str) -> bool | None:
 
     # Common monorepo patterns
     monorepo_indicators = [
-        "lerna.json", "pnpm-workspace.yaml", "rush.json",
+        "lerna.json",
+        "pnpm-workspace.yaml",
+        "rush.json",
     ]
     if any((p / name).is_file() for name in monorepo_indicators):
         return True
@@ -305,10 +304,7 @@ def detect_has_subprojects(local_path: str) -> bool | None:
         d = p / dirname
         if d.is_dir():
             try:
-                children = [
-                    c for c in d.iterdir()
-                    if c.is_dir() and not c.name.startswith(".")
-                ]
+                children = [c for c in d.iterdir() if c.is_dir() and not c.name.startswith(".")]
                 if len(children) >= 2:
                     return True
             except OSError:

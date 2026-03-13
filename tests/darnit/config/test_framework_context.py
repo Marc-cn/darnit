@@ -4,7 +4,6 @@ Tests the ContextDefinitionConfig and FrameworkContextConfig models
 that enable declarative context prompts in TOML framework files.
 """
 
-
 import pytest
 
 from darnit.config.framework_schema import (

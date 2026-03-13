@@ -33,6 +33,7 @@ def get_framework_path() -> Path | None:
         Path: Absolute path to openssf-baseline.toml, or None if not found.
     """
     from .implementation import OSPSBaselineImplementation
+
     return OSPSBaselineImplementation().get_framework_config_path()
 
 
@@ -45,4 +46,5 @@ def register():
         OSPSBaselineImplementation: The registered implementation instance.
     """
     from .implementation import OSPSBaselineImplementation
+
     return OSPSBaselineImplementation()

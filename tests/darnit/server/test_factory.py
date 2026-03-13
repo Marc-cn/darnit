@@ -65,31 +65,31 @@ class TestCreateServer:
     def test_loads_from_toml_file(self, tmp_path):
         """Test loading server from TOML file."""
         config_path = tmp_path / "test.toml"
-        config_path.write_text('''
+        config_path.write_text("""
 [mcp]
 name = "from-file-server"
 
 [mcp.tools.json_dump]
 handler = "json:dumps"
 description = "JSON serializer"
-''')
+""")
         server = create_server(str(config_path))
         assert server.name == "from-file-server"
 
     def test_loads_path_object(self, tmp_path):
         """Test loading server from Path object."""
         config_path = tmp_path / "test.toml"
-        config_path.write_text('''
+        config_path.write_text("""
 [mcp]
 name = "path-server"
-''')
+""")
         server = create_server(config_path)  # Pass Path directly
         assert server.name == "path-server"
 
     def test_handles_invalid_handler(self, tmp_path, caplog):
         """Test that invalid handlers are skipped with warning."""
         config_path = tmp_path / "test.toml"
-        config_path.write_text('''
+        config_path.write_text("""
 [mcp]
 name = "test-server"
 
@@ -100,7 +100,7 @@ description = "Valid tool"
 [mcp.tools.invalid_tool]
 handler = "nonexistent_module:func"
 description = "Invalid tool"
-''')
+""")
         server = create_server(str(config_path))
         # Server should still be created
         assert server.name == "test-server"
@@ -111,10 +111,7 @@ description = "Invalid tool"
         """Test loading the actual openssf-baseline.toml file."""
         # Find the openssf-baseline.toml file
         baseline_path = (
-            Path(__file__).parent.parent.parent.parent
-            / "packages"
-            / "darnit-baseline"
-            / "openssf-baseline.toml"
+            Path(__file__).parent.parent.parent.parent / "packages" / "darnit-baseline" / "openssf-baseline.toml"
         )
         if baseline_path.exists():
             # Should be able to create server from it

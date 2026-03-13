@@ -1,6 +1,5 @@
 """Tests for the tool output normalizer."""
 
-
 from darnit.config.framework_schema import OutputMapping
 from darnit.locate import (
     CheckOutput,
@@ -356,11 +355,7 @@ class TestNormalizeScorecardOutput:
 
     def test_exact_threshold_score(self):
         """Test score exactly at threshold (8)."""
-        raw = {
-            "checks": [
-                {"name": "TestCheck", "score": 8, "reason": "Score is 8"}
-            ]
-        }
+        raw = {"checks": [{"name": "TestCheck", "score": 8, "reason": "Score is 8"}]}
 
         output = normalize_scorecard_output(raw, "TestCheck")
 
@@ -368,11 +363,7 @@ class TestNormalizeScorecardOutput:
 
     def test_just_below_threshold(self):
         """Test score just below threshold."""
-        raw = {
-            "checks": [
-                {"name": "TestCheck", "score": 7, "reason": "Score is 7"}
-            ]
-        }
+        raw = {"checks": [{"name": "TestCheck", "score": 7, "reason": "Score is 7"}]}
 
         output = normalize_scorecard_output(raw, "TestCheck")
 

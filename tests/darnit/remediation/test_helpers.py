@@ -123,7 +123,7 @@ class TestCheckFileExists:
             str(temp_dir),
             "README.md",
             "LICENSE",
-            "SECURITY.md"  # Doesn't exist
+            "SECURITY.md",  # Doesn't exist
         )
         assert len(result) == 2
         assert "README.md" in result
@@ -206,11 +206,7 @@ class TestFormatSuccess:
     @pytest.mark.unit
     def test_with_details(self):
         """Test success message with details."""
-        result = format_success(
-            "Created file",
-            {"File": "SECURITY.md", "Size": "1.2KB"},
-            []
-        )
+        result = format_success("Created file", {"File": "SECURITY.md", "Size": "1.2KB"}, [])
         assert "**File:**" in result
         assert "SECURITY.md" in result
         assert "**Size:**" in result
@@ -218,11 +214,7 @@ class TestFormatSuccess:
     @pytest.mark.unit
     def test_with_controls(self):
         """Test success message with controls."""
-        result = format_success(
-            "Remediation applied",
-            {},
-            ["OSPS-VM-02.01", "OSPS-VM-03.01"]
-        )
+        result = format_success("Remediation applied", {}, ["OSPS-VM-02.01", "OSPS-VM-03.01"])
         assert "OSPS Controls Addressed" in result
         assert "OSPS-VM-02.01" in result
         assert "OSPS-VM-03.01" in result
@@ -230,11 +222,7 @@ class TestFormatSuccess:
     @pytest.mark.unit
     def test_with_all_parts(self):
         """Test success message with all parts."""
-        result = format_success(
-            "Security policy created",
-            {"Path": "SECURITY.md"},
-            ["OSPS-VM-02.01"]
-        )
+        result = format_success("Security policy created", {"Path": "SECURITY.md"}, ["OSPS-VM-02.01"])
         assert "✅" in result
         assert "Security policy created" in result
         assert "**Path:**" in result

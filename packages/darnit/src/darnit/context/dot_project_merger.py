@@ -25,44 +25,52 @@ from darnit.context.dot_project import ProjectConfig
 logger = logging.getLogger(__name__)
 
 # Sections that merge at the section level (local wins entirely if present)
-_SECTION_FIELDS = frozenset({
-    "security",
-    "governance",
-    "legal",
-    "documentation",
-    "landscape",
-})
+_SECTION_FIELDS = frozenset(
+    {
+        "security",
+        "governance",
+        "legal",
+        "documentation",
+        "landscape",
+    }
+)
 
 # Scalar fields where local wins if non-empty
-_SCALAR_FIELDS = frozenset({
-    "name",
-    "description",
-    "schema_version",
-    "type",
-    "slug",
-    "project_lead",
-    "cncf_slack_channel",
-    "website",
-    "artwork",
-})
+_SCALAR_FIELDS = frozenset(
+    {
+        "name",
+        "description",
+        "schema_version",
+        "type",
+        "slug",
+        "project_lead",
+        "cncf_slack_channel",
+        "website",
+        "artwork",
+    }
+)
 
 # List fields where local wins if non-empty
-_LIST_FIELDS = frozenset({
-    "repositories",
-    "mailing_lists",
-    "maturity_log",
-    "audits",
-    "maintainers",
-    "maintainer_teams",
-    "maintainer_entries",
-})
+_LIST_FIELDS = frozenset(
+    {
+        "repositories",
+        "mailing_lists",
+        "maturity_log",
+        "audits",
+        "maintainers",
+        "maintainer_teams",
+        "maintainer_entries",
+    }
+)
 
 # Dict fields where local wins if non-empty
-_DICT_FIELDS = frozenset({
-    "social",
-    "package_managers",
-    "extensions",
-})
+_DICT_FIELDS = frozenset(
+    {
+        "social",
+        "package_managers",
+        "extensions",
+    }
+)
 
 
 def merge_configs(

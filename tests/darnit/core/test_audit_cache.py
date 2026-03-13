@@ -89,12 +89,8 @@ class TestWriteReadRoundTrip:
     """Tests for write/read round-trip."""
 
     @pytest.mark.unit
-    def test_write_then_read(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 3, "openssf-baseline"
-        )
+    def test_write_then_read(self, temp_git_repo: Path, sample_results, sample_summary):
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 3, "openssf-baseline")
 
         cache = read_audit_cache(str(temp_git_repo))
         assert cache is not None
@@ -108,36 +104,24 @@ class TestWriteReadRoundTrip:
         assert "timestamp" in cache
 
     @pytest.mark.unit
-    def test_creates_cache_directory(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
+    def test_creates_cache_directory(self, temp_git_repo: Path, sample_results, sample_summary):
         cache_dir = _get_cache_dir(str(temp_git_repo))
         assert not cache_dir.exists()
 
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 1, "test"
-        )
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 1, "test")
 
         assert cache_dir.is_dir()
         assert (cache_dir / CACHE_FILENAME).is_file()
 
     @pytest.mark.unit
-    def test_no_files_in_repo_dir(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
+    def test_no_files_in_repo_dir(self, temp_git_repo: Path, sample_results, sample_summary):
         """Cache should be written to temp dir, not the repo itself."""
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 1, "test"
-        )
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 1, "test")
         assert not (temp_git_repo / ".darnit").exists()
 
     @pytest.mark.unit
-    def test_envelope_structure(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 2, "test-fw"
-        )
+    def test_envelope_structure(self, temp_git_repo: Path, sample_results, sample_summary):
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 2, "test-fw")
         cache_path = _get_cache_dir(str(temp_git_repo)) / CACHE_FILENAME
         with open(cache_path) as f:
             data = json.load(f)
@@ -158,18 +142,12 @@ class TestStalenessDetection:
     """Tests for cache staleness via commit hash and dirty state."""
 
     @pytest.mark.unit
-    def test_stale_after_new_commit(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 3, "test"
-        )
+    def test_stale_after_new_commit(self, temp_git_repo: Path, sample_results, sample_summary):
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 3, "test")
 
         # Make a new commit
         (temp_git_repo / "change.txt").write_text("change")
-        subprocess.run(
-            ["git", "add", "."], cwd=temp_git_repo, capture_output=True, check=True
-        )
+        subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True, check=True)
         subprocess.run(
             ["git", "commit", "-m", "new commit"],
             cwd=temp_git_repo,
@@ -180,13 +158,9 @@ class TestStalenessDetection:
         assert read_audit_cache(str(temp_git_repo)) is None
 
     @pytest.mark.unit
-    def test_stale_when_tree_becomes_dirty(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
+    def test_stale_when_tree_becomes_dirty(self, temp_git_repo: Path, sample_results, sample_summary):
         # Write cache with clean tree
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 3, "test"
-        )
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 3, "test")
         assert read_audit_cache(str(temp_git_repo)) is not None
 
         # Make tree dirty
@@ -195,22 +169,16 @@ class TestStalenessDetection:
         assert read_audit_cache(str(temp_git_repo)) is None
 
     @pytest.mark.unit
-    def test_stale_when_tree_becomes_clean(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
+    def test_stale_when_tree_becomes_clean(self, temp_git_repo: Path, sample_results, sample_summary):
         # Make tree dirty, then write cache
         dirty_file = temp_git_repo / "dirty.txt"
         dirty_file.write_text("dirty")
 
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 3, "test"
-        )
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 3, "test")
         assert read_audit_cache(str(temp_git_repo)) is not None
 
         # Clean up the tree (add + commit)
-        subprocess.run(
-            ["git", "add", "."], cwd=temp_git_repo, capture_output=True, check=True
-        )
+        subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True, check=True)
         subprocess.run(
             ["git", "commit", "-m", "clean up"],
             cwd=temp_git_repo,
@@ -226,9 +194,7 @@ class TestNonGitRepo:
     """Tests for non-git repository handling."""
 
     @pytest.mark.unit
-    def test_write_with_null_commit(
-        self, temp_dir: Path, sample_results, sample_summary
-    ):
+    def test_write_with_null_commit(self, temp_dir: Path, sample_results, sample_summary):
         write_audit_cache(str(temp_dir), sample_results, sample_summary, 1, "test")
 
         cache_path = _get_cache_dir(str(temp_dir)) / CACHE_FILENAME
@@ -238,9 +204,7 @@ class TestNonGitRepo:
         assert data["commit"] is None
 
     @pytest.mark.unit
-    def test_null_commit_always_stale(
-        self, temp_dir: Path, sample_results, sample_summary
-    ):
+    def test_null_commit_always_stale(self, temp_dir: Path, sample_results, sample_summary):
         write_audit_cache(str(temp_dir), sample_results, sample_summary, 1, "test")
         assert read_audit_cache(str(temp_dir)) is None
 
@@ -257,12 +221,8 @@ class TestCorruptionHandling:
         assert read_audit_cache(str(temp_git_repo)) is None
 
     @pytest.mark.unit
-    def test_unknown_version(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 3, "test"
-        )
+    def test_unknown_version(self, temp_git_repo: Path, sample_results, sample_summary):
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 3, "test")
 
         # Bump version beyond supported
         cache_path = _get_cache_dir(str(temp_git_repo)) / CACHE_FILENAME
@@ -291,12 +251,8 @@ class TestInvalidateCache:
     """Tests for invalidate_audit_cache."""
 
     @pytest.mark.unit
-    def test_invalidate_existing(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 3, "test"
-        )
+    def test_invalidate_existing(self, temp_git_repo: Path, sample_results, sample_summary):
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 3, "test")
         cache_path = _get_cache_dir(str(temp_git_repo)) / CACHE_FILENAME
         assert cache_path.exists()
 
@@ -309,12 +265,8 @@ class TestInvalidateCache:
         invalidate_audit_cache(str(temp_git_repo))
 
     @pytest.mark.unit
-    def test_read_after_invalidate_returns_none(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 3, "test"
-        )
+    def test_read_after_invalidate_returns_none(self, temp_git_repo: Path, sample_results, sample_summary):
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 3, "test")
         invalidate_audit_cache(str(temp_git_repo))
         assert read_audit_cache(str(temp_git_repo)) is None
 
@@ -323,9 +275,7 @@ class TestAtomicWrite:
     """Tests for atomic write behavior."""
 
     @pytest.mark.unit
-    def test_no_partial_file_on_error(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
+    def test_no_partial_file_on_error(self, temp_git_repo: Path, sample_results, sample_summary):
         """If json.dump raises, no cache file should be left behind."""
         with patch("darnit.core.audit_cache.json.dump", side_effect=OSError("disk full")):
             with pytest.raises(OSError):
@@ -341,16 +291,10 @@ class TestAtomicWrite:
         assert not cache_path.exists()
 
     @pytest.mark.unit
-    def test_overwrite_existing_cache(
-        self, temp_git_repo: Path, sample_results, sample_summary
-    ):
+    def test_overwrite_existing_cache(self, temp_git_repo: Path, sample_results, sample_summary):
         """Writing twice overwrites the first cache atomically."""
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 1, "first"
-        )
-        write_audit_cache(
-            str(temp_git_repo), sample_results, sample_summary, 2, "second"
-        )
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 1, "first")
+        write_audit_cache(str(temp_git_repo), sample_results, sample_summary, 2, "second")
 
         cache = read_audit_cache(str(temp_git_repo))
         assert cache is not None

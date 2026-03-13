@@ -115,8 +115,7 @@ class TestOrchestratorCacheHit:
 
             # Only FAIL controls should have been remediated
             remediated_ids = {
-                call.kwargs.get("control_id") or call[1].get("control_id")
-                for call in apply_mock.call_args_list
+                call.kwargs.get("control_id") or call[1].get("control_id") for call in apply_mock.call_args_list
             }
             # PASS control should NOT be included
             assert "OSPS-AC-01.01" not in remediated_ids
@@ -125,8 +124,7 @@ class TestOrchestratorCacheHit:
             # FAIL controls with remediation handlers should be included
             # (only if they have TOML remediation defined)
             for cid in remediated_ids:
-                assert cid in {"OSPS-DO-02.01", "OSPS-DO-03.01"}, \
-                    f"Unexpected control remediated: {cid}"
+                assert cid in {"OSPS-DO-02.01", "OSPS-DO-03.01"}, f"Unexpected control remediated: {cid}"
 
 
 class TestOrchestratorCacheMiss:
@@ -221,8 +219,7 @@ class TestOrchestratorCacheMiss:
             )
 
             remediated_ids = {
-                call.kwargs.get("control_id") or call[1].get("control_id")
-                for call in apply_mock.call_args_list
+                call.kwargs.get("control_id") or call[1].get("control_id") for call in apply_mock.call_args_list
             }
             assert "OSPS-VM-01.01" not in remediated_ids
             assert "OSPS-AC-01.01" not in remediated_ids

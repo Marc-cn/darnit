@@ -119,9 +119,11 @@ class OrgProjectResolver:
         try:
             result = subprocess.run(
                 [
-                    "gh", "api",
+                    "gh",
+                    "api",
                     f"/repos/{owner}/.project/contents/{path}",
-                    "--jq", ".content",
+                    "--jq",
+                    ".content",
                 ],
                 capture_output=True,
                 text=True,
@@ -136,6 +138,7 @@ class OrgProjectResolver:
 
             # GitHub API returns base64-encoded content
             import base64
+
             return base64.b64decode(content).decode("utf-8")
 
         except (FileNotFoundError, subprocess.TimeoutExpired, Exception) as e:
@@ -163,9 +166,7 @@ class OrgProjectResolver:
             project_content = self._fetch_file_content(owner, "project.yaml")
             if not project_content:
                 # Also try .project/project.yaml (nested structure)
-                project_content = self._fetch_file_content(
-                    owner, ".project/project.yaml"
-                )
+                project_content = self._fetch_file_content(owner, ".project/project.yaml")
 
             if project_content:
                 (project_dir / "project.yaml").write_text(project_content)
@@ -174,13 +175,9 @@ class OrgProjectResolver:
                 return None
 
             # Fetch maintainers.yaml
-            maintainers_content = self._fetch_file_content(
-                owner, "maintainers.yaml"
-            )
+            maintainers_content = self._fetch_file_content(owner, "maintainers.yaml")
             if not maintainers_content:
-                maintainers_content = self._fetch_file_content(
-                    owner, ".project/maintainers.yaml"
-                )
+                maintainers_content = self._fetch_file_content(owner, ".project/maintainers.yaml")
             if maintainers_content:
                 (project_dir / "maintainers.yaml").write_text(maintainers_content)
 
@@ -196,8 +193,6 @@ class OrgProjectResolver:
                     )
                     return config
                 except Exception as e:
-                    logger.warning(
-                        "Failed to parse org .project for %s: %s", owner, e
-                    )
+                    logger.warning("Failed to parse org .project for %s: %s", owner, e)
 
         return None

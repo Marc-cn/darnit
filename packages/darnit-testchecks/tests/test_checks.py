@@ -104,8 +104,7 @@ class TestLevel2Checks:
     def test_qa_02_passes_without_prints(self, temp_repo: Path):
         """TEST-QA-02 should pass when no print statements exist."""
         (temp_repo / "app.py").write_text(
-            'import logging\nlogger = logging.getLogger(__name__)\n'
-            'logger.info("hello")\n'
+            'import logging\nlogger = logging.getLogger(__name__)\nlogger.info("hello")\n'
         )
         result = check_test_qa_02(str(temp_repo))
         assert result.status == CheckStatus.PASS
@@ -145,9 +144,7 @@ class TestLevel3Checks:
 
     def test_sec_01_passes_without_secrets(self, temp_repo: Path):
         """TEST-SEC-01 should pass when no hardcoded secrets exist."""
-        (temp_repo / "config.py").write_text(
-            'import os\npassword = os.environ.get("PASSWORD")\n'
-        )
+        (temp_repo / "config.py").write_text('import os\npassword = os.environ.get("PASSWORD")\n')
         result = check_test_sec_01(str(temp_repo))
         assert result.status == CheckStatus.PASS
 
@@ -204,9 +201,7 @@ class TestLevel3Checks:
         """TEST-CI-02 should pass when CI runs tests."""
         workflows = temp_repo / ".github" / "workflows"
         workflows.mkdir(parents=True)
-        (workflows / "ci.yml").write_text(
-            "name: CI\non: push\njobs:\n  test:\n    steps:\n      - run: pytest\n"
-        )
+        (workflows / "ci.yml").write_text("name: CI\non: push\njobs:\n  test:\n    steps:\n      - run: pytest\n")
         result = check_test_ci_02(str(temp_repo))
         assert result.status == CheckStatus.PASS
 
@@ -214,9 +209,7 @@ class TestLevel3Checks:
         """TEST-CI-02 should fail when CI doesn't run tests."""
         workflows = temp_repo / ".github" / "workflows"
         workflows.mkdir(parents=True)
-        (workflows / "ci.yml").write_text(
-            "name: CI\non: push\njobs:\n  build:\n    steps:\n      - run: echo hi\n"
-        )
+        (workflows / "ci.yml").write_text("name: CI\non: push\njobs:\n  build:\n    steps:\n      - run: echo hi\n")
         result = check_test_ci_02(str(temp_repo))
         assert result.status == CheckStatus.FAIL
 
