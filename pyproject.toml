@@ -21,6 +21,7 @@ dependencies = [
     "darnit",
     "darnit-baseline",
     "darnit-example",
+    "darnit-reproducibility",
 ]
 
 [project.urls]
@@ -47,6 +48,11 @@ members = ["packages/*"]
 darnit = { workspace = true }
 darnit-baseline = { workspace = true }
 darnit-example = { workspace = true }
+<<<<<<< HEAD
+=======
+darnit-gittuf = { workspace = true }
+darnit-reproducibility = { workspace = true }
+>>>>>>> edfbb38 (Add scientific reproducibility plugin)
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
