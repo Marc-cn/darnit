@@ -46,9 +46,16 @@ def run_checks(state: DarnitState) -> DarnitState:
     """Step 2-4: Run all sieve phases (deterministic, pattern, LLM)."""
     from darnit.core.discovery import get_default_implementation
     from darnit.tools.audit import run_audit
+    from darnit.llm.backends import get_backend
 
     logger.info("Running checks")
     state.current_step = "run_checks"
+
+    # Build LLM config from state so the sieve can resolve PENDING_LLM
+    llm_config = {
+        "backend": state.llm_backend,
+    }
+    llm_backend = get_backend(llm_config)
 
     try:
         impl = get_default_implementation()
@@ -57,12 +64,27 @@ def run_checks(state: DarnitState) -> DarnitState:
             implementation=impl,
             project_context=state.project_context,
         )
-        state.check_results = results
+
+        # Resolve any PENDING_LLM results using the configured backend
+        resolved_results = []
+        for result in results:
+            if isinstance(result, dict) and result.get("status") == "PENDING_LLM":
+                consultation = result.get("evidence", {}).get("llm_consultation", {})
+                if consultation:
+                    logger.info(f"Resolving LLM consultation for {result.get('control_id')}")
+                    llm_response = llm_backend.consult(consultation)
+                    # Mark it resolved with the LLM's answer
+                    result["status"] = llm_response.status.value if hasattr(llm_response.status, "value") else str(llm_response.status)
+                    result["message"] = llm_response.reasoning
+                    result["confidence"] = llm_response.confidence
+            resolved_results.append(result)
+
+        state.check_results = resolved_results
 
         # Anything that is WARN or FAIL goes into pending_context
         state.pending_context = [
-            r for r in results
-            if r.get("status") in ("WARN", "FAIL")
+            r for r in resolved_results
+            if isinstance(r, dict) and r.get("status") in ("WARN", "FAIL")
         ]
 
     except Exception as e:
