@@ -5,7 +5,6 @@ They are deliberately conservative — when in doubt, return INCONCLUSIVE
 rather than falsely passing or failing.
 """
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
