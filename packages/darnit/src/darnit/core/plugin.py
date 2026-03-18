@@ -138,6 +138,7 @@ class ComplianceImplementation(Protocol):
     # def get_remediation_handlers(self) -> dict[str, Any]: ...
     # -------------------------------------------------------------------------
 
+
 __all__ = [
     "ControlSpec",
     "ComplianceImplementation",
