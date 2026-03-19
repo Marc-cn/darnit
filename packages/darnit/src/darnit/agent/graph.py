@@ -45,7 +45,7 @@ def load_project_context(state: DarnitState) -> DarnitState:
 def run_checks(state: DarnitState) -> DarnitState:
     """Step 2-4: Run all sieve phases (deterministic, pattern, LLM)."""
     from darnit.core.discovery import get_default_implementation
-    from darnit.tools.audit import run_audit
+    from darnit.tools.audit import run_sieve_audit
     from darnit.llm.backends import get_backend
 
     logger.info("Running checks")
@@ -59,10 +59,18 @@ def run_checks(state: DarnitState) -> DarnitState:
 
     try:
         impl = get_default_implementation()
-        results = run_audit(
+        from darnit.core.utils import detect_owner_repo
+        owner, repo = detect_owner_repo(state.local_path)
+
+        results, _summary = run_sieve_audit(
+            owner=owner,
+            repo=repo,
             local_path=state.local_path,
-            implementation=impl,
-            project_context=state.project_context,
+            default_branch="main",
+            level=3,
+            controls=None,
+            apply_user_config=True,
+            stop_on_llm=False,
         )
 
         # Resolve any PENDING_LLM results using the configured backend
@@ -84,7 +92,7 @@ def run_checks(state: DarnitState) -> DarnitState:
         # Anything that is WARN or FAIL goes into pending_context
         state.pending_context = [
             r for r in resolved_results
-            if isinstance(r, dict) and r.get("status") in ("WARN", "FAIL")
+            if isinstance(r, dict) and r.get("status") in ("WARN", "FAIL", "ERROR")
         ]
 
     except Exception as e:
@@ -105,13 +113,13 @@ def collect_context(state: DarnitState) -> DarnitState:
     human_messages = []
 
     for result in state.pending_context:
-        if result.get("status") == "FAIL":
+        if result.get("status") in ("FAIL", "ERROR"):
             remediation_queue.append(result)
         else:
             # WARN means we need a human to confirm something
             human_messages.append(
-                f"Control {result.get('control_id')} needs manual verification: "
-                f"{result.get('message', 'no details')}"
+                f"Control {result.get('id')} needs manual verification: "
+                f"{result.get('details', 'no details')}"
             )
 
     state.remediation_queue = remediation_queue
@@ -127,7 +135,7 @@ def remediate(state: DarnitState) -> DarnitState:
     # Placeholder — full remediation wiring comes in a later phase
     # For now we just log what would be fixed
     for item in state.remediation_queue:
-        logger.info(f"Would remediate: {item.get('control_id')}")
+        logger.info(f"Would remediate: {item.get('id')} — {item.get('details', '')}")
 
     return state
 
