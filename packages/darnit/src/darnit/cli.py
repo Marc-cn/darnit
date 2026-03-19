@@ -29,8 +29,12 @@ import importlib.metadata
 import json
 import sys
 from pathlib import Path
+import os
+    
 
 from darnit.core.logging import configure_logging, get_logger
+from darnit.agent.state import DarnitState
+from darnit.agent.graph import darnit_graph
 
 logger = get_logger("cli")
 
@@ -477,6 +481,83 @@ def cmd_install(args: argparse.Namespace) -> int:
     print("Next step: restart your AI client and use the configured MCP server.")
     return 0
 
+def cmd_run(args: argparse.Namespace) -> int:
+    """Run the full agentic workflow autonomously.
+
+    Unlike 'darnit audit' which runs without LLM consultation, this command
+    drives the full pipeline using the LangGraph state machine:
+      1. Load project context
+      2. Run all sieve phases (deterministic, pattern, LLM)
+      3. Collect context for unclear controls
+      4. Remediate failures
+      5. Finish
+
+    Requires a configured LLM backend and API key.
+    """
+
+    repo_path = str(Path(args.repo_path).resolve())
+
+    # Pick up API key from environment
+    llm_backend = args.llm_backend or os.environ.get("DARNIT_LLM_BACKEND", "anthropic")
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "") or \
+              os.environ.get("OPENAI_API_KEY", "") or ""
+
+    if not api_key and llm_backend != "ollama":
+        logger.warning(
+            f"No API key found for backend '{llm_backend}'. "
+            f"Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable."
+        )
+
+    print(f"\nDarnit agentic run")
+    print(f"  Repository : {repo_path}")
+    print(f"  LLM backend: {llm_backend}")
+    print()
+
+    # Build initial state
+    state = DarnitState(
+        local_path=repo_path,
+        llm_backend=llm_backend,
+        llm_api_key=api_key,
+    )
+
+    # Run the graph
+    try:
+        final_state = darnit_graph.invoke(state)
+    except Exception as e:
+        logger.error(f"Agent run failed: {e}")
+        return 1
+
+   # LangGraph returns a dict, not a DarnitState object
+    check_results = final_state.get("check_results") or []
+    human_messages = final_state.get("human_messages") or []
+    errors = final_state.get("errors") or []
+
+    # Print summary
+    results_list = check_results if isinstance(check_results, list) else []
+    total = len(results_list)
+    passed = len([r for r in results_list if isinstance(r, dict) and r.get("status") == "PASS"])
+    failed = len([r for r in results_list if isinstance(r, dict) and r.get("status") == "FAIL"])
+    warned = len([r for r in results_list if isinstance(r, dict) and r.get("status") == "WARN"])
+
+    print(f"Run complete.")
+    print(f"  Total  : {total}")
+    print(f"  Passed : {passed}")
+    print(f"  Failed : {failed}")
+    print(f"  Warned : {warned}")
+
+    if human_messages:
+        print(f"\nItems needing manual review ({len(human_messages)}):")
+        for msg in human_messages:
+            print(f"  - {msg}")
+
+    if errors:
+        print(f"\nErrors encountered:")
+        for err in errors:
+            print(f"  - {err}")
+        return 1
+
+    return 1 if failed else 0
+
 def cmd_serve(args: argparse.Namespace) -> int:
     """Start the MCP server.
 
@@ -731,6 +812,29 @@ def create_parser() -> argparse.ArgumentParser:
     # list command
     list_parser = subparsers.add_parser("list", help="List available frameworks")
     list_parser.set_defaults(func=cmd_list)
+
+    # run command (agentic)
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run full agentic workflow (LLM-powered)",
+        description="Run the full autonomous compliance pipeline using LangGraph. "
+                    "Loads project context, runs all checks, collects context, "
+                    "and remediates failures. Requires an LLM API key.",
+    )
+    run_parser.add_argument(
+        "repo_path",
+        nargs="?",
+        default=".",
+        help="Path to repository (default: current directory)",
+    )
+    run_parser.add_argument(
+        "--llm-backend",
+        dest="llm_backend",
+        choices=["anthropic", "openai", "ollama"],
+        default=None,
+        help="LLM backend to use (default: anthropic, or DARNIT_LLM_BACKEND env var)",
+    )
+    run_parser.set_defaults(func=cmd_run)
 
     # install command
     install_parser = subparsers.add_parser(
