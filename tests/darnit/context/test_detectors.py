@@ -5,7 +5,6 @@ and verify the detectors return the expected values.
 No real git repos or network calls needed.
 """
 
-import subprocess
 from pathlib import Path
 from unittest.mock import patch
 

@@ -12,8 +12,18 @@ maturity_log: []
 repositories: []
 social: {}
 mailing_lists: []
-security: {}
-governance: {}
-legal: {}
-documentation: {}
+security:
+  policy:
+    path: SECURITY.md
+governance:
+  contributing:
+    path: CONTRIBUTING.md
+  governance_doc:
+    path: GOVERNANCE.md
+legal:
+  license:
+    path: LICENSE
+documentation:
+  readme:
+    path: README.md
 audits: []

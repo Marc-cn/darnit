@@ -1,9 +1,7 @@
 """Tests for reproducibility sieve handlers."""
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
-from darnit.sieve.handler_registry import HandlerContext, HandlerResultStatus
 from darnit_reproducibility.handlers import (
     repro_bit_for_bit_handler,
     repro_build_env_declared_handler,
@@ -11,6 +9,8 @@ from darnit_reproducibility.handlers import (
     repro_hermetic_build_handler,
     repro_provenance_exists_handler,
 )
+
+from darnit.sieve.handler_registry import HandlerContext, HandlerResultStatus
 
 
 def make_ctx(tmp_path: Path) -> HandlerContext:

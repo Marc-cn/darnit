@@ -3,11 +3,12 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from darnit.sieve.handler_registry import HandlerContext, HandlerResultStatus
 from darnit_gittuf.handlers import (
     gittuf_commits_signed_handler,
     gittuf_verify_policy_handler,
 )
+
+from darnit.sieve.handler_registry import HandlerContext, HandlerResultStatus
 
 
 def make_ctx(tmp_path: Path) -> HandlerContext:

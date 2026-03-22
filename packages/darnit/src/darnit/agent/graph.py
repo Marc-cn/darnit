@@ -13,7 +13,8 @@ Each step is a plain Python function that receives the state,
 does its work, and returns the updated state.
 """
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
+
 from darnit.agent.state import DarnitState
 from darnit.core.logging import get_logger
 
@@ -26,7 +27,7 @@ logger = get_logger("agent.graph")
 
 def load_project_context(state: DarnitState) -> DarnitState:
     """Step 1: Load .project.yaml and populate project_context."""
-    from darnit.config.loader import load_project_config, init_project_config, save_project_config
+    from darnit.config.loader import init_project_config, load_project_config, save_project_config
 
     logger.info(f"Loading project context from {state.local_path}")
     state.current_step = "load_project_context"
@@ -45,8 +46,8 @@ def load_project_context(state: DarnitState) -> DarnitState:
 def run_checks(state: DarnitState) -> DarnitState:
     """Step 2-4: Run all sieve phases (deterministic, pattern, LLM)."""
     from darnit.core.discovery import get_default_implementation
-    from darnit.tools.audit import run_sieve_audit
     from darnit.llm.backends import get_backend
+    from darnit.tools.audit import run_sieve_audit
 
     logger.info("Running checks")
     state.current_step = "run_checks"
@@ -58,7 +59,7 @@ def run_checks(state: DarnitState) -> DarnitState:
     llm_backend = get_backend(llm_config)
 
     try:
-        impl = get_default_implementation()
+        get_default_implementation()
         from darnit.core.utils import detect_owner_repo
         owner, repo = detect_owner_repo(state.local_path)
 

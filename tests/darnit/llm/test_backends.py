@@ -4,7 +4,7 @@ We test parsing and the factory function. We do NOT make real API calls —
 the _call() method is patched out in every test.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from darnit.llm.backends import (
     AnthropicBackend,

@@ -1,6 +1,5 @@
 """Tests for GittufImplementation plugin protocol compliance."""
 
-from pathlib import Path
 
 from darnit_gittuf.implementation import GittufImplementation
 
