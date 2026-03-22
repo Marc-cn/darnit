@@ -5,10 +5,10 @@ Implementations register under the 'darnit.implementations' group.
 """
 
 
+from darnit.core.verification import PluginVerifier, VerificationConfig
+
 from .logging import get_logger
 from .plugin import ComplianceImplementation
-
-from darnit.core.verification import PluginVerifier, VerificationConfig
 
 logger = get_logger("core.discovery")
 

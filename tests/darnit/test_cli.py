@@ -2,6 +2,7 @@ import json
 
 from darnit.cli import main
 
+
 def test_install_claude_creates_settings(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
 
