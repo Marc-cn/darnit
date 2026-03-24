@@ -502,6 +502,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     api_key = os.environ.get("ANTHROPIC_API_KEY", "") or \
               os.environ.get("OPENAI_API_KEY", "") or ""
 
+    # Feedback mode — default to interactive if terminal, noninteractive if not
+    feedback_mode = args.feedback_mode
+    if feedback_mode == "auto":
+        import sys
+        feedback_mode = "interactive" if sys.stdin.isatty() else "noninteractive"
+
     if not api_key and llm_backend != "ollama":
         logger.warning(
             f"No API key found for backend '{llm_backend}'. "
@@ -518,6 +524,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         local_path=repo_path,
         llm_backend=llm_backend,
         llm_api_key=api_key,
+        feedback_mode=feedback_mode,
     )
 
     # Run the graph
@@ -549,6 +556,19 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"\nItems needing manual review ({len(human_messages)}):")
         for msg in human_messages:
             print(f"  - {msg}")
+
+    # Print any queued feedback questions (non-interactive mode)
+    feedback_questions = final_state.get("feedback_questions") or []
+    if feedback_questions:
+        unanswered = [q for q in feedback_questions if not q.get("answer")]
+        if unanswered:
+            print(f"\nPending human feedback ({len(unanswered)} unanswered questions):")
+            for q in unanswered:
+                print(f"  Control : {q['control_id']}")
+                print(f"  Question: {q['question']}")
+                if q.get("details"):
+                    print(f"  Details : {q['details']}")
+                print()
 
     if errors:
         print(f"\nErrors encountered:")
@@ -833,6 +853,15 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["anthropic", "openai", "ollama"],
         default=None,
         help="LLM backend to use (default: anthropic, or DARNIT_LLM_BACKEND env var)",
+    )
+    run_parser.add_argument(
+        "--feedback",
+        dest="feedback_mode",
+        choices=["interactive", "noninteractive", "auto"],
+        default="auto",
+        help="Human feedback mode: interactive (prompts in terminal), "
+             "noninteractive (collects questions for later), "
+             "auto (interactive if terminal, noninteractive in CI)",
     )
     run_parser.set_defaults(func=cmd_run)
 
