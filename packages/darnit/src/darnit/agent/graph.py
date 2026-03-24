@@ -105,11 +105,12 @@ def run_checks(state: DarnitState) -> DarnitState:
 
 def collect_context(state: DarnitState) -> DarnitState:
     """Step 5: Try to gather more info for controls that are still unclear."""
+    from darnit.agent.feedback import get_feedback_handler
+
     logger.info(f"Collecting context for {len(state.pending_context)} pending controls")
     state.current_step = "collect_context"
 
-    # For now: anything still pending after checks goes into the
-    # remediation queue if it is a FAIL, or gets a human message if WARN
+    feedback = get_feedback_handler(state.feedback_mode)
     remediation_queue = []
     human_messages = []
 
@@ -117,11 +118,31 @@ def collect_context(state: DarnitState) -> DarnitState:
         if result.get("status") in ("FAIL", "ERROR"):
             remediation_queue.append(result)
         else:
-            # WARN means we need a human to confirm something
-            human_messages.append(
-                f"Control {result.get('id')} needs manual verification: "
-                f"{result.get('details', 'no details')}"
+            # WARN — ask a human to verify
+            control_id = result.get("id", "unknown")
+            details = result.get("details", "no details")
+
+            answer = feedback.ask(
+                control_id=control_id,
+                question="Can you manually verify this control?",
+                details=details,
             )
+
+            if answer:
+                # Human provided an answer — store it in context for re-audit
+                human_messages.append(
+                    f"Control {control_id} — human confirmed: {answer}"
+                )
+            else:
+                human_messages.append(
+                    f"Control {control_id} needs manual verification: {details}"
+                )
+
+    # Store any queued questions in state for printing later
+    state.feedback_questions = [
+        {"control_id": q.control_id, "question": q.question, "details": q.details, "answer": q.answer}
+        for q in feedback.summarize()
+    ]
 
     state.remediation_queue = remediation_queue
     state.human_messages = human_messages

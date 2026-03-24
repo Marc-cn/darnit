@@ -38,6 +38,14 @@ class DarnitState:
     # The LLM API key (read from env var, not hardcoded)
     llm_api_key: str = ""
 
+    # How to handle human feedback questions
+    # "interactive" — pauses and prompts in the terminal
+    # "noninteractive" — collects questions and prints at the end
+    feedback_mode: str = "noninteractive"
+
+    # Questions collected during the run that need human answers
+    feedback_questions: list = field(default_factory=list)
+
     # Track what step we are on for logging/debugging
     current_step: str = "idle"
 
