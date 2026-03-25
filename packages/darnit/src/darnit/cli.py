@@ -27,14 +27,13 @@ Examples:
 import argparse
 import importlib.metadata
 import json
+import os
 import sys
 from pathlib import Path
-import os
-    
 
-from darnit.core.logging import configure_logging, get_logger
-from darnit.agent.state import DarnitState
 from darnit.agent.graph import darnit_graph
+from darnit.agent.state import DarnitState
+from darnit.core.logging import configure_logging, get_logger
 
 logger = get_logger("cli")
 
@@ -517,7 +516,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             f"Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable."
         )
 
-    print(f"\nDarnit agentic run")
+    print("\nDarnit agentic run")
     print(f"  Repository : {repo_path}")
     print(f"  LLM backend: {llm_backend}")
     print()
@@ -549,7 +548,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     failed = len([r for r in results_list if isinstance(r, dict) and r.get("status") == "FAIL"])
     warned = len([r for r in results_list if isinstance(r, dict) and r.get("status") == "WARN"])
 
-    print(f"Run complete.")
+    print("Run complete.")
     print(f"  Total  : {total}")
     print(f"  Passed : {passed}")
     print(f"  Failed : {failed}")
@@ -574,7 +573,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 print()
 
     if errors:
-        print(f"\nErrors encountered:")
+        print("\nErrors encountered:")
         for err in errors:
             print(f"  - {err}")
         return 1
