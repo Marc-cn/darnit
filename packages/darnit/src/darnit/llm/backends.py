@@ -151,10 +151,10 @@ class AnthropicBackend(LLMBackend):
                 messages=[{"role": "user", "content": prompt}],
             )
             return message.content[0].text
-        except ImportError:
+        except ImportError as e:
             raise RuntimeError(
                 "anthropic package not installed. Run: uv add anthropic"
-            )
+            ) from e
 
 
 # =============================================================================
@@ -180,10 +180,10 @@ class OpenAIBackend(LLMBackend):
                 max_tokens=256,
             )
             return response.choices[0].message.content
-        except ImportError:
+        except ImportError as e:
             raise RuntimeError(
                 "openai package not installed. Run: uv add openai"
-            )
+            ) from e
 
 
 # =============================================================================
@@ -199,8 +199,8 @@ class OllamaBackend(LLMBackend):
 
     def _call(self, prompt: str) -> str:
         try:
-            import urllib.request
             import json
+            import urllib.request
 
             payload = json.dumps({
                 "model": self.model,
@@ -217,7 +217,7 @@ class OllamaBackend(LLMBackend):
                 data = json.loads(resp.read())
                 return data.get("response", "")
         except Exception as e:
-            raise RuntimeError(f"Ollama call failed: {e}")
+            raise RuntimeError(f"Ollama call failed: {e}") from e
 
 
 # =============================================================================
