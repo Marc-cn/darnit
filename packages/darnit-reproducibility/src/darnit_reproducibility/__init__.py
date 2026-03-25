@@ -1,6 +1,7 @@
 """Scientific reproducibility plugin for darnit."""
 
 from pathlib import Path
+
 from .implementation import ReproducibilityImplementation
 
 

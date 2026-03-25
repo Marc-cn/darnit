@@ -5,12 +5,11 @@ They are deliberately conservative — when in doubt, return INCONCLUSIVE
 rather than falsely passing or failing.
 """
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
-from darnit.sieve.handler_registry import HandlerContext, HandlerResult, HandlerResultStatus
 from darnit.core.logging import get_logger
+from darnit.sieve.handler_registry import HandlerContext, HandlerResult, HandlerResultStatus
 
 logger = get_logger("darnit_reproducibility.handlers")
 
