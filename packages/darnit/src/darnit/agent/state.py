@@ -19,7 +19,7 @@ class DarnitState:
     controls: list = field(default_factory=list)
 
     # Results from running the checks (one entry per control)
-    check_results: list = field(default_factory=dict)
+    check_results: list = field(default_factory=list)
 
     # Controls that failed or warned and need more info before remediation
     pending_context: list = field(default_factory=list)

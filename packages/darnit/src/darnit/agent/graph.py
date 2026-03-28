@@ -220,7 +220,3 @@ def build_graph() -> StateGraph:
     graph.add_edge("finish", END)
 
     return graph.compile()
-
-
-# Singleton — import this to run the agent
-darnit_graph = build_graph()
