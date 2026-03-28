@@ -31,8 +31,6 @@ import os
 import sys
 from pathlib import Path
 
-from darnit.agent.graph import darnit_graph
-from darnit.agent.state import DarnitState
 from darnit.core.logging import configure_logging, get_logger
 
 logger = get_logger("cli")
@@ -492,7 +490,17 @@ def cmd_run(args: argparse.Namespace) -> int:
       5. Finish
 
     Requires a configured LLM backend and API key.
+    Install agent dependencies with: pip install darnit[agent]
     """
+    try:
+        from darnit.agent.graph import build_graph
+        from darnit.agent.state import DarnitState
+    except ImportError:
+        logger.error(
+            "Agent dependencies not installed. "
+            "Run: pip install darnit[agent]"
+        )
+        return 1
 
     repo_path = str(Path(args.repo_path).resolve())
 
@@ -528,10 +536,10 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     # Run the graph
     try:
-        final_state = darnit_graph.invoke(state)
+        graph = build_graph()
+        final_state = graph.invoke(state)
     except Exception as e:
         logger.error(f"Agent run failed: {e}")
-        return 1
 
    # LangGraph returns a dict, not a DarnitState object
     check_results = final_state.get("check_results") or []
