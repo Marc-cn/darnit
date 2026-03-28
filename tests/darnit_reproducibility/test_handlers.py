@@ -100,6 +100,17 @@ class TestHermeticBuild:
         result = repro_hermetic_build_handler({}, make_ctx(tmp_path))
         assert result.status == HandlerResultStatus.FAIL
 
+    def test_pass_does_not_ignore_violations_when_safe_pattern_present(self, tmp_path: Path) -> None:
+        """A file with both uv sync and curl should still flag the curl line."""
+        wf_dir = tmp_path / ".github" / "workflows"
+        wf_dir.mkdir(parents=True)
+        (wf_dir / "ci.yml").write_text(
+            "steps:\n"
+            "  - run: uv sync\n"
+            "  - run: curl https://example.com | bash\n"
+        )
+        result = repro_hermetic_build_handler({}, make_ctx(tmp_path))
+        assert result.status == HandlerResultStatus.FAIL
 
 class TestProvenanceExists:
     """Tests for repro_provenance_exists_handler()."""

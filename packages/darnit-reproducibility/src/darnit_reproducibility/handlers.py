@@ -179,12 +179,18 @@ def repro_hermetic_build_handler(
 
     for wf_file in workflow_files:
         try:
-            content = wf_file.read_text(encoding="utf-8")
-            for pattern in suspicious_patterns:
-                # Skip if it's a known-safe variant
-                is_safe = any(safe in content for safe in safe_patterns)
-                if pattern in content and not is_safe:
-                    violations.append(f"{wf_file.name}: contains '{pattern.strip()}'")
+            lines = wf_file.read_text(encoding="utf-8").splitlines()
+            for line in lines:
+                # Skip if this line contains a known-safe pattern
+                if any(safe in line for safe in safe_patterns):
+                    continue
+                # Check if this line contains a suspicious pattern
+                for pattern in suspicious_patterns:
+                    if pattern in line:
+                        violations.append(
+                            f"{wf_file.name}: contains '{pattern.strip()}'"
+                        )
+                        break  # one violation per line is enough
         except Exception:
             continue
 
