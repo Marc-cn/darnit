@@ -33,7 +33,6 @@ class TestAttestationStorageWiring:
         audit_result = make_audit_result(tmp_path)
 
         with patch("darnit.storage.backends.get_backend", return_value=backend), \
-             patch("darnit_baseline.attestation.generator.sign_attestation") as mock_sign, \
              patch("darnit_baseline.attestation.generator.ATTESTATION_AVAILABLE", False):
 
             generate_attestation_from_results(
