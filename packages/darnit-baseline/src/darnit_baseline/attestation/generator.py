@@ -53,7 +53,8 @@ def generate_attestation_from_results(
     sign: bool = True,
     staging: bool = False,
     output_path: str | None = None,
-    output_dir: str | None = None
+    output_dir: str | None = None,
+    storage_config: dict[str, Any] | None = None,
 ) -> str:
     """Generate attestation from audit results.
 
@@ -121,6 +122,21 @@ def generate_attestation_from_results(
         )
         output = json.dumps(unsigned, indent=2)
 
+    # Store via pluggable storage backend if configured
+    repo_url = f"https://github.com/{audit_result.owner}/{audit_result.repo}"
+    try:
+        from darnit.storage.backends import get_backend
+        storage = get_backend(storage_config)
+        storage_ref = storage.store_attestation(
+            repo_url=repo_url,
+            commit=audit_result.commit,
+            attestation=json.loads(output),
+        )
+        if storage_ref:
+            logger.info(f"Attestation stored via backend: {storage_ref}")
+    except Exception as e:
+        logger.warning(f"Storage backend failed, falling back to file: {e}")
+
     # Determine output file path
     if not output_path:
         extension = ".sigstore.json" if sign else ".intoto.json"
@@ -128,7 +144,7 @@ def generate_attestation_from_results(
         save_dir = output_dir if output_dir else audit_result.local_path
         output_path = os.path.join(save_dir, filename)
 
-    # Save the attestation
+    # Save the attestation to file
     try:
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
         with open(output_path, 'w') as f:
