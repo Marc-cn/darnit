@@ -132,6 +132,7 @@ def audit_openssf_baseline(
         tags=tags_list,
         apply_user_config=True,
         stop_on_llm=True,
+        framework_name="openssf-baseline",
     )
 
     # Format output
@@ -468,19 +469,20 @@ _CONTEXT_KEY_ORDER = [
     "ci_provider",
 ]
 
-_LLM_DIRECTIVE = """
+_LLM_DIRECTIVE_PREFIX = """⚠️ MANDATORY: Your next action MUST be calling the AskUserQuestion tool.
+
+Copy "ask_user_batch" below verbatim as the "questions" parameter to AskUserQuestion.
+Do NOT render these questions as text. Do NOT paraphrase. Do NOT summarize.
+You MUST call the AskUserQuestion tool now.
+
+After the user answers, use "answer_mapping" to call confirm_project_context() for EACH answer:
+- "Yes" / "No" for booleans → pass true / false (not strings)
+- Selected option label for enums → pass the label as a string
+- "Other" selections → pass the user's typed value
+Then call get_pending_context() again for the next batch (if any remain).
+
 ---
-IMPORTANT — YOU MUST FOLLOW THESE RULES:
-1. Use the AskUserQuestion tool with the EXACT contents of "ask_user_batch.questions".
-   Pass the array directly — do NOT paraphrase, reorder, or modify any question text or options.
-2. After the user answers, use "answer_mapping" to call confirm_project_context() for EACH answer.
-   Map user selections to confirm_project_context values:
-   - "Yes" / "No" for booleans → pass true / false (not strings)
-   - Selected option label for enums → pass the label as a string
-   - "Other" selections → pass the user's typed value
-3. Then call get_pending_context() again for the next batch (if any remain).
-4. Do NOT guess, suggest, or pre-fill answers from the repository owner, git history, or your own knowledge.
----"""
+"""
 
 
 def get_pending_context(
@@ -494,15 +496,13 @@ def get_pending_context(
 ) -> str:
     """Get context values that would improve audit accuracy.
 
-    Returns up to `limit` questions per call as a batch. You MUST follow this workflow:
+    Returns up to `limit` questions per call as a batch.
 
-    1. Call get_pending_context() — it returns up to 4 questions with an "ask_user_batch" field.
-    2. Pass "ask_user_batch.questions" directly to the AskUserQuestion tool.
-       Do NOT paraphrase, reorder, or modify any question text or options.
-    3. After the user answers, use "answer_mapping" to call confirm_project_context()
-       for EACH answer.
-    4. Call get_pending_context() again for the next batch.
-    5. Repeat until status is "complete".
+    MANDATORY WORKFLOW — your next action MUST be calling AskUserQuestion:
+    1. Call this tool. It returns "ask_user_batch" — an array ready for AskUserQuestion.
+    2. Call AskUserQuestion(questions=<ask_user_batch>). Pass VERBATIM. Do NOT render as text.
+    3. After the user answers, use "answer_mapping" to call confirm_project_context() per answer.
+    4. Call get_pending_context() again for the next batch. Repeat until status is "complete".
 
     Parameters:
     - `local_path`: Path to repository (default: ".")
@@ -513,7 +513,7 @@ def get_pending_context(
     - `limit`: Max questions to return per batch (default: 4). Use 0 for all.
 
     Returns:
-        JSON with structured question(s), ask_user_batch for AskUserQuestion,
+        JSON with ask_user_batch (pass directly to AskUserQuestion),
         answer_mapping for confirm_project_context, and a progress indicator.
     """
     from darnit.config.context_storage import get_pending_context as _get_pending
@@ -605,22 +605,23 @@ def get_pending_context(
                 "answered": answered,
                 "total": total,
             },
-            "instructions": (
-                "Pass ask_user_batch.questions directly to AskUserQuestion. "
-                "Then use answer_mapping to call confirm_project_context() for each answer. "
-                "Then call get_pending_context() again for the next batch."
-            ),
-            "questions": questions,
         }
 
         if batch_questions:
-            response["ask_user_batch"] = {"questions": batch_questions}
+            response["ask_user_batch"] = batch_questions
             response["answer_mapping"] = answer_mapping
 
-        result = json.dumps(response, indent=2)
+        # Include raw question details only when no ask_user_batch
+        # (i.e., free_text questions that can't use AskUserQuestion)
+        if not batch_questions:
+            response["questions"] = questions
 
-        if append_directive:
-            result += _LLM_DIRECTIVE
+        result_json = json.dumps(response, indent=2)
+
+        if append_directive and batch_questions:
+            result = _LLM_DIRECTIVE_PREFIX + result_json
+        else:
+            result = result_json
 
         return result
 
@@ -809,6 +810,7 @@ def generate_threat_model(
     local_path: str = ".",
     output_format: str = "markdown",
     output_path: str | None = None,
+    detail_level: str = "detailed",
 ) -> str:
     """
     Generate a STRIDE-based threat model for a repository.
@@ -823,6 +825,8 @@ def generate_threat_model(
         output_format: Output format - "markdown", "sarif", or "json"
         output_path: Optional file path (relative to local_path) to write
             the threat model to disk. If not provided, returns content as string.
+        detail_level: Detail level for Markdown output - "summary" or "detailed"
+            (default). Only affects Markdown; SARIF/JSON always include full detail.
 
     Returns:
         Threat model report with identified threats and recommendations,
@@ -830,6 +834,7 @@ def generate_threat_model(
     """
     from darnit_baseline.threat_model import (
         analyze_stride_threats,
+        detect_attack_chains,
         detect_frameworks,
         discover_all_assets,
         discover_injection_sinks,
@@ -862,16 +867,23 @@ def generate_threat_model(
         # Analyze threats
         threats = analyze_stride_threats(assets, injection_sinks)
 
+        # Detect attack chains
+        attack_chains = detect_attack_chains(threats, assets)
+
         # Identify control gaps
         control_gaps = identify_control_gaps(assets, threats)
 
+        # Validate detail_level
+        if detail_level not in ("summary", "detailed"):
+            detail_level = "detailed"
+
         # Generate output
         if output_format == "sarif":
-            content = json.dumps(generate_sarif_threat_model(str(repo_path), threats), indent=2)
+            content = json.dumps(generate_sarif_threat_model(str(repo_path), threats, attack_chains), indent=2)
         elif output_format == "json":
-            content = json.dumps(generate_json_summary(str(repo_path), frameworks, assets, threats, control_gaps), indent=2)
+            content = json.dumps(generate_json_summary(str(repo_path), frameworks, assets, threats, control_gaps, attack_chains), indent=2)
         else:
-            content = generate_markdown_threat_model(str(repo_path), assets, threats, control_gaps, frameworks)
+            content = generate_markdown_threat_model(str(repo_path), assets, threats, control_gaps, frameworks, detail_level, attack_chains)
 
         # Write to disk if output_path provided
         if output_path:
@@ -984,6 +996,25 @@ def remediate_audit_findings(
     detected_owner, detected_repo = detect_owner_repo(str(repo_path))
     owner = owner or detected_owner
     repo = repo or detected_repo
+
+    # Guard: check for unresolved context before remediating
+    try:
+        from darnit.config.context_storage import get_pending_context as _get_pending
+
+        pending = _get_pending(
+            local_path=str(repo_path), owner=owner, repo=repo,
+        )
+        if pending:
+            keys = [p.key for p in pending]
+            return (
+                "⚠️ Cannot remediate yet — there are unresolved context questions.\n\n"
+                f"**Pending context keys**: {', '.join(keys)}\n\n"
+                "Please call `get_pending_context()` first to collect the missing "
+                "project context, then confirm each answer with `confirm_project_context()`. "
+                "Once all context is resolved, call `remediate_audit_findings()` again."
+            )
+    except Exception:
+        pass  # If context check fails, proceed with remediation anyway
 
     try:
         result = apply_remediations(
@@ -1241,7 +1272,7 @@ def audit_org(
         else:
             tags_list = list(tags)
 
-    result = _audit_single_repo(owner, repo, level, tags_list)
+    result = _audit_single_repo(owner, repo, level, tags_list, framework_name="openssf-baseline")
 
     if output_format == "json":
         return json.dumps(result, indent=2)
