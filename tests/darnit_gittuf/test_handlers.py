@@ -72,28 +72,31 @@ class TestGittufCommitsSignedHandler:
         ctx = make_ctx(tmp_path)
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = "G\nG\nG\nG\nG\n"
+        # Format is %G?%n%GK — status line then key line alternating
+        mock_result.stdout = "G\nabc123\nG\nabc124\nG\nabc125\n"
         with patch("subprocess.run", return_value=mock_result):
             result = gittuf_commits_signed_handler({}, ctx)
         assert result.status == HandlerResultStatus.PASS
-        assert result.evidence["signed"] == 5
+        assert result.evidence["signed"] == 3
         assert result.evidence["unsigned"] == 0
 
     def test_fail_when_some_commits_unsigned(self, tmp_path: Path) -> None:
         ctx = make_ctx(tmp_path)
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = "G\nN\nG\nN\nG\n"
+        # G = signed, N = unsigned, empty key for unsigned commits
+        mock_result.stdout = "G\nabc123\nN\n\nG\nabc125\n"
         with patch("subprocess.run", return_value=mock_result):
             result = gittuf_commits_signed_handler({}, ctx)
         assert result.status == HandlerResultStatus.FAIL
-        assert result.evidence["unsigned"] == 2
+        assert result.evidence["unsigned"] == 1
 
     def test_fail_when_bad_signature(self, tmp_path: Path) -> None:
         ctx = make_ctx(tmp_path)
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = "G\nB\nG\n"
+        # B = bad signature
+        mock_result.stdout = "G\nabc123\nB\nabc124\nG\nabc125\n"
         with patch("subprocess.run", return_value=mock_result):
             result = gittuf_commits_signed_handler({}, ctx)
         assert result.status == HandlerResultStatus.FAIL
