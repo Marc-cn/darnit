@@ -3929,11 +3929,10 @@ safe = true
 dry_run_supported = true
 
 [[controls."OSPS-SA-03.02".remediation.handlers]]
-handler = "file_create"
+handler = "generate_threat_model"
 path = "THREAT_MODEL.md"
 template = "threat_model_basic"
 overwrite = false
-llm_enhance = "Customize this threat model: run threat discovery to identify the project's actual entry points, data stores, authentication mechanisms, and sensitive data. Replace the generic STRIDE examples with threats specific to the discovered assets and architecture."
 
 [controls."OSPS-SA-03.02".remediation.project_update]
 set = { "security.threat_model.path" = "THREAT_MODEL.md" }
@@ -4023,13 +4022,13 @@ limit = 4
 append_directive = true
 description = """Batch context collection wizard. Returns up to 4 questions at a time.
 
-**IMPORTANT — You MUST follow this workflow:**
-1. Call this tool. It returns up to 4 questions in "ask_user_batch".
-2. Pass "ask_user_batch.questions" directly to AskUserQuestion — do NOT paraphrase, reorder, or modify.
+MANDATORY WORKFLOW — your next action after calling this tool MUST be calling AskUserQuestion:
+1. Call this tool. It returns "ask_user_batch" — an array of AskUserQuestion-compatible question objects.
+2. Call AskUserQuestion with questions=<ask_user_batch>. Pass the array VERBATIM. Do NOT render as text.
 3. After the user answers, use "answer_mapping" to call confirm_project_context() for EACH answer.
 4. Call this tool again for the next batch. Repeat until status is "complete".
 
-Do NOT pre-fill or suggest answers. Do NOT guess values from git history or repo metadata.
+Do NOT pre-fill or suggest answers. Do NOT summarize questions as text. ALWAYS use AskUserQuestion.
 """
 
 [mcp.tools.generate_threat_model]

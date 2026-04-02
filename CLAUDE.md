@@ -42,8 +42,8 @@ import darnit_baseline
 from darnit_baseline.controls import level1
 
 # ✅ CORRECT - Use plugin discovery
-from darnit.core.discovery import get_default_implementation
-impl = get_default_implementation()
+from darnit.core.discovery import get_implementation
+impl = get_implementation("openssf-baseline")
 if impl:
     controls = impl.get_all_controls()
 ```
@@ -338,7 +338,7 @@ Default trusted publishers: `kusari-oss`, `kusaridev`
 Use `hasattr()` for backward compatibility when adding new protocol methods:
 
 ```python
-impl = get_default_implementation()
+impl = get_implementation("openssf-baseline")
 if impl and hasattr(impl, "new_method"):
     impl.new_method()
 ```
@@ -348,7 +348,7 @@ if impl and hasattr(impl, "new_method"):
 Always handle missing implementations gracefully:
 
 ```python
-impl = get_default_implementation()
+impl = get_implementation("openssf-baseline")
 if impl:
     result = impl.get_all_controls()
 else:
@@ -361,6 +361,10 @@ else:
 - TOML config files, `.project/` YAML context, local filesystem (001-tiered-control-automation)
 - Markdown (GitHub-Flavored Markdown with Mermaid diagram support) + None (pure documentation) (005-getting-started-guide)
 - Filesystem (Markdown files in `docs/` directory) (005-getting-started-guide)
+- Python >=3.11 (project targets 3.11/3.12) + darnit (core framework), darnit-baseline (implementation package) — no new external dependencies (006-detailed-stride-threats)
+- N/A (generates reports from static analysis; no persistence) (006-detailed-stride-threats)
+- Python >=3.11 (project targets 3.11/3.12) + darnit (core framework — sieve handler registry), darnit-baseline (threat model engine) (007-threatmodel-remediation-handler)
+- N/A (writes a single file to the repository) (007-threatmodel-remediation-handler)
 
 ## Recent Changes
 - 001-tiered-control-automation: Added Python >=3.11 (project targets 3.11/3.12) + darnit (core framework), darnit-baseline

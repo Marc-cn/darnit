@@ -21,6 +21,7 @@ dependencies = [
     "darnit",
     "darnit-baseline",
     "darnit-example",
+    "darnit-gittuf",
 ]
 
 [project.urls]
@@ -47,6 +48,7 @@ members = ["packages/*"]
 darnit = { workspace = true }
 darnit-baseline = { workspace = true }
 darnit-example = { workspace = true }
+darnit-gittuf = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -138,6 +140,7 @@ ignore = [
     "SIM108", # ternary operator (readability preference)
     "SIM110", # any() suggestion (explicit loop often clearer)
     "SIM116", # dict comprehension (sometimes explicit is clearer)
+    "UP042",  # StrEnum suggestion (pre-existing, not introduced by this PR)
 ]
 
 [tool.ruff.lint.per-file-ignores]
