@@ -13,7 +13,6 @@ dependencies = [
     "cel-python>=0.5.0",  # CEL expression evaluation for pass logic
     "tomli>=2.0.0;python_version<'3.11'",
     "tomllib-stubs>=0.1.0;python_version<'3.11'",
-    "langgraph>=0.2.0",
 ]
 
 [project.scripts]
@@ -28,6 +27,10 @@ attestation = [
     "sigstore>=3.0.0",
     "in-toto-attestation>=0.9.0",
     "urllib3>=2.6.3",  # CVE-2025-66471, CVE-2026-21441, CVE-2025-66418 fixes
+]
+agent = [
+    "langgraph>=0.2.0",
+    "langchain-core>=1.2.22",  # CVE-2026-34070 path traversal fix
 ]
 
 [build-system]
