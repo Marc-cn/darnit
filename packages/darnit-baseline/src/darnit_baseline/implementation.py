@@ -129,6 +129,19 @@ class OSPSBaselineImplementation:
         # implementation.py -> darnit_baseline -> src -> darnit-baseline -> openssf-baseline.toml
         return Path(__file__).parent.parent.parent / "openssf-baseline.toml"
 
+    def get_audit_profiles(self) -> dict | None:
+        """Return named audit profiles from TOML config.
+
+        Returns:
+            Dict mapping profile name to AuditProfileConfig, or None if no profiles defined.
+        """
+        from darnit.config.merger import load_framework_by_name
+
+        config = load_framework_by_name("openssf-baseline")
+        if config.audit_profiles:
+            return dict(config.audit_profiles)
+        return None
+
     def register_controls(self) -> None:
         """No-op. Control definitions come exclusively from TOML.
 
@@ -184,6 +197,21 @@ class OSPSBaselineImplementation:
 
         # Clear plugin context
         registry.set_plugin_context(None)
+
+        # Register sieve remediation handlers
+        from darnit.sieve.handler_registry import get_sieve_handler_registry
+
+        from .threat_model.remediation import generate_threat_model_handler
+
+        sieve_registry = get_sieve_handler_registry()
+        sieve_registry.set_plugin_context(self.name)
+        sieve_registry.register(
+            "generate_threat_model",
+            phase="deterministic",
+            handler_fn=generate_threat_model_handler,
+            description="Generate dynamic STRIDE threat model",
+        )
+        sieve_registry.set_plugin_context(None)
 
 
 __all__ = ["OSPSBaselineImplementation"]

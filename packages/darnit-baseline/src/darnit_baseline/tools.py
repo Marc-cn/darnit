@@ -47,6 +47,7 @@ def audit_openssf_baseline(
     sign_attestation: bool = True,
     staging: bool = False,
     prefer_upstream: bool = True,
+    profile: str | None = None,
 ) -> str:
     """
     Run a comprehensive OpenSSF Baseline audit on a repository.
@@ -63,13 +64,16 @@ def audit_openssf_baseline(
               - Different fields use AND logic: domain=AC AND level=1
               - Same field repeated uses OR logic: priority=low OR priority=high
               - Bare values match against control tags dict keys
-        output_format: Output format - "markdown", "json", or "sarif". Default: "markdown"
+        output_format: Output format - "markdown", "json", "summary", or "sarif". Default: "markdown".
+              Use "summary" for compact JSON (id/status/level/details only, no evidence).
         auto_init_config: Create .project.yaml if missing. Default: True
         attest: Generate in-toto attestation after audit. Default: False
         sign_attestation: Sign attestation with Sigstore. Default: True
         staging: Use Sigstore staging environment. Default: False
         prefer_upstream: If True, prefer 'upstream' git remote when auto-detecting owner/repo.
                          Useful for auditing forks against their upstream repository. Default: True
+        profile: Optional audit profile name to filter controls. Short name (e.g., "level1_quick")
+                 or qualified name (e.g., "openssf-baseline:level1_quick"). Default: None (all controls)
 
     Returns:
         Formatted audit report with compliance status and remediation instructions
@@ -108,6 +112,26 @@ def audit_openssf_baseline(
     controls = load_controls_from_effective(config)
     controls = [c for c in controls if c.level <= level]
 
+    # Apply profile filtering if specified
+    if profile:
+        from darnit.config.profile_resolver import (
+            ProfileAmbiguousError,
+            ProfileNotFoundError,
+            resolve_profile,
+            resolve_profile_control_ids,
+        )
+
+        try:
+            # Build implementations dict from loaded config
+            profile_impls: dict = {}
+            if config._framework_config and config._framework_config.audit_profiles:
+                profile_impls[config.framework_name] = config._framework_config.audit_profiles
+            _, profile_config = resolve_profile(profile, profile_impls)
+            profile_ids = resolve_profile_control_ids(profile_config, controls)
+            controls = [c for c in controls if c.control_id in profile_ids]
+        except (ProfileNotFoundError, ProfileAmbiguousError) as e:
+            return f"❌ {e}"
+
     if not controls:
         return "❌ No controls loaded"
 
@@ -132,10 +156,30 @@ def audit_openssf_baseline(
         tags=tags_list,
         apply_user_config=True,
         stop_on_llm=True,
+        framework_name="openssf-baseline",
     )
 
     # Format output
-    if output_format == "json":
+    if output_format == "summary":
+        # Compact JSON: only id/status/level/details — no evidence or pass_history.
+        # ~5-8K vs ~164K for full JSON with 62 controls.
+        compact_results = [
+            {
+                "id": r.get("id"),
+                "status": r.get("status"),
+                "level": r.get("level"),
+                "details": r.get("details", ""),
+            }
+            for r in results
+        ]
+        return json.dumps({
+            "owner": owner,
+            "repo": repo,
+            "level": level,
+            "summary": summary,
+            "results": compact_results,
+        }, indent=2)
+    elif output_format == "json":
         return json.dumps({
             "owner": owner,
             "repo": repo,
@@ -158,19 +202,43 @@ def audit_openssf_baseline(
         )
 
 
-def list_available_checks() -> str:
+def list_available_checks(profile: str | None = None) -> str:
     """
     List all available OpenSSF Baseline checks organized by level.
 
+    Args:
+        profile: Optional audit profile name to filter controls.
+
     Returns:
-        Formatted list of all 62 OSPS controls across 3 levels
+        Formatted list of OSPS controls across 3 levels
     """
     from darnit.config.merger import load_framework_by_name
 
     config = load_framework_by_name("openssf-baseline")
+
+    # Resolve profile filter if specified
+    profile_ids: set[str] | None = None
+    if profile and config.audit_profiles:
+        from darnit.config.control_loader import load_controls_from_framework
+        from darnit.config.profile_resolver import (
+            resolve_profile,
+            resolve_profile_control_ids,
+        )
+
+        try:
+            _, profile_config = resolve_profile(
+                profile, {"openssf-baseline": config.audit_profiles}
+            )
+            controls = load_controls_from_framework(config)
+            profile_ids = set(resolve_profile_control_ids(profile_config, controls))
+        except Exception:
+            profile_ids = None
+
     checks: dict[str, list] = {"level1": [], "level2": [], "level3": []}
 
     for control_id, control in config.controls.items():
+        if profile_ids is not None and control_id not in profile_ids:
+            continue
         level = control.tags.get("level", 1) if control.tags else 1
         level_key = f"level{level}"
         if level_key in checks:
@@ -468,19 +536,20 @@ _CONTEXT_KEY_ORDER = [
     "ci_provider",
 ]
 
-_LLM_DIRECTIVE = """
+_LLM_DIRECTIVE_PREFIX = """⚠️ MANDATORY: Your next action MUST be calling the AskUserQuestion tool.
+
+Copy "ask_user_batch" below verbatim as the "questions" parameter to AskUserQuestion.
+Do NOT render these questions as text. Do NOT paraphrase. Do NOT summarize.
+You MUST call the AskUserQuestion tool now.
+
+After the user answers, use "answer_mapping" to call confirm_project_context() for EACH answer:
+- "Yes" / "No" for booleans → pass true / false (not strings)
+- Selected option label for enums → pass the label as a string
+- "Other" selections → pass the user's typed value
+Then call get_pending_context() again for the next batch (if any remain).
+
 ---
-IMPORTANT — YOU MUST FOLLOW THESE RULES:
-1. Use the AskUserQuestion tool with the EXACT contents of "ask_user_batch.questions".
-   Pass the array directly — do NOT paraphrase, reorder, or modify any question text or options.
-2. After the user answers, use "answer_mapping" to call confirm_project_context() for EACH answer.
-   Map user selections to confirm_project_context values:
-   - "Yes" / "No" for booleans → pass true / false (not strings)
-   - Selected option label for enums → pass the label as a string
-   - "Other" selections → pass the user's typed value
-3. Then call get_pending_context() again for the next batch (if any remain).
-4. Do NOT guess, suggest, or pre-fill answers from the repository owner, git history, or your own knowledge.
----"""
+"""
 
 
 def get_pending_context(
@@ -491,18 +560,17 @@ def get_pending_context(
     repo: str | None = None,
     limit: int = 4,
     _tool_config: dict | None = None,
+    profile: str | None = None,
 ) -> str:
     """Get context values that would improve audit accuracy.
 
-    Returns up to `limit` questions per call as a batch. You MUST follow this workflow:
+    Returns up to `limit` questions per call as a batch.
 
-    1. Call get_pending_context() — it returns up to 4 questions with an "ask_user_batch" field.
-    2. Pass "ask_user_batch.questions" directly to the AskUserQuestion tool.
-       Do NOT paraphrase, reorder, or modify any question text or options.
-    3. After the user answers, use "answer_mapping" to call confirm_project_context()
-       for EACH answer.
-    4. Call get_pending_context() again for the next batch.
-    5. Repeat until status is "complete".
+    MANDATORY WORKFLOW — your next action MUST be calling AskUserQuestion:
+    1. Call this tool. It returns "ask_user_batch" — an array ready for AskUserQuestion.
+    2. Call AskUserQuestion(questions=<ask_user_batch>). Pass VERBATIM. Do NOT render as text.
+    3. After the user answers, use "answer_mapping" to call confirm_project_context() per answer.
+    4. Call get_pending_context() again for the next batch. Repeat until status is "complete".
 
     Parameters:
     - `local_path`: Path to repository (default: ".")
@@ -513,7 +581,7 @@ def get_pending_context(
     - `limit`: Max questions to return per batch (default: 4). Use 0 for all.
 
     Returns:
-        JSON with structured question(s), ask_user_batch for AskUserQuestion,
+        JSON with ask_user_batch (pass directly to AskUserQuestion),
         answer_mapping for confirm_project_context, and a progress indicator.
     """
     from darnit.config.context_storage import get_pending_context as _get_pending
@@ -605,22 +673,23 @@ def get_pending_context(
                 "answered": answered,
                 "total": total,
             },
-            "instructions": (
-                "Pass ask_user_batch.questions directly to AskUserQuestion. "
-                "Then use answer_mapping to call confirm_project_context() for each answer. "
-                "Then call get_pending_context() again for the next batch."
-            ),
-            "questions": questions,
         }
 
         if batch_questions:
-            response["ask_user_batch"] = {"questions": batch_questions}
+            response["ask_user_batch"] = batch_questions
             response["answer_mapping"] = answer_mapping
 
-        result = json.dumps(response, indent=2)
+        # Include raw question details only when no ask_user_batch
+        # (i.e., free_text questions that can't use AskUserQuestion)
+        if not batch_questions:
+            response["questions"] = questions
 
-        if append_directive:
-            result += _LLM_DIRECTIVE
+        result_json = json.dumps(response, indent=2)
+
+        if append_directive and batch_questions:
+            result = _LLM_DIRECTIVE_PREFIX + result_json
+        else:
+            result = result_json
 
         return result
 
@@ -809,6 +878,7 @@ def generate_threat_model(
     local_path: str = ".",
     output_format: str = "markdown",
     output_path: str | None = None,
+    detail_level: str = "detailed",
 ) -> str:
     """
     Generate a STRIDE-based threat model for a repository.
@@ -823,6 +893,8 @@ def generate_threat_model(
         output_format: Output format - "markdown", "sarif", or "json"
         output_path: Optional file path (relative to local_path) to write
             the threat model to disk. If not provided, returns content as string.
+        detail_level: Detail level for Markdown output - "summary" or "detailed"
+            (default). Only affects Markdown; SARIF/JSON always include full detail.
 
     Returns:
         Threat model report with identified threats and recommendations,
@@ -830,6 +902,7 @@ def generate_threat_model(
     """
     from darnit_baseline.threat_model import (
         analyze_stride_threats,
+        detect_attack_chains,
         detect_frameworks,
         discover_all_assets,
         discover_injection_sinks,
@@ -862,16 +935,23 @@ def generate_threat_model(
         # Analyze threats
         threats = analyze_stride_threats(assets, injection_sinks)
 
+        # Detect attack chains
+        attack_chains = detect_attack_chains(threats, assets)
+
         # Identify control gaps
         control_gaps = identify_control_gaps(assets, threats)
 
+        # Validate detail_level
+        if detail_level not in ("summary", "detailed"):
+            detail_level = "detailed"
+
         # Generate output
         if output_format == "sarif":
-            content = json.dumps(generate_sarif_threat_model(str(repo_path), threats), indent=2)
+            content = json.dumps(generate_sarif_threat_model(str(repo_path), threats, attack_chains), indent=2)
         elif output_format == "json":
-            content = json.dumps(generate_json_summary(str(repo_path), frameworks, assets, threats, control_gaps), indent=2)
+            content = json.dumps(generate_json_summary(str(repo_path), frameworks, assets, threats, control_gaps, attack_chains), indent=2)
         else:
-            content = generate_markdown_threat_model(str(repo_path), assets, threats, control_gaps, frameworks)
+            content = generate_markdown_threat_model(str(repo_path), assets, threats, control_gaps, frameworks, detail_level, attack_chains)
 
         # Write to disk if output_path provided
         if output_path:
@@ -952,6 +1032,10 @@ def remediate_audit_findings(
     repo: str | None = None,
     categories: list | None = None,
     dry_run: bool = True,
+    profile: str | None = None,
+    branch_name: str | None = None,
+    auto_commit: bool = False,
+    create_pr: bool = False,
 ) -> str:
     """
     Apply automated remediations for failed audit controls.
@@ -963,15 +1047,24 @@ def remediate_audit_findings(
     - access_control, build_release, documentation, governance, legal,
       quality, security_architecture, vulnerability_management
 
+    Supports optional git workflow (ignored when dry_run=True):
+    - branch_name: Create/switch to this branch before applying (e.g., "fix/compliance")
+    - auto_commit: Commit changes after applying (requires dry_run=false)
+    - create_pr: Create a pull request after committing (requires auto_commit=true)
+
     Args:
         local_path: ABSOLUTE path to repo
         owner: GitHub org/user (auto-detected if not provided)
         repo: Repository name (auto-detected if not provided)
         categories: Optional filter — list of category names, or ["all"]
         dry_run: If True (default), show what would be changed without applying
+        profile: Optional audit profile name to filter remediation to profile controls only
+        branch_name: Create/checkout this branch before applying remediations
+        auto_commit: Automatically commit after applying remediations
+        create_pr: Create a pull request after committing
 
     Returns:
-        Summary of applied or planned remediations
+        Summary of applied or planned remediations (with git workflow status if applicable)
     """
     from darnit_baseline.remediation import remediate_audit_findings as apply_remediations
 
@@ -979,12 +1072,48 @@ def remediate_audit_findings(
     if not repo_path.exists():
         return f"❌ Error: Repository path not found: {repo_path}"
 
+    # Validate git workflow param combinations
+    if create_pr and not auto_commit:
+        return "❌ Error: create_pr requires auto_commit=True"
+
     from darnit.core.utils import detect_owner_repo
 
     detected_owner, detected_repo = detect_owner_repo(str(repo_path))
     owner = owner or detected_owner
     repo = repo or detected_repo
 
+    # Guard: check for unresolved context before remediating
+    try:
+        from darnit.config.context_storage import get_pending_context as _get_pending
+
+        pending = _get_pending(
+            local_path=str(repo_path), owner=owner, repo=repo,
+        )
+        if pending:
+            keys = [p.key for p in pending]
+            return (
+                "⚠️ Cannot remediate yet — there are unresolved context questions.\n\n"
+                f"**Pending context keys**: {', '.join(keys)}\n\n"
+                "Please call `get_pending_context()` first to collect the missing "
+                "project context, then confirm each answer with `confirm_project_context()`. "
+                "Once all context is resolved, call `remediate_audit_findings()` again."
+            )
+    except Exception:
+        pass  # If context check fails, proceed with remediation anyway
+
+    # Step 1: Create branch before applying (so changes land on the right branch)
+    git_report: list[str] = []
+    if branch_name and not dry_run:
+        from darnit.server.tools.git_operations import create_remediation_branch_impl
+
+        branch_result = create_remediation_branch_impl(
+            branch_name=branch_name, local_path=str(repo_path),
+        )
+        if "❌" in branch_result:
+            return f"❌ Branch creation failed, aborting remediation.\n\n{branch_result}"
+        git_report.append(branch_result)
+
+    # Step 2: Apply remediations
     try:
         result = apply_remediations(
             local_path=str(repo_path),
@@ -992,10 +1121,34 @@ def remediate_audit_findings(
             repo=repo,
             categories=categories or ["all"],
             dry_run=dry_run,
+            profile=profile,
         )
-        return result
     except Exception as e:
         return f"❌ Error applying remediations: {e}"
+
+    # Step 3: Commit and optionally create PR (only on successful non-dry-run apply)
+    if not dry_run and "❌" not in result:
+        if auto_commit:
+            from darnit.server.tools.git_operations import commit_remediation_changes_impl
+
+            commit_result = commit_remediation_changes_impl(
+                local_path=str(repo_path),
+            )
+            git_report.append(commit_result)
+
+            if create_pr and "❌" not in commit_result:
+                from darnit.server.tools.git_operations import create_remediation_pr_impl
+
+                pr_result = create_remediation_pr_impl(
+                    local_path=str(repo_path),
+                )
+                git_report.append(pr_result)
+
+    # Append git workflow summary if any git steps ran
+    if git_report:
+        result += "\n\n---\n## Git Workflow\n\n" + "\n\n".join(git_report)
+
+    return result
 
 
 # =============================================================================
@@ -1241,7 +1394,7 @@ def audit_org(
         else:
             tags_list = list(tags)
 
-    result = _audit_single_repo(owner, repo, level, tags_list)
+    result = _audit_single_repo(owner, repo, level, tags_list, framework_name="openssf-baseline")
 
     if output_format == "json":
         return json.dumps(result, indent=2)
