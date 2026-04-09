@@ -529,6 +529,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"  LLM backend: {llm_backend}")
     print()
 
+    # Lazy imports — langgraph is optional (darnit[agent])
+    from darnit.agent.graph import darnit_graph
+    from darnit.agent.state import DarnitState
+
     # Build initial state
     state = DarnitState(
         local_path=repo_path,

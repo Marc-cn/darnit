@@ -119,7 +119,7 @@ def collect_context(state: DarnitState) -> DarnitState:
             remediation_queue.append(result)
         else:
             # WARN — ask a human to verify
-            control_id = result.get("id", "unknown")
+            control_id = result.get("control_id", "unknown")
             details = result.get("details", "no details")
 
             answer = feedback.ask(
