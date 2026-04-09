@@ -27,6 +27,7 @@ Examples:
 import argparse
 import importlib.metadata
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -542,38 +543,116 @@ def cmd_install(args: argparse.Namespace) -> int:
     print("Skills available: /darnit-audit, /darnit-context, /darnit-comply, /darnit-remediate")
     return 0
 
-def cmd_profiles(args: argparse.Namespace) -> int:
-    """List available audit profiles across all implementations."""
-    from darnit.core.discovery import discover_implementations
+def cmd_run(args: argparse.Namespace) -> int:
+    """Run the full agentic workflow autonomously.
 
-    impls = discover_implementations()
-    if not impls:
-        print("No implementations found.")
-        return 0
+    Unlike 'darnit audit' which runs without LLM consultation, this command
+    drives the full pipeline using the LangGraph state machine:
+      1. Load project context
+      2. Run all sieve phases (deterministic, pattern, LLM)
+      3. Collect context for unclear controls
+      4. Remediate failures
+      5. Finish
 
-    impl_filter = getattr(args, "impl", None)
-    found_any = False
+    Requires a configured LLM backend and API key.
+    Install agent dependencies with: pip install darnit[agent]
+    """
+    try:
+        from darnit.agent.graph import build_graph
+        from darnit.agent.state import DarnitState
+    except ImportError:
+        logger.error(
+            "Agent dependencies not installed. "
+            "Run: pip install darnit[agent]"
+        )
+        return 1
 
-    for name, impl in impls.items():
-        if impl_filter and name != impl_filter:
-            continue
-        if not hasattr(impl, "get_audit_profiles"):
-            continue
-        profiles = impl.get_audit_profiles()
-        if not profiles:
-            continue
+    repo_path = str(Path(args.repo_path).resolve())
 
-        found_any = True
-        print(f"\n{name}:")
-        for profile_name, profile in profiles.items():
-            ctrl_count = len(profile.controls) if profile.controls else "tag-based"
-            print(f"  {profile_name:<25} {profile.description} ({ctrl_count} controls)")
+    # Pick up API key from environment
+    llm_backend = args.llm_backend or os.environ.get("DARNIT_LLM_BACKEND", "anthropic")
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "") or \
+              os.environ.get("OPENAI_API_KEY", "") or ""
 
-    if not found_any:
-        print("No audit profiles defined by any implementation.")
+    # Feedback mode — default to interactive if terminal, noninteractive if not
+    feedback_mode = args.feedback_mode
+    if feedback_mode == "auto":
+        import sys
+        feedback_mode = "interactive" if sys.stdin.isatty() else "noninteractive"
 
-    return 0
+    if not api_key and llm_backend != "ollama":
+        logger.warning(
+            f"No API key found for backend '{llm_backend}'. "
+            f"Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable."
+        )
 
+    print("\nDarnit agentic run")
+    print(f"  Repository : {repo_path}")
+    print(f"  LLM backend: {llm_backend}")
+    print()
+
+    # Lazy imports — langgraph is optional (darnit[agent])
+    from darnit.agent.graph import darnit_graph
+    from darnit.agent.state import DarnitState
+
+    # Build initial state
+    state = DarnitState(
+        local_path=repo_path,
+        llm_backend=llm_backend,
+        llm_api_key=api_key,
+        feedback_mode=feedback_mode,
+    )
+
+    # Run the graph
+    try:
+        graph = build_graph()
+        final_state = graph.invoke(state)
+    except Exception as e:
+        logger.error(f"Agent run failed: {e}")
+
+   # LangGraph returns a dict, not a DarnitState object
+    check_results = final_state.get("check_results") or []
+    human_messages = final_state.get("human_messages") or []
+    errors = final_state.get("errors") or []
+
+    # Print summary
+    results_list = check_results if isinstance(check_results, list) else []
+    total = len(results_list)
+    passed = len([r for r in results_list if isinstance(r, dict) and r.get("status") == "PASS"])
+    failed = len([r for r in results_list if isinstance(r, dict) and r.get("status") == "FAIL"])
+    warned = len([r for r in results_list if isinstance(r, dict) and r.get("status") == "WARN"])
+
+    print("Run complete.")
+    print(f"  Total  : {total}")
+    print(f"  Passed : {passed}")
+    print(f"  Failed : {failed}")
+    print(f"  Warned : {warned}")
+
+    if human_messages:
+        print(f"\nItems needing manual review ({len(human_messages)}):")
+        for msg in human_messages:
+            print(f"  - {msg}")
+
+    # Print any queued feedback questions (non-interactive mode)
+    feedback_questions = final_state.get("feedback_questions") or []
+    if feedback_questions:
+        unanswered = [q for q in feedback_questions if not q.get("answer")]
+        if unanswered:
+            print(f"\nPending human feedback ({len(unanswered)} unanswered questions):")
+            for q in unanswered:
+                print(f"  Control : {q['control_id']}")
+                print(f"  Question: {q['question']}")
+                if q.get("details"):
+                    print(f"  Details : {q['details']}")
+                print()
+
+    if errors:
+        print("\nErrors encountered:")
+        for err in errors:
+            print(f"  - {err}")
+        return 1
+
+    return 1 if failed else 0
 
 def cmd_serve(args: argparse.Namespace) -> int:
     """Start the MCP server.
@@ -854,6 +933,38 @@ def create_parser() -> argparse.ArgumentParser:
     # list command
     list_parser = subparsers.add_parser("list", help="List available frameworks")
     list_parser.set_defaults(func=cmd_list)
+
+    # run command (agentic)
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run full agentic workflow (LLM-powered)",
+        description="Run the full autonomous compliance pipeline using LangGraph. "
+                    "Loads project context, runs all checks, collects context, "
+                    "and remediates failures. Requires an LLM API key.",
+    )
+    run_parser.add_argument(
+        "repo_path",
+        nargs="?",
+        default=".",
+        help="Path to repository (default: current directory)",
+    )
+    run_parser.add_argument(
+        "--llm-backend",
+        dest="llm_backend",
+        choices=["anthropic", "openai", "ollama"],
+        default=None,
+        help="LLM backend to use (default: anthropic, or DARNIT_LLM_BACKEND env var)",
+    )
+    run_parser.add_argument(
+        "--feedback",
+        dest="feedback_mode",
+        choices=["interactive", "noninteractive", "auto"],
+        default="auto",
+        help="Human feedback mode: interactive (prompts in terminal), "
+             "noninteractive (collects questions for later), "
+             "auto (interactive if terminal, noninteractive in CI)",
+    )
+    run_parser.set_defaults(func=cmd_run)
 
     # install command
     install_parser = subparsers.add_parser(
