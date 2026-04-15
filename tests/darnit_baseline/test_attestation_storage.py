@@ -93,5 +93,12 @@ class TestAttestationStorageWiring:
                 storage_config={"backend": "memory"},
             )
 
-        mock_logger.info.assert_called_once()
-        assert "memory://" in mock_logger.info.call_args[0][0]
+        # The generator emits multiple info logs (file save + storage backend).
+        # Verify the storage backend log is among them.
+        assert mock_logger.info.called
+        log_messages = [
+            call.args[0] for call in mock_logger.info.call_args_list if call.args
+        ]
+        assert any("memory://" in msg for msg in log_messages), (
+            f"Expected a log message containing 'memory://', got: {log_messages}"
+        )
