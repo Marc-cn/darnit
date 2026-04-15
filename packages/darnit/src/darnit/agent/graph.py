@@ -13,8 +13,6 @@ Each step is a plain Python function that receives the state,
 does its work, and returns the updated state.
 """
 
-from langgraph.graph import END, StateGraph
-
 from darnit.agent.state import DarnitState
 from darnit.core.logging import get_logger
 
@@ -194,8 +192,10 @@ def route_after_context(state: DarnitState) -> str:
 # Build the graph
 # =============================================================================
 
-def build_graph() -> StateGraph:
+def build_graph():
     """Assemble the LangGraph state machine."""
+    from langgraph.graph import END, StateGraph
+
     graph = StateGraph(DarnitState)
 
     # Add all nodes

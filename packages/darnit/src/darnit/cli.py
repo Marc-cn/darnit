@@ -318,6 +318,38 @@ def cmd_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_profiles(args: argparse.Namespace) -> int:
+    """List available audit profiles across all implementations."""
+    from darnit.core.discovery import discover_implementations
+
+    impls = discover_implementations()
+    if not impls:
+        print("No implementations found.")
+        return 0
+
+    impl_filter = getattr(args, "impl", None)
+    found_any = False
+
+    for name, impl in impls.items():
+        if impl_filter and name != impl_filter:
+            continue
+        if not hasattr(impl, "get_audit_profiles"):
+            continue
+        profiles = impl.get_audit_profiles()
+        if not profiles:
+            continue
+
+        found_any = True
+        print(f"\n{name}:")
+        for profile_name, profile in profiles.items():
+            ctrl_count = len(profile.controls) if profile.controls else "tag-based"
+            print(f"  {profile_name:<25} {profile.description} ({ctrl_count} controls)")
+
+    if not found_any:
+        print("No audit profiles defined by any implementation.")
+
+    return 0
+
 def cmd_validate(args: argparse.Namespace) -> int:
     """Validate a framework configuration file."""
     from darnit.config import load_framework_config, validate_framework_config
@@ -592,7 +624,6 @@ def cmd_run(args: argparse.Namespace) -> int:
     print()
 
     # Lazy imports — langgraph is optional (darnit[agent])
-    from darnit.agent.graph import darnit_graph
     from darnit.agent.state import DarnitState
 
     # Build initial state
