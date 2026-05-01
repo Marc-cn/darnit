@@ -8,6 +8,7 @@ requirements) comes from the TOML FrameworkConfig.  The orchestrator
 iterates *controls*, not hardcoded categories.
 """
 
+import os
 from datetime import datetime
 from typing import Any
 
@@ -312,6 +313,7 @@ def _apply_control_remediation(
     owner: str | None = None,
     repo: str | None = None,
     dry_run: bool = True,
+    enhance_with_llm: bool = False,
 ) -> dict[str, Any]:
     """Apply remediation for a single control, driven entirely by TOML.
 
@@ -321,6 +323,7 @@ def _apply_control_remediation(
         owner: GitHub owner/organization
         repo: Repository name
         dry_run: If True, only show what would be done
+        enhance_with_llm: If True, enrich complex docs with LLM after generation
 
     Returns:
         Dict with control_id, status, and result details
@@ -400,6 +403,7 @@ def _apply_control_remediation(
             dry_run=dry_run,
             description=description,
             requires_api=remediation_config.requires_api,
+            enhance_with_llm=enhance_with_llm,
         )
         # Tag unsafe remediations for review
         if not remediation_config.safe:
@@ -436,6 +440,7 @@ def _apply_declarative_remediation(
     dry_run: bool,
     description: str = "",
     requires_api: bool = False,
+    enhance_with_llm: bool = False,
 ) -> dict[str, Any]:
     """Apply a declarative remediation from TOML config.
 
@@ -461,8 +466,8 @@ def _apply_declarative_remediation(
         try:
             from darnit.context.auto_detect import collect_auto_context
             context_values = collect_auto_context(local_path)
-        except Exception:
-            pass  # Auto-detection is best-effort
+        except Exception as exc:
+            logger.warning(f"Auto-detection of context values failed: {exc}")
 
         # Confirmed context overrides auto-detected values
         try:
@@ -471,8 +476,8 @@ def _apply_declarative_remediation(
             for _category, values in all_context.items():
                 for key, ctx_val in values.items():
                     context_values[key] = ctx_val.value
-        except Exception:
-            pass  # Context loading is best-effort
+        except Exception as exc:
+            logger.warning(f"Context loading failed: {exc}")
 
         # Resolve framework TOML path for template file resolution
         fw_path: str | None = None
@@ -481,8 +486,42 @@ def _apply_declarative_remediation(
             p = get_framework_path()
             if p:
                 fw_path = str(p)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(f"Framework path resolution failed: {exc}")
+
+        # Scan repository for context-aware template rendering
+        scan_values: dict[str, Any] = {}
+        try:
+            from darnit_baseline.remediation.scanner import (
+                flatten_scan_context,
+                scan_repository,
+            )
+            scan_ctx = scan_repository(local_path)
+            scan_values = flatten_scan_context(scan_ctx)
+        except Exception as exc:
+            logger.warning(f"Repository scanning failed: {exc}")
+
+        # Load .project/project.yaml for ${project.*} substitution
+        project_values: dict[str, Any] = {}
+        try:
+            import yaml
+            project_yaml = os.path.join(local_path, ".project", "project.yaml")
+            if os.path.isfile(project_yaml):
+                with open(project_yaml, encoding="utf-8") as f:
+                    raw = yaml.safe_load(f) or {}
+                # Flatten nested keys: {security: {contact: "x"}} -> {"security.contact": "x"}
+                def _flatten(d: dict, prefix: str = "") -> dict[str, str]:
+                    out: dict[str, str] = {}
+                    for k, v in d.items():
+                        key = f"{prefix}{k}" if not prefix else f"{prefix}.{k}"
+                        if isinstance(v, dict):
+                            out.update(_flatten(v, key))
+                        elif v is not None:
+                            out[key] = str(v) if not isinstance(v, list) else " ".join(str(i) for i in v)
+                    return out
+                project_values = _flatten(raw)
+        except Exception as exc:
+            logger.warning(f"Project YAML loading failed: {exc}")
 
         # Create executor with templates and context
         executor = RemediationExecutor(
@@ -491,6 +530,8 @@ def _apply_declarative_remediation(
             repo=repo,
             templates=templates or {},
             context_values=context_values,
+            scan_values=scan_values,
+            project_values=project_values,
             framework_path=fw_path,
         )
 
@@ -537,7 +578,44 @@ def _apply_declarative_remediation(
             if remediation_config.project_update:
                 _apply_project_update(local_path, remediation_config.project_update, control_id)
 
-            return {
+            # Optional LLM enhancement for complex documents
+            enhanced = False
+            if enhance_with_llm and not dry_run:
+                for handler_inv in remediation_config.handlers:
+                    if handler_inv.handler == "file_create":
+                        extra = handler_inv.model_extra or {}
+                        created_path = extra.get("path")
+                        if created_path:
+                            try:
+                                from darnit_baseline.remediation.enhancer import (
+                                    enhance_generated_file,
+                                    get_enhancement_type,
+                                    is_enhanceable,
+                                )
+                                if is_enhanceable(created_path):
+                                    etype = get_enhancement_type(created_path)
+                                    abs_path = os.path.join(local_path, created_path)
+                                    if etype and os.path.isfile(abs_path):
+                                        enriched = enhance_generated_file(
+                                            abs_path, local_path, etype
+                                        )
+                                        if enriched:
+                                            import pathlib
+                                            pathlib.Path(abs_path).write_text(
+                                                enriched, encoding="utf-8"
+                                            )
+                                            enhanced = True
+                                            logger.info(
+                                                "LLM-enhanced %s for %s",
+                                                created_path, control_id,
+                                            )
+                            except Exception as e:
+                                logger.debug(
+                                    "LLM enhancement skipped for %s: %s",
+                                    created_path, e,
+                                )
+
+            result_dict: dict[str, Any] = {
                 "control_id": control_id,
                 "status": "applied",
                 "description": description,
@@ -546,7 +624,19 @@ def _apply_declarative_remediation(
                 "result": result.message,
                 "declarative": True,
                 "config_updated": config_updated,
+                "enhanced": enhanced,
             }
+            # Propagate handler evidence containing LLM consultation
+            # payloads so the MCP tool can surface them to the agent.
+            for handler_info in (result.details or {}).get("handlers", []):
+                evidence = handler_info.get("evidence", {})
+                if evidence.get("llm_verification_required"):
+                    result_dict["needs_review"] = True
+                    result_dict["llm_consultation"] = evidence.get(
+                        "llm_consultation"
+                    )
+                    break
+            return result_dict
         else:
             logger.error(f"Declarative remediation failed: {result.message}")
             return {
@@ -680,7 +770,7 @@ def _format_preflight_prompt(
     md.append("")
     md.append("## DO NOT directly edit `.project/` files!")
     md.append("")
-    md.append("You **MUST** use the `confirm_project_context()` tool to set context values.")
+    md.append("You **MUST** use the `confirm_project_data()` tool to set context values.")
     md.append("Direct file edits will be rejected and may cause inconsistent state.")
     md.append("")
     md.append("---")
@@ -702,7 +792,7 @@ def _format_preflight_prompt(
                 md.append(f"- `{key}`: {', '.join(controls)}")
         md.append("")
 
-    # Build a ready-to-use confirm_project_context() call from auto-detected values
+    # Build a ready-to-use confirm_project_data() call from auto-detected values
     auto_detected = context_info.get("auto_detected", {})
     missing = context_info.get("missing_context", [])
     tool_args = []
@@ -728,12 +818,12 @@ def _format_preflight_prompt(
         md.append("**After the user provides values, run this to confirm, then re-run remediation:**")
         md.append("```python")
         args_str = ",\n    ".join(tool_args)
-        md.append(f'confirm_project_context(\n    local_path="{local_path}",\n    {args_str}\n)')
+        md.append(f'confirm_project_data(\n    local_path="{local_path}",\n    {args_str}\n)')
         md.append("```")
     else:
         md.append("**After the user provides values, confirm them, then re-run remediation:**")
         md.append("```python")
-        md.append(f'confirm_project_context(local_path="{local_path}", ...)')
+        md.append(f'confirm_project_data(local_path="{local_path}", ...)')
         md.append("```")
 
     return "\n".join(md)
@@ -751,6 +841,7 @@ def remediate_audit_findings(
     categories: list[str] | None = None,
     dry_run: bool = True,
     profile: str | None = None,
+    enhance_with_llm: bool = False,
 ) -> str:
     """Apply automated remediations for failed audit controls.
 
@@ -765,6 +856,8 @@ def remediate_audit_findings(
         categories: Optional filter — list of category names, or ["all"]
         dry_run: If True (default), show what would be changed without applying
         profile: Optional audit profile name to filter to profile controls only
+        enhance_with_llm: If True, enrich complex documents with LLM-generated
+            descriptions after deterministic generation.  Default False.
 
     Returns:
         Markdown-formatted summary of applied or planned remediations
@@ -818,7 +911,8 @@ def remediate_audit_findings(
     try:
         from darnit.core.audit_cache import read_audit_cache
         cache = read_audit_cache(local_path)
-    except Exception:
+    except Exception as exc:
+        logger.warning(f"Audit cache read failed: {exc}")
         cache = None
 
     if cache is not None:
@@ -921,6 +1015,7 @@ def remediate_audit_findings(
             owner=owner,
             repo=repo,
             dry_run=dry_run,
+            enhance_with_llm=enhance_with_llm,
         )
         results.append(result)
 
@@ -1073,6 +1168,70 @@ def _format_remediation_output(
         if not dry_run:
             md.append("Use `git diff` to inspect all modifications.")
             md.append("")
+
+    # LLM consultation section — surfaces structured review requests from
+    # handlers that set llm_verification_required (e.g., threat model).
+    consultation_results = [
+        r for r in results
+        if r.get("llm_consultation") and r.get("status") in ("applied", "would_apply")
+    ]
+    if consultation_results and not dry_run:
+        md.append("## 🤖 LLM Verification Required")
+        md.append("")
+        for r in consultation_results:
+            consultation = r["llm_consultation"]
+            cid = r.get("control_id", "?")
+            file_path = consultation.get("file_path", "?")
+            total = consultation.get("total_findings", 0)
+            summary = consultation.get("summary", {})
+
+            md.append(f"### {cid}: Review generated threat model")
+            md.append("")
+            md.append(f"**File:** `{file_path}`")
+            md.append(f"**Findings to review:** {total}")
+            md.append("")
+
+            # Severity breakdown
+            by_sev = summary.get("by_severity", {})
+            if by_sev:
+                md.append("| Severity | Count |")
+                md.append("|----------|-------|")
+                for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+                    if by_sev.get(sev, 0) > 0:
+                        md.append(f"| {sev} | {by_sev[sev]} |")
+                md.append("")
+
+            # Instructions
+            md.append(consultation.get("instructions", ""))
+            md.append("")
+
+            # HIGH and MEDIUM findings for immediate review
+            findings = consultation.get("findings_to_review", [])
+            high_medium = [
+                f for f in findings
+                if f.get("severity_band") in ("CRITICAL", "HIGH", "MEDIUM")
+            ]
+            if high_medium:
+                md.append(f"### Findings requiring review ({len(high_medium)})")
+                md.append("")
+                for f in high_medium:
+                    md.append(
+                        f"- **{f['severity_band']}** | "
+                        f"`{f['location']}` | "
+                        f"{f['title']}"
+                    )
+                    if f.get("review_hint"):
+                        md.append(f"  - *{f['review_hint']}*")
+                md.append("")
+
+            low = [f for f in findings if f.get("severity_band") == "LOW"]
+            if low:
+                md.append(
+                    f"*Plus {len(low)} LOW-risk findings rendered as a "
+                    f"summary table in the file. Spot-check a few but "
+                    f"these are likely acceptable as-is.*"
+                )
+                md.append("")
 
     if not dry_run and applied:
         md.append("Run the audit tool to verify the fixes.")

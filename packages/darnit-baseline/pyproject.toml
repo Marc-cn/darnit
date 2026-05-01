@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "darnit>=0.1.0",
+    "tree-sitter>=0.25",
+    "tree-sitter-language-pack>=1.5",
 ]
 
 [project.entry-points."darnit.implementations"]
@@ -23,3 +25,4 @@ packages = ["src/darnit_baseline"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "templates" = "darnit_baseline/templates"
+"src/darnit_baseline/threat_model/opengrep_rules" = "darnit_baseline/threat_model/opengrep_rules"

@@ -47,6 +47,21 @@ uv run darnit serve --framework openssf-baseline
 uv run darnit audit /path/to/repo
 ```
 
+### Optional: Opengrep for taint analysis
+
+The threat model generator can use [Opengrep](https://github.com/opengrep/opengrep)
+(or Semgrep) to perform intra-procedural taint analysis, producing higher-confidence
+findings with data-flow traces. Without it, the generator uses tree-sitter structural
+analysis only — accurate but without taint confirmation.
+
+```bash
+# Install Opengrep (optional)
+curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
+
+# Verify
+opengrep --version
+```
+
 ## Quick Start
 
 ### Run an Audit

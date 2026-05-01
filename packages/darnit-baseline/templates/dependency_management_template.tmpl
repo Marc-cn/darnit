@@ -2,7 +2,7 @@
 
 ## Policy
 
-$REPO manages dependencies with the following principles:
+<< REPO >> manages dependencies with the following principles:
 - Dependencies are kept to a minimum
 - All dependencies must have compatible licenses
 - Dependencies are regularly updated
@@ -26,5 +26,5 @@ When a vulnerability is discovered in a dependency:
 
 ## Tools
 
-- Dependabot or Renovate for automated dependency updates
-- `gh api /repos/$OWNER/$REPO/dependabot/alerts` for vulnerability monitoring
+- [<< scan.dependency_tool | default('Dependabot') >>](../.github/dependabot.yml) for automated dependency updates
+- [SCA workflow](../.github/workflows/sca.yml) for pull request dependency review

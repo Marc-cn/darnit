@@ -432,3 +432,151 @@ class TestOldStyleVsCELComparison:
 
         assert result.success is True
         assert result.value is True
+
+
+class TestWarnControlCELExpressions:
+    """Tests for improved CEL expressions used in WARN control checks.
+
+    These validate the strengthened expressions from the openssf-baseline.toml
+    that replace weak "existence-only" checks with meaningful validation.
+    """
+
+    # -- OSPS-LE-02.02: ReleaseLicense --
+
+    def test_release_license_pass_body_keyword(self) -> None:
+        """Release body containing 'MIT License' should pass."""
+        evaluator = CELEvaluator()
+        expr = (
+            'output.json.body.matches("(?i)(licen[cs]e|apache|mit\\\\s|bsd|gpl|mpl|isc|unlicense)")'
+            ' || output.json.assets.exists(a, a.name.matches("(?i)^(license|copying|notice)"))'
+        )
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": {
+                    "body": "## Changes\n- Bug fixes\n\nReleased under MIT License",
+                    "assets": [],
+                }
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is True
+
+    def test_release_license_pass_asset_name(self) -> None:
+        """Release with LICENSE asset but no license in body should pass."""
+        evaluator = CELEvaluator()
+        expr = (
+            'output.json.body.matches("(?i)(licen[cs]e|apache|mit\\\\s|bsd|gpl|mpl|isc|unlicense)")'
+            ' || output.json.assets.exists(a, a.name.matches("(?i)^(license|copying|notice)"))'
+        )
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": {
+                    "body": "Bug fixes only",
+                    "assets": [{"name": "LICENSE"}, {"name": "app.tar.gz"}],
+                }
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is True
+
+    def test_release_license_fail_no_mention(self) -> None:
+        """Release with no license mention in body or assets should fail."""
+        evaluator = CELEvaluator()
+        expr = (
+            'output.json.body.matches("(?i)(licen[cs]e|apache|mit\\\\s|bsd|gpl|mpl|isc|unlicense)")'
+            ' || output.json.assets.exists(a, a.name.matches("(?i)^(license|copying|notice)"))'
+        )
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": {
+                    "body": "Bug fixes and performance improvements",
+                    "assets": [{"name": "app.tar.gz"}],
+                }
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is False
+
+    # -- OSPS-BR-02.01: UniqueVersionIdentifiers --
+
+    def test_unique_version_pass_semver_tag(self) -> None:
+        """Release with semver tag should pass."""
+        evaluator = CELEvaluator()
+        expr = 'size(output.json) > 0 && output.json[0].tagName.matches("^v?[0-9]")'
+        program = evaluator.compile(expr)
+        context = {"output": {"json": [{"tagName": "v1.2.3"}]}}
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is True
+
+    def test_unique_version_pass_no_v_prefix(self) -> None:
+        """Release with numeric tag (no v prefix) should pass."""
+        evaluator = CELEvaluator()
+        expr = 'size(output.json) > 0 && output.json[0].tagName.matches("^v?[0-9]")'
+        program = evaluator.compile(expr)
+        context = {"output": {"json": [{"tagName": "1.0.0"}]}}
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is True
+
+    def test_unique_version_fail_no_releases(self) -> None:
+        """No releases should fail."""
+        evaluator = CELEvaluator()
+        expr = 'size(output.json) > 0 && output.json[0].tagName.matches("^v?[0-9]")'
+        program = evaluator.compile(expr)
+        context = {"output": {"json": []}}
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is False
+
+    def test_unique_version_fail_non_semver(self) -> None:
+        """Release with non-version tag like 'latest' should fail."""
+        evaluator = CELEvaluator()
+        expr = 'size(output.json) > 0 && output.json[0].tagName.matches("^v?[0-9]")'
+        program = evaluator.compile(expr)
+        context = {"output": {"json": [{"tagName": "latest"}]}}
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is False
+
+    # -- OSPS-BR-02.02: ClearAssetAssociation --
+
+    def test_clear_asset_any_release_has_assets(self) -> None:
+        """If any release has assets (not just first), should pass."""
+        evaluator = CELEvaluator()
+        expr = "output.json.exists(r, size(r.assets) > 0)"
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": [
+                    {"tagName": "v2.0.0", "assets": []},
+                    {"tagName": "v1.0.0", "assets": [{"name": "app.tar.gz"}]},
+                ]
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is True
+
+    def test_clear_asset_no_releases_have_assets(self) -> None:
+        """If no release has assets, should fail."""
+        evaluator = CELEvaluator()
+        expr = "output.json.exists(r, size(r.assets) > 0)"
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": [
+                    {"tagName": "v2.0.0", "assets": []},
+                    {"tagName": "v1.0.0", "assets": []},
+                ]
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is False

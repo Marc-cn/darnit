@@ -773,6 +773,9 @@ class ContextDefinitionConfig(BaseModel):
     # Additional hint to help the user
     hint: str | None = None
 
+    # Hint shown when auto-detection ran but found no evidence
+    no_detect_hint: str | None = None
+
     # Example values to show the user
     examples: list[str] = Field(default_factory=list)
 

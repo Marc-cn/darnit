@@ -10,14 +10,15 @@ All contributions must include appropriate tests:
 
 ## Running Tests Locally
 
-```bash
-# Run the full test suite before submitting
-# TODO: Replace with your project's test command
+<< scan.test_commands_all | default('```bash
+# Run tests
 make test
-```
+# or
+npm test
+```') >>
 
 ## CI Checks
 
-- All pull requests are automatically tested in CI
-- Tests must pass before a pull request can be merged
-- Maintainers may request additional test coverage during review
+All pull requests are tested in CI — see [`.github/workflows/`](../.github/workflows/)
+for workflow configuration. Tests must pass before merge. Maintainers may request
+additional test coverage during review.

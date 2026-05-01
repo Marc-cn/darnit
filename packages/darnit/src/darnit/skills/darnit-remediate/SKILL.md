@@ -34,16 +34,25 @@ Call `remediate_audit_findings` with:
 
 This single call creates the branch, applies all remediations, and commits. Do NOT make separate calls to `create_remediation_branch` or `commit_remediation_changes`.
 
-### 3. Enhance generated files (value-add)
+### 3. Review generated files (quality check)
 
-This is where the skill adds unique value beyond what the tool provides. Read the generated template files and improve them with project-specific content:
+Read the generated files. The templates are designed to produce correct output — trust them.
 
-- Read each generated file (e.g., SECURITY.md, CONTRIBUTING.md, docs/*.md)
-- Enhance with real project details: actual maintainer names, real security contact, specific CI/CD details
-- Improve language, formatting, and completeness
-- Make templates feel like real documentation rather than boilerplate
+**Fix ONLY these issues:**
+- Broken syntax (malformed YAML, unclosed brackets, invalid workflow expressions)
+- Unsubstituted `${...}` placeholder tokens that should have been filled in
+- Factual contradictions within a single file (e.g., a section header says X but the body says the opposite)
 
-If any files were enhanced, make a new commit with the improvements.
+**Do NOT change:**
+- Tool or product names (e.g., Kusari Inspector references are correct — NEVER replace with CodeQL, Dependabot, etc.)
+- Scanning frequencies, severity thresholds, or timeline values
+- Policy content, process descriptions, or remediation steps
+- Generic phrasing — do NOT "enhance" by injecting specific names, emails, or details from the repo. "Contact the maintainers" is fine as-is; changing it to "Contact Alice and Bob" adds nothing.
+- Style preferences (wording, formatting, section order)
+
+**The test for whether a change is justified:** Would a wrong value here cause someone to do the wrong thing or break a CI pipeline? If no, leave it alone.
+
+If any files needed syntax fixes, make a new commit describing the specific fixes. If everything is clean (which is the expected case), say so and move on.
 
 ### 4. Offer PR creation
 
@@ -60,9 +69,9 @@ Show: branch name, controls fixed, files changed, PR URL (if created), and remai
 - Do NOT call `create_remediation_branch` or `commit_remediation_changes` separately — use the `branch_name` and `auto_commit` params instead.
 - If `remediate_audit_findings` fails mid-way, report which files were already changed so the user can review.
 - The tool respects the `safe` flag on remediations — only safe remediations are auto-applied. Unsafe ones are listed but excluded.
-- If there are unresolved context questions, the remediation tool will block and tell you. Suggest running `/darnit-context` first.
+- If there are unresolved data questions, the remediation tool will block and tell you. Suggest running `/darnit-data` first.
 
 ## Error handling
 
-If the tool returns a context warning, suggest running `/darnit-context` first.
+If the tool returns a data warning, suggest running `/darnit-data` first.
 If branch creation fails, report the error — the tool aborts before applying any changes.

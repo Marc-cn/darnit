@@ -292,11 +292,15 @@ allow_sieve_hints = true
 type = "string"
 prompt = "What is the security contact for vulnerability reports?"
 hint = "Email address, URL, or reference to SECURITY.md section"
-examples = ["security@example.com", "https://example.com/security", "See SECURITY.md"]
+examples = ["See SECURITY.md"]
 affects = ["OSPS-VM-01.01", "OSPS-VM-02.01", "OSPS-VM-03.01"]
 store_as = "security.contact"
-auto_detect = false
+auto_detect = true
 required = false
+hint_sources = ["SECURITY.md", ".github/SECURITY.md"]
+allow_sieve_hints = true
+# Filter: reject detected values containing "example.com" or "example.org"
+detect_filter = "!value.contains('example.com') && !value.contains('example.org')"
 
 [context.governance_model]
 type = "enum"
@@ -325,6 +329,7 @@ presentation_hint = "[y/N]"
 type = "boolean"
 prompt = "Does this project make official releases?"
 hint = "Set to true if you publish versioned releases"
+no_detect_hint = "No releases, version tags, or release workflows were found in the repository. Do you plan to publish versioned releases in the future? Release-related controls will be marked N/A if set to false."
 examples = ["true", "false"]
 affects = ["OSPS-BR-02.01", "OSPS-BR-03.01", "OSPS-BR-04.01"]
 store_as = "build.has_releases"
@@ -335,7 +340,7 @@ detect = [
     { handler = "file_exists", files = [".github/workflows/release*"], value_if_pass = true },
     { handler = "file_exists", files = ["CHANGELOG.md", "CHANGELOG", "CHANGES.md", "CHANGES"], value_if_pass = true },
     { handler = "exec", command = ["git", "tag", "--list", "v*"], pass_exit_codes = [0], expr = 'output.stdout != ""', value_if_pass = true },
-    { handler = "exec", command = ["gh", "release", "list", "--repo", "$OWNER/$REPO", "--limit", "1"], pass_exit_codes = [0], value_if_pass = true, value_if_fail = false },
+    { handler = "exec", command = ["gh", "release", "list", "--repo", "$OWNER/$REPO", "--limit", "1"], pass_exit_codes = [0], expr = 'output.stdout != ""', value_if_pass = true, value_if_fail = false },
 ]
 
 [context.is_library]
@@ -400,7 +405,7 @@ detect = [
 # NOTE: detected_ecosystem and license_type are auto-detected by
 # darnit.context.auto_detect (collect_auto_context) without prompting.
 # They do NOT need TOML [context.*] definitions because they never go
-# through get_pending_context / confirm_project_context.
+# through get_pending_data / confirm_project_data.
 
 # =============================================================================
 # Shared Handlers (cached across controls within a single audit run)
@@ -940,7 +945,7 @@ handler = "exec"
 command = ["gh", "release", "list", "--json", "tagName", "--limit", "10"]
 pass_exit_codes = [0]
 output_format = "json"
-expr = 'size(output.json) > 0'
+expr = 'size(output.json) > 0 && output.json[0].tagName.matches("^v?[0-9]")'
 timeout = 30
 
 [[controls."OSPS-BR-02.01".passes]]
@@ -1237,7 +1242,12 @@ help_md = """Create a guide for reporting bugs and defects.
 
 [controls."OSPS-DO-02.01".locator]
 project_path = "security.policy"
-discover = [".github/ISSUE_TEMPLATE/bug_report.md", ".github/ISSUE_TEMPLATE/bug_report.yml", ".github/ISSUE_TEMPLATE.md"]
+discover = [
+  ".github/ISSUE_TEMPLATE/bug*.md",
+  ".github/ISSUE_TEMPLATE/bug*.yml",
+  ".github/ISSUE_TEMPLATE/bug*.yaml",
+  ".github/ISSUE_TEMPLATE.md",
+]
 kind = "file"
 
 [controls."OSPS-DO-02.01".locator.llm_hints]
@@ -1251,7 +1261,14 @@ use_locator = true
 
 [[controls."OSPS-DO-02.01".passes]]
 handler = "pattern"
-files = [".github/ISSUE_TEMPLATE/bug_report.md", ".github/ISSUE_TEMPLATE/bug_report.yml", ".github/ISSUE_TEMPLATE.md", "README.md", "CONTRIBUTING.md"]
+files = [
+  ".github/ISSUE_TEMPLATE/bug*.md",
+  ".github/ISSUE_TEMPLATE/bug*.yml",
+  ".github/ISSUE_TEMPLATE/bug*.yaml",
+  ".github/ISSUE_TEMPLATE.md",
+  "README.md",
+  "CONTRIBUTING.md",
+]
 pass_if_any = true
 
 [controls."OSPS-DO-02.01".passes.pattern.patterns]
@@ -1608,7 +1625,7 @@ handler = "exec"
 command = ["gh", "release", "view", "--json", "body,assets"]
 pass_exit_codes = [0]
 output_format = "json"
-expr = 'output.json.body != ""'
+expr = 'output.json.body.matches("(?i)(licen[cs]e|apache|mit\\s|bsd|gpl|mpl|isc|unlicense)") || output.json.assets.exists(a, a.name.matches("(?i)^(license|copying|notice)"))'
 timeout = 30
 
 [[controls."OSPS-LE-02.02".passes]]
@@ -1975,13 +1992,13 @@ help_md = """Remove unreviewable binary files from repository.
 
 [[controls."OSPS-QA-05.02".passes]]
 handler = "pattern"
-exclude_files = ["**/*.jar", "**/*.war", "**/*.pyc", "**/*.class", "**/*.o"]
+exclude_files = ["**/*.jar", "**/*.war", "**/*.pyc", "**/*.class", "**/*.o", "**/*.exe", "**/*.dll", "**/*.so", "**/*.dylib", "**/*.whl", "**/*.egg", "**/*.bin", "**/*.db", "**/*.sqlite"]
 expr = 'output.files_found == 0'
 
 [[controls."OSPS-QA-05.02".passes]]
 handler = "manual"
 steps = [
-    "Search repository for binary artifacts (.jar, .war, .pyc, .class)",
+    "Search repository for binary artifacts (.jar, .war, .pyc, .class, .exe, .dll, .so, .whl)",
     "Verify no unreviewable binaries are committed",
     "Check that build artifacts are in .gitignore",
 ]
@@ -2124,18 +2141,22 @@ steps = [
 ]
 
 [controls."OSPS-AC-04.01".remediation]
-safe = false
-dry_run_supported = false
+safe = true
+dry_run_supported = true
 
 [[controls."OSPS-AC-04.01".remediation.handlers]]
-handler = "manual"
-steps = [
-    "Add a top-level 'permissions: {}' block to each workflow in .github/workflows/",
-    "Grant only the specific permissions each job needs (e.g., contents: read)",
-    "See GitHub's documentation for available permission scopes",
-]
-docs_url = "https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs"
-context_hints = ["ci.provider"]
+handler = "yaml_inject"
+files = ".github/workflows/*.yml"
+key = "permissions"
+value = "{}"
+insert_after = "on"
+
+[[controls."OSPS-AC-04.01".remediation.handlers]]
+handler = "yaml_inject"
+files = ".github/workflows/*.yaml"
+key = "permissions"
+value = "{}"
+insert_after = "on"
 
 # =============================================================================
 # Level 2 Controls - Governance (GV)
@@ -2704,7 +2725,7 @@ handler = "exec"
 command = ["gh", "release", "list", "--json", "tagName,assets", "--limit", "5"]
 pass_exit_codes = [0]
 output_format = "json"
-expr = 'size(output.json) > 0 && size(output.json[0].assets) > 0'
+expr = 'output.json.exists(r, size(r.assets) > 0)'
 timeout = 30
 
 [[controls."OSPS-BR-02.02".passes]]
@@ -3191,6 +3212,15 @@ help_md = """Require SCA checks before release.
 3. Document release gating criteria
 """
 
+# GitHub App detection — Kusari Inspector provides SCA as a GitHub App,
+# so it won't appear in workflow files. Check the org installations API.
+[[controls."OSPS-VM-05.02".passes]]
+handler = "exec"
+command = ["gh", "api", "/orgs/$OWNER/installations", "--paginate", "--jq", ".installations[].app_slug"]
+pass_exit_codes = [0]
+expr = 'output.stdout.contains("kusari-inspector") || output.stdout.contains("snyk") || output.stdout.contains("socket-security")'
+timeout = 15
+
 [[controls."OSPS-VM-05.02".passes]]
 handler = "pattern"
 files = [".github/workflows/*.yml", ".github/workflows/*.yaml"]
@@ -3209,7 +3239,19 @@ steps = [
 [controls."OSPS-VM-05.02".remediation]
 safe = true
 dry_run_supported = true
+strategy = "first_match"
 
+# When Kusari Inspector is installed, it handles SCA — no workflow needed
+[[controls."OSPS-VM-05.02".remediation.handlers]]
+handler = "manual"
+when = { "scan.app_kusari_inspector" = "true" }
+steps = [
+    "Kusari Inspector is installed and provides SCA scanning",
+    "Verify Kusari Inspector is configured for this repository at https://console.us.kusari.cloud/",
+    "No additional workflow file is needed — Kusari Inspector runs as a GitHub App",
+]
+
+# Default: create a dependency-review workflow when no SCA tool is detected
 [[controls."OSPS-VM-05.02".remediation.handlers]]
 handler = "file_create"
 path = ".github/workflows/sca.yml"
@@ -3376,12 +3418,21 @@ help_md = """Enable automated SAST in CI.
 3. Block PRs on high severity findings
 """
 
+# GitHub App detection — Kusari Inspector provides SAST as a GitHub App,
+# so it won't appear in workflow files. Check the org installations API.
+[[controls."OSPS-VM-06.02".passes]]
+handler = "exec"
+command = ["gh", "api", "/orgs/$OWNER/installations", "--paginate", "--jq", ".installations[].app_slug"]
+pass_exit_codes = [0]
+expr = 'output.stdout.contains("kusari-inspector") || output.stdout.contains("sonarcloud")'
+timeout = 15
+
 [[controls."OSPS-VM-06.02".passes]]
 handler = "pattern"
 files = [".github/workflows/*.yml", ".github/workflows/*.yaml"]
 
 [controls."OSPS-VM-06.02".passes.pattern.patterns]
-sast_tool = "(codeql|semgrep|sonar|bandit|gosec|brakeman)"
+sast_tool = "(codeql|semgrep|sonar|bandit|gosec|brakeman|kusari)"
 
 [[controls."OSPS-VM-06.02".passes]]
 handler = "manual"
@@ -3394,7 +3445,19 @@ steps = [
 [controls."OSPS-VM-06.02".remediation]
 safe = true
 dry_run_supported = true
+strategy = "first_match"
 
+# When Kusari Inspector is installed, it handles SAST — no workflow needed
+[[controls."OSPS-VM-06.02".remediation.handlers]]
+handler = "manual"
+when = { "scan.app_kusari_inspector" = "true" }
+steps = [
+    "Kusari Inspector is installed and provides SAST scanning",
+    "Verify Kusari Inspector is configured for this repository at https://console.us.kusari.cloud/",
+    "No additional workflow file is needed — Kusari Inspector runs as a GitHub App",
+]
+
+# Default: create a CodeQL workflow when no SAST tool is detected
 [[controls."OSPS-VM-06.02".remediation.handlers]]
 handler = "file_create"
 path = ".github/workflows/sast.yml"
@@ -3927,7 +3990,7 @@ help_md = """Perform and document threat modeling.
 
 [controls."OSPS-SA-03.02".locator]
 project_path = "security.threat_model"
-discover = ["THREAT_MODEL.md", "docs/threat-model.md", "docs/security/threat-model.md"]
+discover = ["docs/threatmodel/SUMMARY.md", "THREAT_MODEL.md", "docs/THREAT_MODEL.md", "docs/threat-model.md", "docs/security/threat-model.md", "threatmodel/SUMMARY.md"]
 kind = "file"
 
 [controls."OSPS-SA-03.02".locator.llm_hints]
@@ -3939,12 +4002,44 @@ look_for_urls = true
 handler = "file_exists"
 use_locator = true
 
+# LLM verification: validate threat model findings against actual source code.
+# Pattern matching has high false positive rates — the LLM reads embedded code
+# snippets and verifies each finding, plus does a second pass for missed issues.
 [[controls."OSPS-SA-03.02".passes]]
-handler = "pattern"
-files = ["SECURITY.md", "docs/security.md"]
+handler = "llm_eval"
+prompt = """You are a security engineer reviewing a threat model generated by automated static analysis.
+The threat model contains findings from pattern matching. Each finding includes embedded source code
+snippets showing the actual code at the flagged location.
 
-[controls."OSPS-SA-03.02".passes.pattern.patterns]
-threat_model = "(threat model|STRIDE|attack surface|security assessment)"
+Your job is two-fold:
+
+**1. VERIFY each existing finding** — for each threat listed under "Threat Analysis (STRIDE)":
+  - Read the code snippet carefully. Does user-controlled data actually reach this code path?
+  - Is this a realistic attack vector given the project type (consider: is this a CLI tool, library,
+    web service, or MCP server)?
+  - Are there mitigations visible in the code context (input validation, allowlists, type checking)?
+  - VERDICT: Mark each finding as CONFIRMED (real risk) or FALSE POSITIVE (pattern match without
+    actual risk). Explain your reasoning briefly.
+
+**2. SECOND PASS** — the code snippets may reveal issues the patterns missed:
+  - Do the snippets show unsafe patterns not caught by the scanner (e.g., pickle deserialization,
+    yaml.load without SafeLoader, shell=True in subprocess, hardcoded credentials nearby)?
+  - Are there implicit trust assumptions that should be called out?
+  - Note any additional findings, but only if you see concrete evidence in the code — do NOT
+    speculate about code you haven't seen.
+
+A threat model with only false positives MUST FAIL. A threat model with at least some confirmed
+findings or honest "no threats found" sections should PASS.
+Report your verification results structured as: finding ID, verdict, reasoning."""
+files_to_include = ["$FOUND_FILE"]
+confidence_threshold = 0.7
+analysis_hints = [
+    "Code snippets are embedded in the threat model — use them as primary evidence",
+    "Lines marked with >>> are the flagged line; surrounding lines provide context",
+    "Pattern-matched findings (SSRF, PII, injection) have high false positive rates — be skeptical",
+    "Consider the project's deployment model: a CLI/library has different threats than a web service",
+    "An empty threat model (no findings) is valid if the analysis was thorough",
+]
 
 [controls."OSPS-SA-03.02".remediation]
 safe = true
@@ -3952,12 +4047,12 @@ dry_run_supported = true
 
 [[controls."OSPS-SA-03.02".remediation.handlers]]
 handler = "generate_threat_model"
-path = "THREAT_MODEL.md"
+path = "docs/threatmodel/SUMMARY.md"
 template = "threat_model_basic"
 overwrite = false
 
 [controls."OSPS-SA-03.02".remediation.project_update]
-set = { "security.threat_model.path" = "THREAT_MODEL.md" }
+set = { "security.threat_model.path" = "docs/threatmodel/SUMMARY.md" }
 
 # =============================================================================
 # MCP Server Configuration
@@ -4010,8 +4105,8 @@ description = "Enable branch protection rules on GitHub repository"
 handler = "init_project_config"
 description = "Initialize a new .project.yaml configuration file"
 
-[mcp.tools.confirm_project_context]
-handler = "confirm_project_context"
+[mcp.tools.confirm_project_data]
+handler = "confirm_project_data"
 description = """Record user-confirmed project context in .project.yaml.
 
 **IMPORTANT**: This is the ONLY way to set project context. DO NOT directly edit
@@ -4031,13 +4126,13 @@ description = """Record user-confirmed project context in .project.yaml.
 **Examples:**
 ```
 # Reference existing CODEOWNERS file (RECOMMENDED)
-confirm_project_context(maintainers="CODEOWNERS")
+confirm_project_data(maintainers="CODEOWNERS")
 
 # Explicit maintainer list
-confirm_project_context(maintainers=["@alice", "@bob"])
+confirm_project_data(maintainers=["@alice", "@bob"])
 
 # Multiple context values
-confirm_project_context(
+confirm_project_data(
     maintainers="CODEOWNERS",
     security_contact="security@example.com",
     ci_provider="github"
@@ -4045,8 +4140,8 @@ confirm_project_context(
 ```
 """
 
-[mcp.tools.get_pending_context]
-handler = "get_pending_context"
+[mcp.tools.get_pending_data]
+handler = "get_pending_data"
 limit = 4
 append_directive = true
 description = """Batch context collection wizard. Returns up to 4 questions at a time.
@@ -4054,7 +4149,7 @@ description = """Batch context collection wizard. Returns up to 4 questions at a
 MANDATORY WORKFLOW — your next action after calling this tool MUST be calling AskUserQuestion:
 1. Call this tool. It returns "ask_user_batch" — an array of AskUserQuestion-compatible question objects.
 2. Call AskUserQuestion with questions=<ask_user_batch>. Pass the array VERBATIM. Do NOT render as text.
-3. After the user answers, use "answer_mapping" to call confirm_project_context() for EACH answer.
+3. After the user answers, use "answer_mapping" to call confirm_project_data() for EACH answer.
 4. Call this tool again for the next batch. Repeat until status is "complete".
 
 Do NOT pre-fill or suggest answers. Do NOT summarize questions as text. ALWAYS use AskUserQuestion.
@@ -4072,7 +4167,7 @@ description = "Generate an in-toto attestation for OpenSSF Baseline compliance"
 handler = "remediate_audit_findings"
 description = """Apply automated remediations for failed audit controls.
 
-**IMPORTANT**: Before running remediation, ALWAYS call get_pending_context() first to gather any
+**IMPORTANT**: Before running remediation, ALWAYS call get_pending_data() first to gather any
 missing project context (maintainers, security contact, governance model, etc.). Some remediations
 require confirmed context to generate correct files (e.g., CODEOWNERS needs maintainers).
 Gather all context before remediating.

@@ -164,6 +164,7 @@ class ContextDefinition(BaseModel):
     type: ContextType
     prompt: str
     hint: str | None = None
+    no_detect_hint: str | None = None  # Shown when auto-detection found no evidence
     examples: list[str] = Field(default_factory=list)
     values: list[str] | None = None  # For enum type - allowed values
     affects: list[str] = Field(default_factory=list)  # Control IDs

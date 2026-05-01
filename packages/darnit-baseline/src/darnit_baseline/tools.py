@@ -460,7 +460,7 @@ def init_project_config(
         return f"❌ Error creating config: {e}"
 
 
-def confirm_project_context(
+def confirm_project_data(
     local_path: str = ".",
     has_subprojects: bool | None = None,
     has_releases: bool | None = None,
@@ -473,9 +473,9 @@ def confirm_project_context(
     governance_model: str | None = None,
 ) -> str:
     """
-    Record user-confirmed project context in .project.yaml.
+    Record user-confirmed project data in .project.yaml.
 
-    **IMPORTANT**: This is the ONLY way to set project context. DO NOT directly edit
+    **IMPORTANT**: This is the ONLY way to set project data. DO NOT directly edit
     .project/ files - always use this tool instead.
 
     **Parameters:**
@@ -492,13 +492,13 @@ def confirm_project_context(
     **Examples:**
     ```
     # Reference existing CODEOWNERS file (RECOMMENDED)
-    confirm_project_context(maintainers="CODEOWNERS")
+    confirm_project_data(maintainers="CODEOWNERS")
 
     # Explicit maintainer list
-    confirm_project_context(maintainers=["@alice", "@bob"])
+    confirm_project_data(maintainers=["@alice", "@bob"])
 
-    # Multiple context values
-    confirm_project_context(
+    # Multiple data values
+    confirm_project_data(
         maintainers="CODEOWNERS",
         security_contact="security@example.com",
         ci_provider="github"
@@ -508,9 +508,9 @@ def confirm_project_context(
     Returns:
         Confirmation of what was recorded
     """
-    from darnit.server.tools.project_context import confirm_project_context_impl
+    from darnit.server.tools.project_data import confirm_project_data_impl
 
-    return confirm_project_context_impl(
+    return confirm_project_data_impl(
         local_path=local_path,
         has_subprojects=has_subprojects,
         has_releases=has_releases,
@@ -542,17 +542,17 @@ Copy "ask_user_batch" below verbatim as the "questions" parameter to AskUserQues
 Do NOT render these questions as text. Do NOT paraphrase. Do NOT summarize.
 You MUST call the AskUserQuestion tool now.
 
-After the user answers, use "answer_mapping" to call confirm_project_context() for EACH answer:
+After the user answers, use "answer_mapping" to call confirm_project_data() for EACH answer:
 - "Yes" / "No" for booleans → pass true / false (not strings)
 - Selected option label for enums → pass the label as a string
 - "Other" selections → pass the user's typed value
-Then call get_pending_context() again for the next batch (if any remain).
+Then call get_pending_data() again for the next batch (if any remain).
 
 ---
 """
 
 
-def get_pending_context(
+def get_pending_data(
     local_path: str = ".",
     control_ids: list[str] | None = None,
     level: int = 3,
@@ -562,15 +562,15 @@ def get_pending_context(
     _tool_config: dict | None = None,
     profile: str | None = None,
 ) -> str:
-    """Get context values that would improve audit accuracy.
+    """Get data values that would improve audit accuracy.
 
     Returns up to `limit` questions per call as a batch.
 
     MANDATORY WORKFLOW — your next action MUST be calling AskUserQuestion:
     1. Call this tool. It returns "ask_user_batch" — an array ready for AskUserQuestion.
     2. Call AskUserQuestion(questions=<ask_user_batch>). Pass VERBATIM. Do NOT render as text.
-    3. After the user answers, use "answer_mapping" to call confirm_project_context() per answer.
-    4. Call get_pending_context() again for the next batch. Repeat until status is "complete".
+    3. After the user answers, use "answer_mapping" to call confirm_project_data() per answer.
+    4. Call get_pending_data() again for the next batch. Repeat until status is "complete".
 
     Parameters:
     - `local_path`: Path to repository (default: ".")
@@ -582,7 +582,7 @@ def get_pending_context(
 
     Returns:
         JSON with ask_user_batch (pass directly to AskUserQuestion),
-        answer_mapping for confirm_project_context, and a progress indicator.
+        answer_mapping for confirm_project_data, and a progress indicator.
     """
     from darnit.config.context_storage import get_pending_context as _get_pending
 
@@ -708,6 +708,15 @@ def _build_context_question(req) -> dict:
     """
     auto_detect_enabled = getattr(req.definition, "auto_detect", False)
 
+    # When auto-detection ran but found nothing, use the more informative hint
+    effective_hint = req.definition.hint
+    if (
+        auto_detect_enabled
+        and req.current_value is None
+        and getattr(req.definition, "no_detect_hint", None)
+    ):
+        effective_hint = req.definition.no_detect_hint
+
     question: dict = {
         "key": req.key,
         "priority": req.priority,
@@ -737,11 +746,11 @@ def _build_context_question(req) -> dict:
         )
         if isinstance(value, list):
             question["confirm_command"] = (
-                f"confirm_project_context({req.key}={repr(value)})"
+                f"confirm_project_data({req.key}={repr(value)})"
             )
         else:
             question["confirm_command"] = (
-                f'confirm_project_context({req.key}="{value}")'
+                f'confirm_project_data({req.key}="{value}")'
             )
 
     elif req.definition.type == "enum" and req.definition.values:
@@ -752,10 +761,10 @@ def _build_context_question(req) -> dict:
         question["instruction"] = (
             "Present ONLY these options. Do NOT add other options."
         )
-        if req.definition.hint:
-            question["hint"] = req.definition.hint
+        if effective_hint:
+            question["hint"] = effective_hint
         question["command_template"] = (
-            f'confirm_project_context({req.key}="<selected_value>")'
+            f'confirm_project_data({req.key}="<selected_value>")'
         )
 
     elif req.definition.type == "boolean":
@@ -764,10 +773,10 @@ def _build_context_question(req) -> dict:
         question["question"] = req.definition.prompt
         question["options"] = ["true", "false"]
         question["instruction"] = "Ask yes or no. Do NOT add other options."
-        if req.definition.hint:
-            question["hint"] = req.definition.hint
+        if effective_hint:
+            question["hint"] = effective_hint
         question["command_template"] = (
-            f"confirm_project_context({req.key}=<true_or_false>)"
+            f"confirm_project_data({req.key}=<true_or_false>)"
         )
 
     else:
@@ -780,12 +789,12 @@ def _build_context_question(req) -> dict:
             "owner, git config, or any other source. "
             "Present a blank text input only."
         )
-        if req.definition.hint:
-            question["hint"] = req.definition.hint
+        if effective_hint:
+            question["hint"] = effective_hint
         if req.definition.examples:
             question["example_format"] = req.definition.examples
         question["command_template"] = (
-            f"confirm_project_context({req.key}=<user_answer>)"
+            f"confirm_project_data({req.key}=<user_answer>)"
         )
 
     # Add ask_user params for interactive presentation (AskUserQuestion)
@@ -883,8 +892,8 @@ def generate_threat_model(
     """
     Generate a STRIDE-based threat model for a repository.
 
-    Analyzes the codebase for entry points, auth mechanisms, data stores,
-    potential vulnerabilities, and hardcoded secrets.
+    Uses the tree-sitter structural discovery pipeline with optional
+    Opengrep taint enrichment.
 
     Args:
         owner: GitHub Org/User (auto-detected if not provided)
@@ -900,65 +909,69 @@ def generate_threat_model(
         Threat model report with identified threats and recommendations,
         or a confirmation message if output_path is provided.
     """
-    from darnit_baseline.threat_model import (
-        analyze_stride_threats,
-        detect_attack_chains,
-        detect_frameworks,
-        discover_all_assets,
-        discover_injection_sinks,
+    from darnit_baseline.threat_model.ranking import apply_cap, rank_findings
+    from darnit_baseline.threat_model.ts_discovery import discover_all
+    from darnit_baseline.threat_model.ts_generators import (
+        GeneratorOptions,
         generate_json_summary,
         generate_markdown_threat_model,
         generate_sarif_threat_model,
-        identify_control_gaps,
     )
 
     repo_path = Path(local_path).resolve()
     if not repo_path.exists():
         return f"❌ Error: Repository path not found: {repo_path}"
 
-    from darnit.core.utils import detect_owner_repo
-
-    detected_owner, detected_repo = detect_owner_repo(str(repo_path))
-    owner = owner or detected_owner
-    repo = repo or detected_repo
-
     try:
-        # Detect frameworks
-        frameworks = detect_frameworks(str(repo_path))
+        result = discover_all(repo_path)
+        ranked = rank_findings(result.findings)
+        emitted, overflow = apply_cap(ranked, max_findings=50)
 
-        # Discover assets
-        assets = discover_all_assets(str(repo_path), frameworks)
-
-        # Discover injection sinks
-        injection_sinks = discover_injection_sinks(str(repo_path))
-
-        # Analyze threats
-        threats = analyze_stride_threats(assets, injection_sinks)
-
-        # Detect attack chains
-        attack_chains = detect_attack_chains(threats, assets)
-
-        # Identify control gaps
-        control_gaps = identify_control_gaps(assets, threats)
-
-        # Validate detail_level
-        if detail_level not in ("summary", "detailed"):
-            detail_level = "detailed"
-
-        # Generate output
         if output_format == "sarif":
-            content = json.dumps(generate_sarif_threat_model(str(repo_path), threats, attack_chains), indent=2)
+            content = generate_sarif_threat_model(result, emitted)
         elif output_format == "json":
-            content = json.dumps(generate_json_summary(str(repo_path), frameworks, assets, threats, control_gaps, attack_chains), indent=2)
+            content = generate_json_summary(result, emitted, overflow)
         else:
-            content = generate_markdown_threat_model(str(repo_path), assets, threats, control_gaps, frameworks, detail_level, attack_chains)
+            options = GeneratorOptions(detail_level=detail_level)
+            content = generate_markdown_threat_model(
+                repo_path=str(repo_path),
+                result=result,
+                capped_findings=emitted,
+                overflow=overflow,
+                options=options,
+            )
 
-        # Write to disk if output_path provided
         if output_path:
+            # Use multi-file pipeline for the new canonical location.
+            if output_path.endswith("SUMMARY.md") or "threatmodel" in output_path:
+                from darnit.sieve.handler_registry import HandlerContext
+                from darnit_baseline.threat_model.remediation import (
+                    generate_threat_model_handler,
+                )
+
+                context = HandlerContext(
+                    local_path=str(repo_path),
+                    owner=owner or "",
+                    repo=repo or "",
+                    control_id="OSPS-SA-03.02",
+                )
+                handler_result = generate_threat_model_handler(
+                    {"path": output_path, "overwrite": True},
+                    context,
+                )
+                files = handler_result.evidence.get("files_written", [output_path])
+                return (
+                    f"Multi-file threat model written to {output_path} "
+                    f"({len(ranked)} findings, {len(files)} files)"
+                )
+
             target = repo_path / output_path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content)
-            return f"Threat model written to {output_path} ({len(content)} bytes)"
+            return (
+                f"Threat model written to {output_path} ({len(content)} bytes, "
+                f"{len(emitted)} findings, {overflow.total} trimmed)"
+            )
 
         return content
     except Exception as e:
@@ -1036,6 +1049,7 @@ def remediate_audit_findings(
     branch_name: str | None = None,
     auto_commit: bool = False,
     create_pr: bool = False,
+    enhance_with_llm: bool = False,
 ) -> str:
     """
     Apply automated remediations for failed audit controls.
@@ -1062,6 +1076,9 @@ def remediate_audit_findings(
         branch_name: Create/checkout this branch before applying remediations
         auto_commit: Automatically commit after applying remediations
         create_pr: Create a pull request after committing
+        enhance_with_llm: If True, enrich complex documents (ARCHITECTURE.md,
+            threat model) with LLM-generated descriptions after deterministic
+            generation.  Default False (opt-in).
 
     Returns:
         Summary of applied or planned remediations (with git workflow status if applicable)
@@ -1094,8 +1111,8 @@ def remediate_audit_findings(
             return (
                 "⚠️ Cannot remediate yet — there are unresolved context questions.\n\n"
                 f"**Pending context keys**: {', '.join(keys)}\n\n"
-                "Please call `get_pending_context()` first to collect the missing "
-                "project context, then confirm each answer with `confirm_project_context()`. "
+                "Please call `get_pending_data()` first to collect the missing "
+                "project context, then confirm each answer with `confirm_project_data()`. "
                 "Once all context is resolved, call `remediate_audit_findings()` again."
             )
     except Exception:
@@ -1122,6 +1139,7 @@ def remediate_audit_findings(
             categories=categories or ["all"],
             dry_run=dry_run,
             profile=profile,
+            enhance_with_llm=enhance_with_llm,
         )
     except Exception as e:
         return f"❌ Error applying remediations: {e}"
@@ -1431,8 +1449,8 @@ __all__ = [
     # Configuration
     "get_project_config",
     "init_project_config",
-    "confirm_project_context",
-    "get_pending_context",
+    "confirm_project_data",
+    "get_pending_data",
     # Threat Model & Attestation
     "generate_threat_model",
     "generate_attestation",

@@ -425,7 +425,40 @@ def load_framework_config(path: Path) -> FrameworkConfig:
     with open(path, "rb") as f:
         data = tomllib.load(f)
 
-    return FrameworkConfig(**data)
+    # Convert to schema model
+    config = FrameworkConfig(**data)
+
+    # Validate template file paths at load time
+    # Check if file templates exist relative to the framework config location
+    # and prevent path traversal outside the plugin packages
+    base_dir = path.parent.resolve()
+    for name, template in config.templates.items():
+        if template.file:
+            template_path = Path(template.file)
+
+            if template_path.is_absolute():
+                raise ValueError(
+                    f"Template '{name}' specifies absolute path '{template.file}'. "
+                    f"Template files must be relative paths within the plugin package."
+                )
+
+            resolved = (base_dir / template_path).resolve()
+            try:
+                resolved.relative_to(base_dir)
+            except ValueError as err:
+                raise ValueError(
+                    f"Template '{name}' resolves to {resolved}, outside framework "
+                    f"directory {base_dir}. Template files must live within "
+                    f"the plugin package."
+                ) from err
+
+            if not resolved.exists():
+                raise FileNotFoundError(
+                    f"Template file '{template.file}' for template '{name}' "
+                    f"not found relative to framework config '{path}'"
+                )
+
+    return config
 
 
 def load_user_config(repo_path: Path) -> UserConfig | None:
