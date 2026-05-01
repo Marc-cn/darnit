@@ -129,6 +129,19 @@ class OSPSBaselineImplementation:
         # implementation.py -> darnit_baseline -> src -> darnit-baseline -> openssf-baseline.toml
         return Path(__file__).parent.parent.parent / "openssf-baseline.toml"
 
+    def get_audit_profiles(self) -> dict | None:
+        """Return named audit profiles from TOML config.
+
+        Returns:
+            Dict mapping profile name to AuditProfileConfig, or None if no profiles defined.
+        """
+        from darnit.config.merger import load_framework_by_name
+
+        config = load_framework_by_name("openssf-baseline")
+        if config.audit_profiles:
+            return dict(config.audit_profiles)
+        return None
+
     def register_controls(self) -> None:
         """No-op. Control definitions come exclusively from TOML.
 
@@ -167,8 +180,8 @@ class OSPSBaselineImplementation:
             ("create_security_policy", tools.create_security_policy),
             ("enable_branch_protection", tools.enable_branch_protection),
             ("init_project_config", tools.init_project_config),
-            ("confirm_project_context", tools.confirm_project_context),
-            ("get_pending_context", tools.get_pending_context),
+            ("confirm_project_data", tools.confirm_project_data),
+            ("get_pending_data", tools.get_pending_data),
             ("generate_threat_model", tools.generate_threat_model),
             ("generate_attestation", tools.generate_attestation),
             ("remediate_audit_findings", tools.remediate_audit_findings),

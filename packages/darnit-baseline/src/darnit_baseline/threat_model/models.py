@@ -28,6 +28,19 @@ class RiskLevel(Enum):
     INFORMATIONAL = "informational"
 
 
+class Confidence(Enum):
+    """Detection confidence levels.
+
+    HIGH: Confirmed via dependency manifest + code import.
+    MEDIUM: Code import found but not in dependency manifest (vendored, transitive).
+    LOW: Pattern found in string literal, regex definition, or comment — likely
+         a reference rather than actual usage.
+    """
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
 @dataclass
 class CodeLocation:
     """Location of code relevant to a threat."""
@@ -63,6 +76,7 @@ class DataStore:
     contains_pii: bool = False
     contains_financial: bool = False
     encryption_at_rest: bool = False
+    confidence: Confidence = Confidence.MEDIUM
 
 
 @dataclass
@@ -96,6 +110,7 @@ class AuthMechanism:
     line: int
     framework: str
     assets: list[str] = field(default_factory=list)
+    confidence: Confidence = Confidence.MEDIUM
 
 
 @dataclass
@@ -182,6 +197,7 @@ __all__ = [
     # Enums
     "StrideCategory",
     "RiskLevel",
+    "Confidence",
     "DetailLevel",
     # Data classes
     "CodeLocation",

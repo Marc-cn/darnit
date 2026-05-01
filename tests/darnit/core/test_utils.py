@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -10,6 +11,8 @@ from darnit.core.utils import (
     file_exists,
     get_git_commit,
     get_git_ref,
+    gh_api,
+    gh_api_safe,
     make_result,
     read_file,
     validate_local_path,
@@ -228,3 +231,22 @@ class TestGitRef:
         """Test getting ref from non-git directory returns None."""
         ref = get_git_ref(str(temp_dir))
         assert ref is None
+
+
+class TestGithubCliErrors:
+    """Tests for GitHub CLI helper failures."""
+
+    @pytest.mark.unit
+    def test_gh_api_missing_cli_shows_helpful_message(self):
+        """Missing gh CLI should raise a user-facing RuntimeError."""
+        with (
+            patch("darnit.core.utils.subprocess.run", side_effect=FileNotFoundError),
+            pytest.raises(RuntimeError, match=r"GitHub CLI \(gh\) not found"),
+        ):
+            gh_api("repos/kusari-oss/darnit")
+
+    @pytest.mark.unit
+    def test_gh_api_safe_missing_cli_returns_none(self):
+        """Safe helper should swallow missing gh CLI errors."""
+        with patch("darnit.core.utils.subprocess.run", side_effect=FileNotFoundError):
+            assert gh_api_safe("repos/kusari-oss/darnit") is None

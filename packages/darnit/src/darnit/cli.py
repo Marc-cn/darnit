@@ -36,9 +36,7 @@ from darnit.core.logging import configure_logging, get_logger
 logger = get_logger("cli")
 
 
-# =============================================================================
 # Output Formatters
-# =============================================================================
 
 
 def format_result_text(result: dict) -> str:
@@ -118,9 +116,7 @@ def format_results_json(results: list[dict], framework_name: str) -> str:
     return json.dumps(output, indent=2)
 
 
-# =============================================================================
 # Commands
-# =============================================================================
 
 
 def cmd_audit(args: argparse.Namespace) -> int:
@@ -207,9 +203,9 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
     # Output results
     if args.output == "json":
-        print(format_results_json(results, config.framework_name))
+        sys.stdout.write(format_results_json(results, config.framework_name) + "\n")
     else:
-        print(format_results_text(results, config.framework_name))
+        sys.stdout.write(format_results_text(results, config.framework_name) + "\n")
 
     # Return non-zero if any failures
     failures = [r for r in results if r.get("status") == "FAIL"]
@@ -252,18 +248,17 @@ def cmd_plan(args: argparse.Namespace) -> int:
     include_ids = set(args.include.split(",")) if args.include else None
     exclude_ids = set(args.exclude.split(",")) if args.exclude else set()
 
-    print(f"\n=== Execution Plan: {config.framework_name} ===\n")
-    print(f"Framework: {config.framework_name} v{config.framework_version}")
+    logger.info(f"=== Execution Plan: {config.framework_name} ===")
+    logger.info(f"Framework: {config.framework_name} v{config.framework_version}")
     if config.spec_version:
-        print(f"Spec: {config.spec_version}")
-    print(f"Repository: {repo_path}")
+        logger.info(f"Spec: {config.spec_version}")
+    logger.info(f"Repository: {repo_path}")
     if filters:
-        print(f"Filters: {', '.join(f'{f.field}{f.operator}{f.value}' for f in filters)}")
+        logger.info(f"Filters: {', '.join(f'{f.field}{f.operator}{f.value}' for f in filters)}")
     if include_ids:
-        print(f"Include: {', '.join(sorted(include_ids))}")
+        logger.info(f"Include: {', '.join(sorted(include_ids))}")
     if exclude_ids:
-        print(f"Exclude: {', '.join(sorted(exclude_ids))}")
-    print()
+        logger.info(f"Exclude: {', '.join(sorted(exclude_ids))}")
 
     # Group controls by level
     by_level = {}
@@ -295,25 +290,24 @@ def cmd_plan(args: argparse.Namespace) -> int:
         if not shown_controls:
             continue
 
-        print(f"Level {level} ({len(shown_controls)} controls):")
+        logger.info(f"Level {level} ({len(shown_controls)} controls):")
         for cid, ctrl in shown_controls:
             if ctrl.is_applicable():
                 adapter = ctrl.check_adapter
-                print(f"  • {cid}: {ctrl.name} [adapter: {adapter}]")
+                logger.info(f"  • {cid}: {ctrl.name} [adapter: {adapter}]")
             else:
-                print(f"  - {cid}: {ctrl.name} [skipped: {ctrl.status_reason}]")
-        print()
+                logger.info(f"  - {cid}: {ctrl.name} [skipped: {ctrl.status_reason}]")
         total_shown += len(shown_controls)
 
     if total_filtered > 0:
-        print(f"({total_filtered} controls filtered out)")
+        logger.info(f"({total_filtered} controls filtered out)")
 
     # Show excluded controls
     excluded = config.get_excluded_controls()
     if excluded:
-        print(f"Excluded ({len(excluded)}):")
+        logger.info(f"Excluded ({len(excluded)}):")
         for cid, reason in excluded.items():
-            print(f"  - {cid}: {reason}")
+            logger.info(f"  - {cid}: {reason}")
 
     return 0
 
@@ -336,14 +330,14 @@ def cmd_validate(args: argparse.Namespace) -> int:
     errors = validate_framework_config(config)
 
     if errors:
-        print(f"\n✗ Validation failed with {len(errors)} error(s):\n")
+        logger.error(f"Validation failed with {len(errors)} error(s):")
         for error in errors:
-            print(f"  • {error}")
+            logger.error(f"  • {error}")
         return 1
     else:
-        print(f"\n✓ Framework '{config.metadata.name}' is valid")
-        print(f"  Controls: {len(config.controls)}")
-        print(f"  Adapters: {len(config.adapters)}")
+        logger.info(f"Framework '{config.metadata.name}' is valid")
+        logger.info(f"  Controls: {len(config.controls)}")
+        logger.info(f"  Adapters: {len(config.adapters)}")
 
         # Show level breakdown
         by_level = {}
@@ -351,7 +345,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
             by_level.setdefault(ctrl.level, 0)
             by_level[ctrl.level] += 1
 
-        print(f"  By level: {', '.join(f'L{k}={v}' for k, v in sorted(by_level.items()))}")
+        logger.info(f"  By level: {', '.join(f'L{k}={v}' for k, v in sorted(by_level.items()))}")
         return 0
 
 
@@ -402,7 +396,7 @@ timeout = 300
 '''
 
     baseline_path.write_text(template)
-    print(f"✓ Created {baseline_path}")
+    logger.info(f"✓ Created {baseline_path}")
     return 0
 
 
@@ -413,27 +407,98 @@ def cmd_list(args: argparse.Namespace) -> int:
     frameworks = list_available_frameworks()
 
     if not frameworks:
-        print("No frameworks found. Install a framework package like darnit-baseline.")
+        logger.info("No frameworks found. Install a framework package like darnit-baseline.")
         return 0
 
-    print("\nAvailable Frameworks:\n")
+    logger.info("Available Frameworks:")
     for name in frameworks:
         try:
             config = load_framework_by_name(name)
-            print(f"  • {name}")
-            print(f"    Display: {config.metadata.display_name}")
-            print(f"    Version: {config.metadata.version}")
+            logger.info(f"  • {name}")
+            logger.info(f"    Display: {config.metadata.display_name}")
+            logger.info(f"    Version: {config.metadata.version}")
             if config.metadata.spec_version:
-                print(f"    Spec: {config.metadata.spec_version}")
-            print(f"    Controls: {len(config.controls)}")
-            print()
+                logger.info(f"    Spec: {config.metadata.spec_version}")
+            logger.info(f"    Controls: {len(config.controls)}")
         except Exception as e:
-            print(f"  • {name} (error loading: {e})")
+            logger.info(f"  • {name} (error loading: {e})")
 
     return 0
 
+def cmd_profiles(args: argparse.Namespace) -> int:
+    """List available audit profiles defined by loaded implementations."""
+    from darnit.core.plugin import discover_implementations
+
+    impls = discover_implementations()
+    if not impls:
+        logger.info("No implementations found.")
+        return 0
+
+    filter_impl = getattr(args, "impl", None)
+    found_any = False
+
+    for name, impl in impls.items():
+        if filter_impl and name != filter_impl:
+            continue
+        profiles = getattr(impl, "audit_profiles", None)
+        if not profiles:
+            continue
+        found_any = True
+        logger.info(f"{name}:")
+        for profile_name, profile in profiles.items():
+            ctrl_count = len(profile.controls) if profile.controls else "tag-based"
+            logger.info(f"  {profile_name:<25} {profile.description} ({ctrl_count} controls)")
+
+    if not found_any:
+        logger.info("No audit profiles defined by any implementation.")
+
+    return 0
+
+def _find_skills_dir() -> Path | None:
+    """Find the skills directory from the darnit package."""
+    skills_dir = Path(__file__).parent / "skills"
+    if skills_dir.is_dir():
+        has_skills = any(
+            (d / "SKILL.md").exists() for d in skills_dir.iterdir() if d.is_dir()
+        )
+        if has_skills:
+            return skills_dir
+    return None
+
+
+def _install_skills(target_dir: Path, force: bool = False) -> int:
+    """Copy skill directories to a target location."""
+    import shutil
+
+    source = _find_skills_dir()
+    if source is None:
+        logger.warning("No skills found in darnit-baseline package. Skipping skill installation.")
+        return 0
+
+    skill_dirs = [d for d in source.iterdir() if d.is_dir() and (d / "SKILL.md").exists()]
+    if not skill_dirs:
+        logger.warning("No valid skill directories found.")
+        return 0
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+    installed = 0
+
+    for skill_dir in skill_dirs:
+        dest = target_dir / skill_dir.name
+        if dest.exists() and not force:
+            logger.info(f"  Skill '{skill_dir.name}' already exists at {dest}, skipping (use --force to overwrite)")
+            continue
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(skill_dir, dest)
+        installed += 1
+        logger.info(f"  ✓ Installed skill '{skill_dir.name}' → {dest}")
+
+    return installed
+
+
 def cmd_install(args: argparse.Namespace) -> int:
-    """Install darnit MCP server config into a supported client settings file."""
+    """Install darnit MCP server config and skills into a supported client."""
     import shutil
 
     if args.client == "claude":
@@ -465,7 +530,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             f"'darnit' entry already exists in {settings_path}. Overwrite? [y/N]: "
         ).strip().lower()
         if response not in {"y", "yes"}:
-            print("Install cancelled.")
+            logger.info("Install cancelled.")
             return 1
 
     mcp_servers["darnit"] = darnit_entry
@@ -477,20 +542,36 @@ def cmd_install(args: argparse.Namespace) -> int:
         logger.error(f"Failed to write settings file: {e}")
         return 1
 
-    print(f"✓ Installed darnit MCP server config in {settings_path}")
-    print("Next step: restart your AI client and use the configured MCP server.")
+    logger.info(f"✓ Installed darnit MCP server config in {settings_path}")
+
+    # Install skills
+    if not args.mcp_only and args.client == "claude":
+        if args.project:
+            skills_target = Path.cwd() / ".claude" / "skills"
+            logger.info(f"Installing skills (project) → {skills_target}")
+        else:
+            skills_target = Path.home() / ".claude" / "skills"
+            logger.info(f"Installing skills (global) → {skills_target}")
+
+        count = _install_skills(skills_target, force=args.force)
+        if count > 0:
+            logger.info(f"✓ Installed {count} skill(s)")
+        elif count == 0:
+            logger.info("  No new skills to install")
+    elif args.mcp_only:
+        logger.info("  Skipping skill installation (--mcp-only)")
+
+    logger.info("Next step: restart your AI client and use the configured MCP server.")
+    logger.info("Skills available: /darnit-audit, /darnit-data, /darnit-comply, /darnit-remediate")
     return 0
 
 def cmd_run(args: argparse.Namespace) -> int:
     """Run the full agentic workflow autonomously.
 
-    Unlike 'darnit audit' which runs without LLM consultation, this command
-    drives the full pipeline using the LangGraph state machine:
-      1. Load project context
-      2. Run all sieve phases (deterministic, pattern, LLM)
-      3. Collect context for unclear controls
-      4. Remediate failures
-      5. Finish
+    impls = discover_implementations()
+    if not impls:
+        logger.info("No implementations found.")
+        return 0
 
     Requires a configured LLM backend and API key.
     Install agent dependencies with: pip install darnit[agent]
@@ -515,7 +596,6 @@ def cmd_run(args: argparse.Namespace) -> int:
     # Feedback mode — default to interactive if terminal, noninteractive if not
     feedback_mode = args.feedback_mode
     if feedback_mode == "auto":
-        import sys
         feedback_mode = "interactive" if sys.stdin.isatty() else "noninteractive"
 
     if not api_key and llm_backend != "ollama":
@@ -530,7 +610,6 @@ def cmd_run(args: argparse.Namespace) -> int:
     print()
 
     # Lazy imports — langgraph is optional (darnit[agent])
-    from darnit.agent.graph import darnit_graph
     from darnit.agent.state import DarnitState
 
     # Build initial state
@@ -547,6 +626,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         final_state = graph.invoke(state)
     except Exception as e:
         logger.error(f"Agent run failed: {e}")
+        return 1
 
    # LangGraph returns a dict, not a DarnitState object
     check_results = final_state.get("check_results") or []
@@ -655,9 +735,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
             return 1
 
 
-# =============================================================================
 # Helpers
-# =============================================================================
 
 
 
@@ -682,9 +760,7 @@ def _detect_default_branch(repo_path: Path) -> str:
     return "main"
 
 
-# =============================================================================
 # Main Entry Point
-# =============================================================================
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -781,6 +857,12 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Don't exit with error code on failures",
     )
+    audit_parser.add_argument(
+        "--profile", "-p",
+        dest="profile",
+        default=None,
+        help="Audit profile name to filter controls (e.g., 'level1_quick' or 'openssf-baseline:level1_quick')",
+    )
     audit_parser.set_defaults(func=cmd_audit)
 
     # plan command (debug)
@@ -814,7 +896,26 @@ def create_parser() -> argparse.ArgumentParser:
         "--exclude",
         help="Exclude these control IDs (comma-separated)",
     )
+    plan_parser.add_argument(
+        "--profile", "-p",
+        dest="profile",
+        default=None,
+        help="Audit profile name to filter controls",
+    )
     plan_parser.set_defaults(func=cmd_plan)
+
+    # profiles command
+    profiles_parser = subparsers.add_parser(
+        "profiles",
+        help="List available audit profiles",
+        description="List named audit profiles defined by loaded implementations.",
+    )
+    profiles_parser.add_argument(
+        "--impl",
+        default=None,
+        help="Filter to a specific implementation (e.g., 'openssf-baseline')",
+    )
+    profiles_parser.set_defaults(func=cmd_profiles)
 
     # validate command
     validate_parser = subparsers.add_parser("validate", help="Validate framework config")
@@ -894,6 +995,16 @@ def create_parser() -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help="Overwrite existing darnit entry without prompting",
+    )
+    install_parser.add_argument(
+        "--mcp-only",
+        action="store_true",
+        help="Only install MCP server config, skip skills",
+    )
+    install_parser.add_argument(
+        "--project",
+        action="store_true",
+        help="Install skills into .claude/skills/ (per-project) instead of ~/.claude/skills/ (global)",
     )
     install_parser.set_defaults(func=cmd_install)
 

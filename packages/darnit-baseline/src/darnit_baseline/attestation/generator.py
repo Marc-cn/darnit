@@ -147,7 +147,7 @@ def generate_attestation_from_results(
     # Store via pluggable storage backend if configured
     if storage_config is not None:
         # TODO: repo_url is hardcoded to GitHub — will break for GitLab/Gitea/etc.
-        # Track at: https://github.com/kusari-oss/darnit/issues/<new_issue>
+        # Open issue to track multi-forge support
         repo_url = f"https://github.com/{audit_result.owner}/{audit_result.repo}"
         try:
             from darnit.storage.backends import get_backend

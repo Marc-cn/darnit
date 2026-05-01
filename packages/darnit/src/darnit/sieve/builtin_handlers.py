@@ -633,6 +633,102 @@ def project_update_handler(config: dict[str, Any], context: HandlerContext) -> H
     )
 
 
+def yaml_inject_handler(config: dict[str, Any], context: HandlerContext) -> HandlerResult:
+    """Inject a top-level key into YAML files that lack it.
+
+    Designed for safe, idempotent additions — e.g., adding `permissions: {}`
+    to GitHub Actions workflows. Only modifies files that are missing the key.
+
+    Config fields:
+        files: str - Glob pattern for YAML files (relative to repo)
+        key: str - The top-level key to inject (e.g., "permissions")
+        value: str - The YAML value to inject (e.g., "{}")
+        insert_after: str - Insert after this key (e.g., "on"). If not found,
+            inserts at the top of the file after any leading comments.
+    """
+    import glob as glob_mod
+
+    files_pattern = config.get("files", "")
+    key = config.get("key", "")
+    value = config.get("value", "{}")
+    insert_after = config.get("insert_after", "on")
+
+    if not files_pattern or not key:
+        return HandlerResult(
+            status=HandlerResultStatus.ERROR,
+            message="yaml_inject requires 'files' and 'key' config fields",
+        )
+
+    pattern = os.path.join(context.local_path, files_pattern)
+    matched_files = glob_mod.glob(pattern)
+    if not matched_files:
+        return HandlerResult(
+            status=HandlerResultStatus.INCONCLUSIVE,
+            message=f"No files matched pattern: {files_pattern}",
+            evidence={"pattern": files_pattern},
+        )
+
+    import re
+
+    modified = []
+    skipped = []
+    for filepath in matched_files:
+        try:
+            with open(filepath, encoding="utf-8") as f:
+                content = f.read()
+        except OSError:
+            continue
+
+        # Skip if key already exists at the top level (not indented)
+        if re.search(rf"^{re.escape(key)}\s*:", content, re.MULTILINE):
+            skipped.append(os.path.relpath(filepath, context.local_path))
+            continue
+
+        # Find insertion point: after the insert_after key's block
+        lines = content.split("\n")
+        insert_idx = 0
+        in_target_block = False
+        for i, line in enumerate(lines):
+            if re.match(rf"^{re.escape(insert_after)}\s*:", line):
+                in_target_block = True
+                continue
+            if in_target_block:
+                # End of block: next top-level key or blank line after content
+                if line and not line[0].isspace() and not line.startswith("#"):
+                    insert_idx = i
+                    break
+                if not line.strip() and i > 0 and lines[i - 1].strip():
+                    insert_idx = i + 1
+                    break
+        else:
+            if in_target_block:
+                insert_idx = len(lines)
+
+        injection = f"\n{key}: {value}\n"
+        lines.insert(insert_idx, injection.rstrip())
+
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+            modified.append(os.path.relpath(filepath, context.local_path))
+        except OSError:
+            continue
+
+    if not modified:
+        return HandlerResult(
+            status=HandlerResultStatus.PASS,
+            message=f"All {len(skipped)} file(s) already have '{key}:'",
+            evidence={"skipped": skipped},
+        )
+
+    return HandlerResult(
+        status=HandlerResultStatus.PASS,
+        message=f"Injected '{key}: {value}' into {len(modified)} file(s)",
+        confidence=1.0,
+        evidence={"modified": modified, "skipped": skipped},
+    )
+
+
 # =============================================================================
 # Registration
 # =============================================================================
@@ -665,3 +761,5 @@ def register_builtin_handlers() -> None:
                        description="Make an HTTP API call")
     registry.register("project_update", phase="deterministic", handler_fn=project_update_handler,
                        description="Update .project/project.yaml values")
+    registry.register("yaml_inject", phase="deterministic", handler_fn=yaml_inject_handler,
+                       description="Inject a top-level key into YAML files that lack it")

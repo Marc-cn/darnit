@@ -47,6 +47,7 @@ def audit_openssf_baseline(
     sign_attestation: bool = True,
     staging: bool = False,
     prefer_upstream: bool = True,
+    profile: str | None = None,
 ) -> str:
     """
     Run a comprehensive OpenSSF Baseline audit on a repository.
@@ -63,13 +64,16 @@ def audit_openssf_baseline(
               - Different fields use AND logic: domain=AC AND level=1
               - Same field repeated uses OR logic: priority=low OR priority=high
               - Bare values match against control tags dict keys
-        output_format: Output format - "markdown", "json", or "sarif". Default: "markdown"
+        output_format: Output format - "markdown", "json", "summary", or "sarif". Default: "markdown".
+              Use "summary" for compact JSON (id/status/level/details only, no evidence).
         auto_init_config: Create .project.yaml if missing. Default: True
         attest: Generate in-toto attestation after audit. Default: False
         sign_attestation: Sign attestation with Sigstore. Default: True
         staging: Use Sigstore staging environment. Default: False
         prefer_upstream: If True, prefer 'upstream' git remote when auto-detecting owner/repo.
                          Useful for auditing forks against their upstream repository. Default: True
+        profile: Optional audit profile name to filter controls. Short name (e.g., "level1_quick")
+                 or qualified name (e.g., "openssf-baseline:level1_quick"). Default: None (all controls)
 
     Returns:
         Formatted audit report with compliance status and remediation instructions
@@ -108,6 +112,26 @@ def audit_openssf_baseline(
     controls = load_controls_from_effective(config)
     controls = [c for c in controls if c.level <= level]
 
+    # Apply profile filtering if specified
+    if profile:
+        from darnit.config.profile_resolver import (
+            ProfileAmbiguousError,
+            ProfileNotFoundError,
+            resolve_profile,
+            resolve_profile_control_ids,
+        )
+
+        try:
+            # Build implementations dict from loaded config
+            profile_impls: dict = {}
+            if config._framework_config and config._framework_config.audit_profiles:
+                profile_impls[config.framework_name] = config._framework_config.audit_profiles
+            _, profile_config = resolve_profile(profile, profile_impls)
+            profile_ids = resolve_profile_control_ids(profile_config, controls)
+            controls = [c for c in controls if c.control_id in profile_ids]
+        except (ProfileNotFoundError, ProfileAmbiguousError) as e:
+            return f"❌ {e}"
+
     if not controls:
         return "❌ No controls loaded"
 
@@ -136,7 +160,26 @@ def audit_openssf_baseline(
     )
 
     # Format output
-    if output_format == "json":
+    if output_format == "summary":
+        # Compact JSON: only id/status/level/details — no evidence or pass_history.
+        # ~5-8K vs ~164K for full JSON with 62 controls.
+        compact_results = [
+            {
+                "id": r.get("id"),
+                "status": r.get("status"),
+                "level": r.get("level"),
+                "details": r.get("details", ""),
+            }
+            for r in results
+        ]
+        return json.dumps({
+            "owner": owner,
+            "repo": repo,
+            "level": level,
+            "summary": summary,
+            "results": compact_results,
+        }, indent=2)
+    elif output_format == "json":
         return json.dumps({
             "owner": owner,
             "repo": repo,
@@ -159,19 +202,43 @@ def audit_openssf_baseline(
         )
 
 
-def list_available_checks() -> str:
+def list_available_checks(profile: str | None = None) -> str:
     """
     List all available OpenSSF Baseline checks organized by level.
 
+    Args:
+        profile: Optional audit profile name to filter controls.
+
     Returns:
-        Formatted list of all 62 OSPS controls across 3 levels
+        Formatted list of OSPS controls across 3 levels
     """
     from darnit.config.merger import load_framework_by_name
 
     config = load_framework_by_name("openssf-baseline")
+
+    # Resolve profile filter if specified
+    profile_ids: set[str] | None = None
+    if profile and config.audit_profiles:
+        from darnit.config.control_loader import load_controls_from_framework
+        from darnit.config.profile_resolver import (
+            resolve_profile,
+            resolve_profile_control_ids,
+        )
+
+        try:
+            _, profile_config = resolve_profile(
+                profile, {"openssf-baseline": config.audit_profiles}
+            )
+            controls = load_controls_from_framework(config)
+            profile_ids = set(resolve_profile_control_ids(profile_config, controls))
+        except Exception:
+            profile_ids = None
+
     checks: dict[str, list] = {"level1": [], "level2": [], "level3": []}
 
     for control_id, control in config.controls.items():
+        if profile_ids is not None and control_id not in profile_ids:
+            continue
         level = control.tags.get("level", 1) if control.tags else 1
         level_key = f"level{level}"
         if level_key in checks:
@@ -393,7 +460,7 @@ def init_project_config(
         return f"❌ Error creating config: {e}"
 
 
-def confirm_project_context(
+def confirm_project_data(
     local_path: str = ".",
     has_subprojects: bool | None = None,
     has_releases: bool | None = None,
@@ -406,9 +473,9 @@ def confirm_project_context(
     governance_model: str | None = None,
 ) -> str:
     """
-    Record user-confirmed project context in .project.yaml.
+    Record user-confirmed project data in .project.yaml.
 
-    **IMPORTANT**: This is the ONLY way to set project context. DO NOT directly edit
+    **IMPORTANT**: This is the ONLY way to set project data. DO NOT directly edit
     .project/ files - always use this tool instead.
 
     **Parameters:**
@@ -425,13 +492,13 @@ def confirm_project_context(
     **Examples:**
     ```
     # Reference existing CODEOWNERS file (RECOMMENDED)
-    confirm_project_context(maintainers="CODEOWNERS")
+    confirm_project_data(maintainers="CODEOWNERS")
 
     # Explicit maintainer list
-    confirm_project_context(maintainers=["@alice", "@bob"])
+    confirm_project_data(maintainers=["@alice", "@bob"])
 
-    # Multiple context values
-    confirm_project_context(
+    # Multiple data values
+    confirm_project_data(
         maintainers="CODEOWNERS",
         security_contact="security@example.com",
         ci_provider="github"
@@ -441,9 +508,9 @@ def confirm_project_context(
     Returns:
         Confirmation of what was recorded
     """
-    from darnit.server.tools.project_context import confirm_project_context_impl
+    from darnit.server.tools.project_data import confirm_project_data_impl
 
-    return confirm_project_context_impl(
+    return confirm_project_data_impl(
         local_path=local_path,
         has_subprojects=has_subprojects,
         has_releases=has_releases,
@@ -475,17 +542,17 @@ Copy "ask_user_batch" below verbatim as the "questions" parameter to AskUserQues
 Do NOT render these questions as text. Do NOT paraphrase. Do NOT summarize.
 You MUST call the AskUserQuestion tool now.
 
-After the user answers, use "answer_mapping" to call confirm_project_context() for EACH answer:
+After the user answers, use "answer_mapping" to call confirm_project_data() for EACH answer:
 - "Yes" / "No" for booleans → pass true / false (not strings)
 - Selected option label for enums → pass the label as a string
 - "Other" selections → pass the user's typed value
-Then call get_pending_context() again for the next batch (if any remain).
+Then call get_pending_data() again for the next batch (if any remain).
 
 ---
 """
 
 
-def get_pending_context(
+def get_pending_data(
     local_path: str = ".",
     control_ids: list[str] | None = None,
     level: int = 3,
@@ -493,16 +560,17 @@ def get_pending_context(
     repo: str | None = None,
     limit: int = 4,
     _tool_config: dict | None = None,
+    profile: str | None = None,
 ) -> str:
-    """Get context values that would improve audit accuracy.
+    """Get data values that would improve audit accuracy.
 
     Returns up to `limit` questions per call as a batch.
 
     MANDATORY WORKFLOW — your next action MUST be calling AskUserQuestion:
     1. Call this tool. It returns "ask_user_batch" — an array ready for AskUserQuestion.
     2. Call AskUserQuestion(questions=<ask_user_batch>). Pass VERBATIM. Do NOT render as text.
-    3. After the user answers, use "answer_mapping" to call confirm_project_context() per answer.
-    4. Call get_pending_context() again for the next batch. Repeat until status is "complete".
+    3. After the user answers, use "answer_mapping" to call confirm_project_data() per answer.
+    4. Call get_pending_data() again for the next batch. Repeat until status is "complete".
 
     Parameters:
     - `local_path`: Path to repository (default: ".")
@@ -514,7 +582,7 @@ def get_pending_context(
 
     Returns:
         JSON with ask_user_batch (pass directly to AskUserQuestion),
-        answer_mapping for confirm_project_context, and a progress indicator.
+        answer_mapping for confirm_project_data, and a progress indicator.
     """
     from darnit.config.context_storage import get_pending_context as _get_pending
 
@@ -640,6 +708,15 @@ def _build_context_question(req) -> dict:
     """
     auto_detect_enabled = getattr(req.definition, "auto_detect", False)
 
+    # When auto-detection ran but found nothing, use the more informative hint
+    effective_hint = req.definition.hint
+    if (
+        auto_detect_enabled
+        and req.current_value is None
+        and getattr(req.definition, "no_detect_hint", None)
+    ):
+        effective_hint = req.definition.no_detect_hint
+
     question: dict = {
         "key": req.key,
         "priority": req.priority,
@@ -669,11 +746,11 @@ def _build_context_question(req) -> dict:
         )
         if isinstance(value, list):
             question["confirm_command"] = (
-                f"confirm_project_context({req.key}={repr(value)})"
+                f"confirm_project_data({req.key}={repr(value)})"
             )
         else:
             question["confirm_command"] = (
-                f'confirm_project_context({req.key}="{value}")'
+                f'confirm_project_data({req.key}="{value}")'
             )
 
     elif req.definition.type == "enum" and req.definition.values:
@@ -684,10 +761,10 @@ def _build_context_question(req) -> dict:
         question["instruction"] = (
             "Present ONLY these options. Do NOT add other options."
         )
-        if req.definition.hint:
-            question["hint"] = req.definition.hint
+        if effective_hint:
+            question["hint"] = effective_hint
         question["command_template"] = (
-            f'confirm_project_context({req.key}="<selected_value>")'
+            f'confirm_project_data({req.key}="<selected_value>")'
         )
 
     elif req.definition.type == "boolean":
@@ -696,10 +773,10 @@ def _build_context_question(req) -> dict:
         question["question"] = req.definition.prompt
         question["options"] = ["true", "false"]
         question["instruction"] = "Ask yes or no. Do NOT add other options."
-        if req.definition.hint:
-            question["hint"] = req.definition.hint
+        if effective_hint:
+            question["hint"] = effective_hint
         question["command_template"] = (
-            f"confirm_project_context({req.key}=<true_or_false>)"
+            f"confirm_project_data({req.key}=<true_or_false>)"
         )
 
     else:
@@ -712,12 +789,12 @@ def _build_context_question(req) -> dict:
             "owner, git config, or any other source. "
             "Present a blank text input only."
         )
-        if req.definition.hint:
-            question["hint"] = req.definition.hint
+        if effective_hint:
+            question["hint"] = effective_hint
         if req.definition.examples:
             question["example_format"] = req.definition.examples
         question["command_template"] = (
-            f"confirm_project_context({req.key}=<user_answer>)"
+            f"confirm_project_data({req.key}=<user_answer>)"
         )
 
     # Add ask_user params for interactive presentation (AskUserQuestion)
@@ -815,8 +892,8 @@ def generate_threat_model(
     """
     Generate a STRIDE-based threat model for a repository.
 
-    Analyzes the codebase for entry points, auth mechanisms, data stores,
-    potential vulnerabilities, and hardcoded secrets.
+    Uses the tree-sitter structural discovery pipeline with optional
+    Opengrep taint enrichment.
 
     Args:
         owner: GitHub Org/User (auto-detected if not provided)
@@ -832,65 +909,69 @@ def generate_threat_model(
         Threat model report with identified threats and recommendations,
         or a confirmation message if output_path is provided.
     """
-    from darnit_baseline.threat_model import (
-        analyze_stride_threats,
-        detect_attack_chains,
-        detect_frameworks,
-        discover_all_assets,
-        discover_injection_sinks,
+    from darnit_baseline.threat_model.ranking import apply_cap, rank_findings
+    from darnit_baseline.threat_model.ts_discovery import discover_all
+    from darnit_baseline.threat_model.ts_generators import (
+        GeneratorOptions,
         generate_json_summary,
         generate_markdown_threat_model,
         generate_sarif_threat_model,
-        identify_control_gaps,
     )
 
     repo_path = Path(local_path).resolve()
     if not repo_path.exists():
         return f"❌ Error: Repository path not found: {repo_path}"
 
-    from darnit.core.utils import detect_owner_repo
-
-    detected_owner, detected_repo = detect_owner_repo(str(repo_path))
-    owner = owner or detected_owner
-    repo = repo or detected_repo
-
     try:
-        # Detect frameworks
-        frameworks = detect_frameworks(str(repo_path))
+        result = discover_all(repo_path)
+        ranked = rank_findings(result.findings)
+        emitted, overflow = apply_cap(ranked, max_findings=50)
 
-        # Discover assets
-        assets = discover_all_assets(str(repo_path), frameworks)
-
-        # Discover injection sinks
-        injection_sinks = discover_injection_sinks(str(repo_path))
-
-        # Analyze threats
-        threats = analyze_stride_threats(assets, injection_sinks)
-
-        # Detect attack chains
-        attack_chains = detect_attack_chains(threats, assets)
-
-        # Identify control gaps
-        control_gaps = identify_control_gaps(assets, threats)
-
-        # Validate detail_level
-        if detail_level not in ("summary", "detailed"):
-            detail_level = "detailed"
-
-        # Generate output
         if output_format == "sarif":
-            content = json.dumps(generate_sarif_threat_model(str(repo_path), threats, attack_chains), indent=2)
+            content = generate_sarif_threat_model(result, emitted)
         elif output_format == "json":
-            content = json.dumps(generate_json_summary(str(repo_path), frameworks, assets, threats, control_gaps, attack_chains), indent=2)
+            content = generate_json_summary(result, emitted, overflow)
         else:
-            content = generate_markdown_threat_model(str(repo_path), assets, threats, control_gaps, frameworks, detail_level, attack_chains)
+            options = GeneratorOptions(detail_level=detail_level)
+            content = generate_markdown_threat_model(
+                repo_path=str(repo_path),
+                result=result,
+                capped_findings=emitted,
+                overflow=overflow,
+                options=options,
+            )
 
-        # Write to disk if output_path provided
         if output_path:
+            # Use multi-file pipeline for the new canonical location.
+            if output_path.endswith("SUMMARY.md") or "threatmodel" in output_path:
+                from darnit.sieve.handler_registry import HandlerContext
+                from darnit_baseline.threat_model.remediation import (
+                    generate_threat_model_handler,
+                )
+
+                context = HandlerContext(
+                    local_path=str(repo_path),
+                    owner=owner or "",
+                    repo=repo or "",
+                    control_id="OSPS-SA-03.02",
+                )
+                handler_result = generate_threat_model_handler(
+                    {"path": output_path, "overwrite": True},
+                    context,
+                )
+                files = handler_result.evidence.get("files_written", [output_path])
+                return (
+                    f"Multi-file threat model written to {output_path} "
+                    f"({len(ranked)} findings, {len(files)} files)"
+                )
+
             target = repo_path / output_path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content)
-            return f"Threat model written to {output_path} ({len(content)} bytes)"
+            return (
+                f"Threat model written to {output_path} ({len(content)} bytes, "
+                f"{len(emitted)} findings, {overflow.total} trimmed)"
+            )
 
         return content
     except Exception as e:
@@ -964,6 +1045,11 @@ def remediate_audit_findings(
     repo: str | None = None,
     categories: list | None = None,
     dry_run: bool = True,
+    profile: str | None = None,
+    branch_name: str | None = None,
+    auto_commit: bool = False,
+    create_pr: bool = False,
+    enhance_with_llm: bool = False,
 ) -> str:
     """
     Apply automated remediations for failed audit controls.
@@ -975,21 +1061,37 @@ def remediate_audit_findings(
     - access_control, build_release, documentation, governance, legal,
       quality, security_architecture, vulnerability_management
 
+    Supports optional git workflow (ignored when dry_run=True):
+    - branch_name: Create/switch to this branch before applying (e.g., "fix/compliance")
+    - auto_commit: Commit changes after applying (requires dry_run=false)
+    - create_pr: Create a pull request after committing (requires auto_commit=true)
+
     Args:
         local_path: ABSOLUTE path to repo
         owner: GitHub org/user (auto-detected if not provided)
         repo: Repository name (auto-detected if not provided)
         categories: Optional filter — list of category names, or ["all"]
         dry_run: If True (default), show what would be changed without applying
+        profile: Optional audit profile name to filter remediation to profile controls only
+        branch_name: Create/checkout this branch before applying remediations
+        auto_commit: Automatically commit after applying remediations
+        create_pr: Create a pull request after committing
+        enhance_with_llm: If True, enrich complex documents (ARCHITECTURE.md,
+            threat model) with LLM-generated descriptions after deterministic
+            generation.  Default False (opt-in).
 
     Returns:
-        Summary of applied or planned remediations
+        Summary of applied or planned remediations (with git workflow status if applicable)
     """
     from darnit_baseline.remediation import remediate_audit_findings as apply_remediations
 
     repo_path = Path(local_path).resolve()
     if not repo_path.exists():
         return f"❌ Error: Repository path not found: {repo_path}"
+
+    # Validate git workflow param combinations
+    if create_pr and not auto_commit:
+        return "❌ Error: create_pr requires auto_commit=True"
 
     from darnit.core.utils import detect_owner_repo
 
@@ -1009,13 +1111,26 @@ def remediate_audit_findings(
             return (
                 "⚠️ Cannot remediate yet — there are unresolved context questions.\n\n"
                 f"**Pending context keys**: {', '.join(keys)}\n\n"
-                "Please call `get_pending_context()` first to collect the missing "
-                "project context, then confirm each answer with `confirm_project_context()`. "
+                "Please call `get_pending_data()` first to collect the missing "
+                "project context, then confirm each answer with `confirm_project_data()`. "
                 "Once all context is resolved, call `remediate_audit_findings()` again."
             )
     except Exception:
         pass  # If context check fails, proceed with remediation anyway
 
+    # Step 1: Create branch before applying (so changes land on the right branch)
+    git_report: list[str] = []
+    if branch_name and not dry_run:
+        from darnit.server.tools.git_operations import create_remediation_branch_impl
+
+        branch_result = create_remediation_branch_impl(
+            branch_name=branch_name, local_path=str(repo_path),
+        )
+        if "❌" in branch_result:
+            return f"❌ Branch creation failed, aborting remediation.\n\n{branch_result}"
+        git_report.append(branch_result)
+
+    # Step 2: Apply remediations
     try:
         result = apply_remediations(
             local_path=str(repo_path),
@@ -1023,10 +1138,35 @@ def remediate_audit_findings(
             repo=repo,
             categories=categories or ["all"],
             dry_run=dry_run,
+            profile=profile,
+            enhance_with_llm=enhance_with_llm,
         )
-        return result
     except Exception as e:
         return f"❌ Error applying remediations: {e}"
+
+    # Step 3: Commit and optionally create PR (only on successful non-dry-run apply)
+    if not dry_run and "❌" not in result:
+        if auto_commit:
+            from darnit.server.tools.git_operations import commit_remediation_changes_impl
+
+            commit_result = commit_remediation_changes_impl(
+                local_path=str(repo_path),
+            )
+            git_report.append(commit_result)
+
+            if create_pr and "❌" not in commit_result:
+                from darnit.server.tools.git_operations import create_remediation_pr_impl
+
+                pr_result = create_remediation_pr_impl(
+                    local_path=str(repo_path),
+                )
+                git_report.append(pr_result)
+
+    # Append git workflow summary if any git steps ran
+    if git_report:
+        result += "\n\n---\n## Git Workflow\n\n" + "\n\n".join(git_report)
+
+    return result
 
 
 # =============================================================================
@@ -1309,8 +1449,8 @@ __all__ = [
     # Configuration
     "get_project_config",
     "init_project_config",
-    "confirm_project_context",
-    "get_pending_context",
+    "confirm_project_data",
+    "get_pending_data",
     # Threat Model & Attestation
     "generate_threat_model",
     "generate_attestation",

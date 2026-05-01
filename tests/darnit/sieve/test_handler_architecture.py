@@ -824,7 +824,7 @@ class TestTemplateVariables:
 
     @pytest.mark.unit
     def test_unresolved_variable_becomes_empty(self):
-        """Unresolved ${...} patterns are cleaned up."""
+        """Unresolved << ... >> patterns are cleaned up by Jinja2."""
         from darnit.remediation.executor import RemediationExecutor
 
         executor = RemediationExecutor(
@@ -833,12 +833,12 @@ class TestTemplateVariables:
             repo="repo",
             default_branch="main",
         )
-        result = executor._substitute("Hello ${context.missing} world", "TEST-01")
-        assert "${context.missing}" not in result
+        result = executor._substitute("Hello << context.missing >> world", "TEST-01")
+        assert "<< context.missing >>" not in result
 
     @pytest.mark.unit
-    def test_standard_dollar_var_still_works(self):
-        """$OWNER and $REPO standard substitution still works."""
+    def test_standard_var_still_works(self):
+        """<< OWNER >> and << REPO >> substitution works."""
         from darnit.remediation.executor import RemediationExecutor
 
         executor = RemediationExecutor(
@@ -847,7 +847,7 @@ class TestTemplateVariables:
             repo="myrepo",
             default_branch="main",
         )
-        result = executor._substitute("repos/$OWNER/$REPO", "TEST-01")
+        result = executor._substitute("repos/<< OWNER >>/<< REPO >>", "TEST-01")
         assert result == "repos/myorg/myrepo"
 
 

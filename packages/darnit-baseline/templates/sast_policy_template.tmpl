@@ -14,10 +14,10 @@
 | Medium | Must be resolved or documented | 30 days |
 | Low | Informational, resolve when convenient | 90 days |
 
-## Supported Tools
+## Tools
 
-This project uses automated SAST scanning in CI/CD. Results are reported
-as GitHub code scanning alerts.
+SAST scanning is performed by << scan.ci_sast_tools | default('CodeQL') >>. See
+[`.github/workflows/sast.yml`](../.github/workflows/sast.yml) for configuration.
 
 ## Exception Process
 

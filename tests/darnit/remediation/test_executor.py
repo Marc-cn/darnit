@@ -78,11 +78,38 @@ class TestRemediationExecutor:
             default_branch="main",
         )
 
-        text = "Contact security@$OWNER.github.io for $REPO issues"
+        text = "Contact security@<< OWNER >>.github.io for << REPO >> issues"
         result = executor._substitute(text, "TEST-01")
 
         assert "security@myorg.github.io" in result
         assert "myrepo issues" in result
+
+    def test_github_actions_expressions_preserved(self):
+        """Test that GitHub Actions ${{ }} expressions pass through untouched."""
+        executor = RemediationExecutor(
+            local_path="/tmp/test",
+            owner="myorg",
+            repo="myrepo",
+        )
+
+        text = "artifact-name: sbom-${{ github.event.release.tag_name || 'snapshot' }}.spdx.json"
+        result = executor._substitute(text, "TEST-01")
+
+        assert "${{ github.event.release.tag_name || 'snapshot' }}" in result
+
+    def test_shell_vars_preserved(self):
+        """Test that shell $VAR expressions pass through untouched."""
+        executor = RemediationExecutor(
+            local_path="/tmp/test",
+            owner="myorg",
+            repo="myrepo",
+        )
+
+        text = "echo $HOME and $PATH should not be substituted"
+        result = executor._substitute(text, "TEST-01")
+
+        assert "$HOME" in result
+        assert "$PATH" in result
 
     def test_context_list_substitution_uses_spaces(self):
         """Test that list context values are joined with spaces (not commas).
@@ -98,7 +125,7 @@ class TestRemediationExecutor:
             "maintainers": ["@alice", "@bob", "@charlie"],
         }
 
-        text = "* ${context.maintainers}"
+        text = "* << context.maintainers >>"
         result = executor._substitute(text, "TEST-01")
 
         assert result == "* @alice @bob @charlie"
@@ -112,7 +139,7 @@ class TestRemediationExecutor:
             default_branch="main",
         )
 
-        command = ["gh", "api", "/repos/$OWNER/$REPO/branches/$BRANCH"]
+        command = ["gh", "api", "/repos/<< OWNER >>/<< REPO >>/branches/<< BRANCH >>"]
         result = executor._substitute_command(command, "TEST-01")
 
         assert result == ["gh", "api", "/repos/testorg/testrepo/branches/main"]
@@ -508,6 +535,74 @@ class TestExecutorWhenClause:
 
             result = executor.execute("TEST-01", config, dry_run=True)
             assert result.success
+
+
+class TestScanValuesInWhenContext:
+    """Test that scan_values are available for when-clause matching."""
+
+    def test_scan_values_match_when_clause(self):
+        """Scan values (e.g., scan.app_kusari_inspector) should be usable in when clauses."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            executor = RemediationExecutor(
+                local_path=tmpdir,
+                owner="testorg",
+                repo="testrepo",
+                scan_values={"scan.app_kusari_inspector": "true"},
+            )
+
+            config = RemediationConfig(
+                strategy="first_match",
+                handlers=[
+                    HandlerInvocation(
+                        handler="manual",
+                        steps=["Kusari Inspector handles this"],
+                        when={"scan.app_kusari_inspector": "true"},
+                    ),
+                    HandlerInvocation(
+                        handler="file_create",
+                        path="sast.yml",
+                        content="# CodeQL fallback",
+                    ),
+                ],
+            )
+
+            result = executor.execute("TEST-01", config, dry_run=True)
+            assert result.success
+            handlers = result.details["handlers"]
+            assert len(handlers) == 1
+            assert handlers[0]["handler"] == "manual"
+
+    def test_scan_values_fallback_when_not_present(self):
+        """Without scan values, when clause doesn't match and falls through to default."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            executor = RemediationExecutor(
+                local_path=tmpdir,
+                owner="testorg",
+                repo="testrepo",
+                scan_values={},
+            )
+
+            config = RemediationConfig(
+                strategy="first_match",
+                handlers=[
+                    HandlerInvocation(
+                        handler="manual",
+                        steps=["Kusari Inspector handles this"],
+                        when={"scan.app_kusari_inspector": "true"},
+                    ),
+                    HandlerInvocation(
+                        handler="file_create",
+                        path="sast.yml",
+                        content="# CodeQL fallback",
+                    ),
+                ],
+            )
+
+            result = executor.execute("TEST-01", config, dry_run=True)
+            assert result.success
+            handlers = result.details["handlers"]
+            assert len(handlers) == 1
+            assert handlers[0]["handler"] == "file_create"
 
 
 class TestWhenFieldNotInHandlerConfig:

@@ -11,6 +11,11 @@ from darnit.core.logging import get_logger
 
 logger = get_logger("utils")
 
+_GH_CLI_MISSING_MESSAGE = (
+    "GitHub CLI (gh) not found. Install it from https://cli.github.com/ "
+    "and run 'gh auth login' to authenticate."
+)
+
 
 def gh_api(endpoint: str) -> dict[str, Any]:
     """Execute a GitHub API call using the gh CLI.
@@ -18,11 +23,15 @@ def gh_api(endpoint: str) -> dict[str, Any]:
     Raises:
         RuntimeError: If the API call fails or returns invalid JSON.
     """
-    result = subprocess.run(
-        ["gh", "api", endpoint],
-        capture_output=True,
-        text=True
-    )
+    try:
+        result = subprocess.run(
+            ["gh", "api", endpoint],
+            capture_output=True,
+            text=True
+        )
+    except FileNotFoundError:
+        raise RuntimeError(_GH_CLI_MISSING_MESSAGE) from None
+
     if result.returncode != 0:
         error_msg = result.stderr.strip() or "Unknown error"
         raise RuntimeError(f"gh api failed: {error_msg}")
@@ -278,7 +287,10 @@ def _gh_enrich(owner: str, repo: str, cwd: str) -> dict[str, Any]:
             "is_private": data.get("isPrivate", False),
             "default_branch": data.get("defaultBranchRef", {}).get("name", "main"),
         }
-    except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError,
+    except FileNotFoundError:
+        logger.debug(_GH_CLI_MISSING_MESSAGE)
+        return {}
+    except (subprocess.TimeoutExpired, json.JSONDecodeError,
             OSError, subprocess.SubprocessError) as e:
         logger.debug(f"gh enrichment failed for {owner}/{repo}: {type(e).__name__}: {e}")
         return {}

@@ -356,15 +356,10 @@ else:
     result = []
 ```
 
-## Active Technologies
-- Python >=3.11 (project targets 3.11/3.12) + darnit (core framework), darnit-baseline (001-tiered-control-automation)
-- TOML config files, `.project/` YAML context, local filesystem (001-tiered-control-automation)
-- Markdown (GitHub-Flavored Markdown with Mermaid diagram support) + None (pure documentation) (005-getting-started-guide)
-- Filesystem (Markdown files in `docs/` directory) (005-getting-started-guide)
-- Python >=3.11 (project targets 3.11/3.12) + darnit (core framework), darnit-baseline (implementation package) — no new external dependencies (006-detailed-stride-threats)
-- N/A (generates reports from static analysis; no persistence) (006-detailed-stride-threats)
-- Python >=3.11 (project targets 3.11/3.12) + darnit (core framework — sieve handler registry), darnit-baseline (threat model engine) (007-threatmodel-remediation-handler)
-- N/A (writes a single file to the repository) (007-threatmodel-remediation-handler)
-
-## Recent Changes
-- 001-tiered-control-automation: Added Python >=3.11 (project targets 3.11/3.12) + darnit (core framework), darnit-baseline
+## Technology Stack
+- **Language**: Python 3.11+ (targets 3.11/3.12)
+- **Core deps**: FastMCP, Pydantic >=2.0, PyYAML, cel-python
+- **Threat model**: tree-sitter, tree-sitter-language-pack (Python/JS/Go/YAML grammars)
+- **Attestation**: sigstore, in-toto (optional)
+- **Config**: TOML framework configs, `.project/project.yaml` (YAML), `.baseline.toml` (user overrides)
+- **Storage**: Filesystem only (Markdown, JSON, YAML output files; no database)
