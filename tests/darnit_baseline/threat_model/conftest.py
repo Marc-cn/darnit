@@ -8,6 +8,12 @@ installed" for tests that don't opt into the real binary.
 Tests that explicitly test Opengrep integration should use the
 ``real_opengrep`` marker: ``@pytest.mark.real_opengrep``.
 """
+import pytest
+
+try:
+    import tree_sitter_language_pack  # noqa: F401
+except ImportError:
+    collect_ignore_glob = ["*.py"]
 
 from __future__ import annotations
 
