@@ -85,7 +85,7 @@ After this change, that engineer can install darnit from a Homebrew tap. The for
 
 A developer working in a coding agent (initial target: Claude Code) wants to enable darnit's audit, context, comply, and remediate skills in their agent with one install command. They do not want to write configuration files, register MCP servers manually, copy skill files, or know how darnit's internals are wired. They just want the agent to expose the four skills and the audit/remediate tools.
 
-After this change, the developer can install darnit as a first-class plugin in their coding agent. The plugin bundles the MCP server invocation, the four existing skills, and any necessary configuration. When installed, the four slash commands appear in the agent immediately and operate against the user's current repository without further setup.
+After this change, the developer can install darnit as a first-class plugin in their coding agent. The plugin bundles the MCP server invocation, the four existing agentic skills, and any necessary configuration. When installed, the four skills become available to the agent (which invokes them automatically based on the user's natural-language request matching each skill's description); the user does not need to learn or type any slash commands.
 
 **Why this priority**: darnit's primary user is a coding agent — this is the most natural install path for the actual audience. P4 because it depends on at least one underlying install path existing (P1 or P3) so the plugin has something to invoke; without those, the plugin install would have to bundle its own Python toolchain or binary, which is a larger scope.
 
@@ -163,7 +163,7 @@ After this change, that team can read a published packaging guide and a worked "
 #### Coding-agent plugin
 
 - **FR-015**: An installable coding-agent plugin MUST exist for at least one supported agent (initial target: Claude Code) that bundles the existing four skills and the MCP server configuration into a single installable unit.
-- **FR-016**: Once installed, the plugin MUST make the four skills (`darnit-audit`, `darnit-context`, `darnit-comply`, `darnit-remediate`) available in the agent without requiring the user to edit configuration files or register the MCP server by hand.
+- **FR-016**: Once installed, the plugin MUST make the four skills (`darnit-audit`, `darnit-comply`, `darnit-data`, `darnit-remediate`) available in Claude Code without requiring the user to edit configuration files or register the MCP server by hand. Per the [Claude Code skills spec](https://code.claude.com/docs/en/skills), both invocation paths are first-class: the user can type `/darnit:darnit-audit` etc. directly, OR Claude auto-loads the matching skill from its frontmatter `description` based on the user's natural-language request. The plugin-namespace prefix (`darnit:`) is provided automatically by Claude Code from the plugin's `name` field.
 - **FR-017**: The plugin MUST attempt to invoke the MCP server via `uvx` first, and if `uvx` is not found on PATH, MUST attempt the same invocation via `pipx run`. If neither runner is present, the plugin MUST surface a single, actionable error message naming both prerequisites and a documented install path for each, rather than failing silently.
 
 #### Third-party plugin packaging guide
@@ -217,7 +217,7 @@ After this change, that team can read a published packaging guide and a worked "
 
 - **Windows binaries, Homebrew on Windows, or Windows-specific channels**: Excluded because darnit's controls assume POSIX tooling. Tracked separately.
 - **macOS amd64 (Intel) binaries and Homebrew bottles**: Excluded. Apple has fully transitioned to Apple Silicon; the standalone binary, Homebrew formula, and container image cover only `macOS arm64`. Intel Mac users can install via `pip install` or run the Linux/amd64 container image under Rosetta-equivalent emulation.
-- **Other coding agents** (Cursor, Windsurf, Continue, Cline, etc.): Excluded from this feature; covered by future work once Claude Code is solid.
+- **Other coding agents** (Cursor, Windsurf, Continue, Cline, etc.): The v1 packaging effort ships a Claude Code plugin only. The SKILL.md files at `packages/darnit/src/darnit/skills/` already follow the open [Agent Skills standard](https://agentskills.io/specification) and are portable to ~30 compatible clients, but the plugin wrapper (MCP-server bundling, version pinning, `${CLAUDE_PLUGIN_ROOT}` substitution) is Claude-Code-specific. A future v2 should add a `darnit install-skills [--agent <slug>]` CLI subcommand modelled after [spec-kit's `specify init`](https://github.com/github/spec-kit) — an `AGENT_CONFIG` registry mapping agent slugs to per-agent skill-install paths, plus a `--skills` mode switch. The skill content itself does not need to change.
 - **Mirroring to additional package indexes or registries** (Anaconda, Docker Hub, Quay): Excluded for v1.
 - **Independent per-package versioning across the workspace**: Excluded; lockstep is the v1 strategy.
 - **A separate composite "darnit-all" mega-package**: Excluded; users compose their own install set from the public packages.

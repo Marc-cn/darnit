@@ -154,12 +154,12 @@ cosign verify-blob \
 
 ### Install
 
-Download `darnit-claude-plugin-0.1.0.zip` from the GitHub release page, then install it into your Claude Code workspace per Claude Code's plugin instructions. Once installed, the four slash commands are available:
+Download `darnit-claude-plugin-0.1.0.zip` from the GitHub release page, then install it into your Claude Code workspace per Claude Code's plugin instructions. Once installed, four namespaced slash commands are available (and Claude can also auto-load them from natural-language requests — both paths work):
 
-- `/darnit-audit` — run a compliance audit
-- `/darnit-context` — collect missing project context
-- `/darnit-comply` — full audit + remediate pipeline
-- `/darnit-remediate` — apply automated fixes
+- `/darnit:darnit-audit` — run a compliance audit
+- `/darnit:darnit-data` — collect missing project data / context
+- `/darnit:darnit-comply` — full audit + remediate pipeline
+- `/darnit:darnit-remediate` — apply automated fixes for failing controls
 
 ### Prerequisite
 
