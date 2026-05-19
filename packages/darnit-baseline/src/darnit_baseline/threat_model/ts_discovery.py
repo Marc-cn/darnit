@@ -1412,6 +1412,27 @@ def _collect_go_imports(source: bytes, tree: Any) -> set[str]:
     return imports
 
 
+def is_cobra_file(imports: set[str]) -> bool:
+    """Detect whether a Go file participates in a cobra command tree.
+
+    Triggers cobra extraction when the file imports any module under
+    ``github.com/spf13/cobra``. Aliased imports (e.g. ``cobra "github.com/spf13/cobra"``)
+    still surface in the import set as the underlying path, so this single
+    check covers both forms. Look-alike packages that merely contain the
+    substring ``cobra`` (e.g., a hypothetical ``cobra-fork/something``) do
+    not match.
+
+    Used by ``_extract_go_cli_commands`` (feature 014-cobra-threat-model) to
+    cheaply skip query evaluation on Go files that have no chance of
+    containing cobra command definitions.
+    """
+    prefix = "github.com/spf13/cobra"
+    for imp in imports:
+        if imp == prefix or imp.startswith(prefix + "/"):
+            return True
+    return False
+
+
 # ---------------------------------------------------------------------------
 # JavaScript / TypeScript extractors (minimal v1)
 # ---------------------------------------------------------------------------

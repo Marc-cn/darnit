@@ -414,6 +414,47 @@ class MitigationSidecar:
     entries: list[MitigationEntry] = field(default_factory=list)
 
 
+# ---------------------------------------------------------------------------
+# CLI command families (feature 014-cobra-threat-model)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class CommandFamily:
+    """A coalesced group of sibling CLI commands sharing a source-tree root.
+
+    Produced by grouping.group_by_cli_family() from a flat list of
+    DiscoveredEntryPoint instances with kind=CLI_COMMAND. In-memory only;
+    not persisted as part of the audit's output structure (the rendered
+    Markdown / SARIF / JSON files carry the same information in their own
+    schemas — see specs/014-cobra-threat-model/contracts/).
+
+    Terminology: ``command_root`` is project-scoped (one per audit run, the
+    inferred top-level prefix above all CLI command files). ``source_root``
+    is family-scoped (one per CommandFamily, the per-family directory shown
+    to reviewers in the rendered output). The two relate as
+    ``source_root == command_root + "/" + family_key``.
+    """
+
+    family_key: str
+    source_root: str
+    display_name: str
+    members: list[DiscoveredEntryPoint] = field(default_factory=list)
+    import_signatures: set[str] = field(default_factory=set)
+    stride_categories: list[str] = field(default_factory=list)
+    needs_reviewer_attention: bool = True
+
+    def __post_init__(self) -> None:
+        if "/" in self.family_key or "\\" in self.family_key:
+            raise ValueError(
+                f"CommandFamily.family_key {self.family_key!r} must not contain path separators"
+            )
+        if not self.members:
+            raise ValueError(
+                f"CommandFamily {self.family_key!r} must contain at least one member"
+            )
+
+
 __all__ = [
     "Location",
     "CodeSnippet",
@@ -433,4 +474,5 @@ __all__ = [
     "MitigationStatus",
     "MitigationEntry",
     "MitigationSidecar",
+    "CommandFamily",
 ]

@@ -30,10 +30,10 @@ This feature is a localised extension to `packages/darnit-baseline/src/darnit_ba
 
 **Purpose**: Verify the working environment is ready before touching code.
 
-- [ ] T001 Verify `uv sync --all-extras` is clean and existing tests pass: `uv run pytest tests/darnit_baseline/threat_model/ -q` — captures the SC-004 baseline (any test green now must stay green)
-- [ ] T002 Confirm `EntryPointKind.CLI_COMMAND` exists in `packages/darnit-baseline/src/darnit_baseline/threat_model/discovery_models.py:76` (it does — this task is a checkpoint that no model surgery is required)
-- [ ] T003 [P] Read `packages/darnit-baseline/src/darnit_baseline/threat_model/ts_discovery.py:1309-1412` (existing `_extract_go_entry_points` + `_collect_go_imports`) — required context for T011
-- [ ] T003a [P] Add `syrupy` to the root `pyproject.toml`'s `[dependency-groups].dev` block (per research R8); confirm `uv sync --all-extras` installs it without conflict. Used by T029, T035, T036.
+- [X] T001 Verify `uv sync --all-extras` is clean and existing tests pass: `uv run pytest tests/darnit_baseline/threat_model/ -q` — captures the SC-004 baseline (any test green now must stay green) — **baseline: 248 tests pass in 1.66s**
+- [X] T002 Confirm `EntryPointKind.CLI_COMMAND` exists in `packages/darnit-baseline/src/darnit_baseline/threat_model/discovery_models.py:76` (it does — this task is a checkpoint that no model surgery is required) — **verified during planning**
+- [X] T003 [P] Read `packages/darnit-baseline/src/darnit_baseline/threat_model/ts_discovery.py:1309-1412` (existing `_extract_go_entry_points` + `_collect_go_imports`) — required context for T011 — **context loaded during planning**
+- [X] T003a [P] Add `syrupy` to the root `pyproject.toml`'s `[dependency-groups].dev` block (per research R8); confirm `uv sync --all-extras` installs it without conflict. Used by T029, T035, T036. — **syrupy 5.2.0 installed**
 
 ---
 
@@ -43,12 +43,12 @@ This feature is a localised extension to `packages/darnit-baseline/src/darnit_ba
 
 **⚠️ CRITICAL**: No user-story work can begin until this phase is complete.
 
-- [ ] T004 Add a `CommandFamily` dataclass to `packages/darnit-baseline/src/darnit_baseline/threat_model/discovery_models.py` matching the schema in `specs/014-cobra-threat-model/data-model.md` (`family_key`, `display_name`, `members: list[DiscoveredEntryPoint]`, `import_signatures: set[str]`, `stride_categories: list[str]`, `needs_reviewer_attention: bool`). In-memory only; no persistence.
-- [ ] T005 [P] Add `is_cobra_file(imports: set[str]) -> bool` helper to `packages/darnit-baseline/src/darnit_baseline/threat_model/ts_discovery.py` — returns True if any import path starts with `github.com/spf13/cobra` (handles aliased imports too). Tested via T009.
-- [ ] T006 [P] Add `infer_command_root(file_paths: list[str]) -> str` helper to `packages/darnit-baseline/src/darnit_baseline/threat_model/grouping.py` — computes longest common directory prefix per research R2. Returns `""` for single-file projects so the caller can degrade.
-- [ ] T007 [P] Define the STRIDE-heuristic table as a module-level constant in `packages/darnit-baseline/src/darnit_baseline/threat_model/ranking.py` — ordered list of `(import_prefix_tuple, [stride_category])` entries matching research R3.
-- [ ] T008 [P] Create `tests/darnit_baseline/threat_model/fixtures/go_no_cobra/` — minimal valid Go program with no cobra imports; serves as the FR-009 regression fixture.
-- [ ] T009 [P] Test for `is_cobra_file` in `tests/darnit_baseline/threat_model/test_ts_discovery.py` — covers cobra import, aliased cobra import, no cobra import, look-alike `cobra` substring import that isn't actually cobra.
+- [X] T004 Add a `CommandFamily` dataclass to `packages/darnit-baseline/src/darnit_baseline/threat_model/discovery_models.py` matching the schema in `specs/014-cobra-threat-model/data-model.md` (`family_key`, `display_name`, `members: list[DiscoveredEntryPoint]`, `import_signatures: set[str]`, `stride_categories: list[str]`, `needs_reviewer_attention: bool`). In-memory only; no persistence. — **added with `source_root` field per analysis-fix terminology**
+- [X] T005 [P] Add `is_cobra_file(imports: set[str]) -> bool` helper to `packages/darnit-baseline/src/darnit_baseline/threat_model/ts_discovery.py` — returns True if any import path starts with `github.com/spf13/cobra` (handles aliased imports too). Tested via T009.
+- [X] T006 [P] Add `infer_command_root(file_paths: list[str]) -> str` helper to `packages/darnit-baseline/src/darnit_baseline/threat_model/grouping.py` — computes longest common directory prefix per research R2. Returns `""` for single-file projects so the caller can degrade. — **also added `family_key_for_path` helper**
+- [X] T007 [P] Define the STRIDE-heuristic table as a module-level constant in `packages/darnit-baseline/src/darnit_baseline/threat_model/ranking.py` — ordered list of `(import_prefix_tuple, [stride_category])` entries matching research R3. — **also added `assign_cli_stride_categories()`**
+- [X] T008 [P] Create `tests/darnit_baseline/threat_model/fixtures/go_no_cobra/` — minimal valid Go program with no cobra imports; serves as the FR-009 regression fixture. — **with decoy struct shaped like cobra.Command to exercise FR-009 hard**
+- [X] T009 [P] Test for `is_cobra_file` in `tests/darnit_baseline/threat_model/test_ts_discovery.py` — covers cobra import, aliased cobra import, no cobra import, look-alike `cobra` substring import that isn't actually cobra. — **6 tests, all pass**
 
 **Checkpoint**: Foundation ready — user-story implementation can now begin.
 

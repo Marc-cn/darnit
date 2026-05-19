@@ -814,3 +814,49 @@ class TestSelfScanDogfood:
         result = discover_all(FIXTURES / "mcp_server_imperative")
         assert len(result.entry_points) >= 2
         assert all(ep.source_query == "python.entry.mcp_tool_imperative" for ep in result.entry_points)
+
+
+# ---------------------------------------------------------------------------
+# Feature 014-cobra-threat-model: cobra-detection helper tests
+# ---------------------------------------------------------------------------
+
+
+class TestIsCobraFile:
+    """Tests for is_cobra_file() — the cheap cobra-detection trigger."""
+
+    def test_matches_plain_cobra_import(self) -> None:
+        from darnit_baseline.threat_model.ts_discovery import is_cobra_file
+
+        assert is_cobra_file({"github.com/spf13/cobra"}) is True
+
+    def test_matches_cobra_subpackage_import(self) -> None:
+        from darnit_baseline.threat_model.ts_discovery import is_cobra_file
+
+        # Some projects import e.g. github.com/spf13/cobra/doc for help-doc generation.
+        assert is_cobra_file({"github.com/spf13/cobra/doc"}) is True
+
+    def test_aliased_cobra_import_still_detected(self) -> None:
+        from darnit_baseline.threat_model.ts_discovery import is_cobra_file
+
+        # The aliased form (e.g. `cobralib "github.com/spf13/cobra"`) still
+        # surfaces the underlying path in the import set — _collect_go_imports
+        # returns the import path, not the local alias.
+        assert is_cobra_file({"fmt", "github.com/spf13/cobra", "os"}) is True
+
+    def test_no_cobra_import_returns_false(self) -> None:
+        from darnit_baseline.threat_model.ts_discovery import is_cobra_file
+
+        assert is_cobra_file({"fmt", "os", "net/http"}) is False
+
+    def test_lookalike_import_does_not_match(self) -> None:
+        from darnit_baseline.threat_model.ts_discovery import is_cobra_file
+
+        # Hypothetical packages that contain the substring "cobra" but are
+        # not the spf13/cobra package must not trigger detection.
+        assert is_cobra_file({"github.com/someone-else/cobra-fork"}) is False
+        assert is_cobra_file({"example.com/cobra"}) is False
+
+    def test_empty_import_set_returns_false(self) -> None:
+        from darnit_baseline.threat_model.ts_discovery import is_cobra_file
+
+        assert is_cobra_file(set()) is False
