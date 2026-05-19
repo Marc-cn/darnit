@@ -6,7 +6,13 @@ import os
 from collections import defaultdict
 from typing import Any
 
-from .discovery_models import CandidateFinding, FindingGroup
+from .discovery_models import (
+    CandidateFinding,
+    CommandFamily,
+    DiscoveredEntryPoint,
+    EntryPointKind,
+    FindingGroup,
+)
 from .renderers.common import query_id_to_slug
 
 
@@ -80,44 +86,74 @@ def group_by_query_id(
 # ---------------------------------------------------------------------------
 
 
-def infer_command_root(file_paths: list[str]) -> str:
-    """Infer the deepest directory ancestor common to a list of source files.
+#: Minimum distinct child directories an ancestor must have to count as
+#: a viable command_root. Three or more siblings is a reasonable signal
+#: that the directory is a "command organiser" rather than a leaf or a
+#: single-command holder. Tuned against gittuf and similar Go CLIs.
+_COMMAND_ROOT_MIN_CHILDREN = 3
 
-    Used to determine the project's ``command_root`` — the top-level
-    directory beneath which CLI command definitions live (e.g.,
-    ``internal/cmd/`` for gittuf, ``cmd/cosign/cli/`` for cosign). Family
-    keys are then the first path component beneath this root.
+
+def infer_command_root(file_paths: list[str]) -> str:
+    """Infer the project's command_root from a list of cobra source files.
+
+    Strategy: walk from the shallowest possible ancestor downward and
+    return the **first depth** at which any single ancestor has at least
+    :data:`_COMMAND_ROOT_MIN_CHILDREN` distinct cobra-bearing immediate
+    children. That depth is the "family organiser" level — the directory
+    whose immediate children look like top-level commands.
+
+    For gittuf, this resolves at ``internal/cmd/`` (which has ~12 child
+    directories each containing cobra files). For cosign it resolves at
+    ``cmd/cosign/cli/``.  For small CLIs that don't have enough breadth
+    to satisfy the threshold, returns ``""`` so the caller degrades to
+    per-file family keys.
+
+    Why not "deepest ancestor with most children"? That tends to land on
+    a deeply-nested directory (e.g., ``internal/cmd/trust/`` for gittuf)
+    where many leaf subcommand directories live as children — producing
+    many one-finding families instead of a few well-grouped families.
+    The shallowest-with-threshold rule mirrors how users mentally
+    organise their command surface.
 
     Args:
         file_paths: Repository-relative paths of source files that
             participated in CLI discovery. May be empty.
 
     Returns:
-        The common directory prefix, with no trailing slash, or the empty
-        string if no common prefix exists (e.g., the file list is empty
-        or contains files in unrelated directory trees). An empty string
-        signals the caller to degrade — typically by falling back to the
-        single file's directory.
+        The inferred command_root with no trailing slash, or ``""``.
     """
     if not file_paths:
         return ""
-    # Normalise to forward slashes (the audit pipeline emits POSIX paths
-    # even on Windows). Then split into components and take the longest
-    # shared prefix.
-    components_per_file = [
-        [p for p in path.replace("\\", "/").split("/") if p][:-1]  # drop filename
-        for path in file_paths
+
+    # Normalise to POSIX-style paths and split into directory chains.
+    normalised = [p.replace("\\", "/") for p in file_paths]
+    dirs_per_file: list[list[str]] = [
+        [c for c in p.split("/") if c][:-1] for p in normalised
     ]
-    if not components_per_file or not components_per_file[0]:
+    if not dirs_per_file:
         return ""
-    shared: list[str] = []
-    for parts in zip(*components_per_file, strict=False):
-        first = parts[0]
-        if all(p == first for p in parts):
-            shared.append(first)
-        else:
-            break
-    return "/".join(shared)
+    max_depth = max(len(d) for d in dirs_per_file)
+
+    # Walk shallowest → deepest. At each depth, partition by the depth-th
+    # ancestor and check whether any partition has ≥ threshold children.
+    for depth in range(max_depth + 1):
+        partitions: dict[tuple[str, ...], set[str]] = defaultdict(set)
+        for dirs in dirs_per_file:
+            if len(dirs) <= depth:
+                continue
+            ancestor = tuple(dirs[:depth])
+            partitions[ancestor].add(dirs[depth])
+        # Pick the best (most children) at this depth.
+        if partitions:
+            best_ancestor, best_children = max(
+                partitions.items(), key=lambda kv: len(kv[1])
+            )
+            if len(best_children) >= _COMMAND_ROOT_MIN_CHILDREN:
+                return "/".join(best_ancestor)
+
+    # No depth satisfied the threshold — the project doesn't have enough
+    # command-breadth to produce useful families. Caller degrades.
+    return ""
 
 
 def family_key_for_path(file_path: str, command_root: str) -> str:
@@ -144,3 +180,59 @@ def family_key_for_path(file_path: str, command_root: str) -> str:
     # file's parent dir name (degenerate fallback for single-file CLIs).
     parent = os.path.basename(os.path.dirname(path)) if "/" in path else ""
     return parent or "root"
+
+
+def group_by_cli_family(
+    entry_points: list[DiscoveredEntryPoint],
+) -> list[CommandFamily]:
+    """Coalesce CLI command entry points into command families by filesystem layout.
+
+    Filters the input to ``EntryPointKind.CLI_COMMAND`` entries, infers a
+    ``command_root`` via :func:`infer_command_root`, partitions by the
+    first subdirectory beneath the root, and produces one
+    :class:`CommandFamily` per partition.
+
+    Family display name defaults to the ``family_key`` — US2's T024 will
+    enrich this with the parent literal's ``Use:`` text when available.
+    Empty members lists are filtered out.
+
+    Ordering: sorted by ``len(members)`` descending, then ``family_key``
+    ascending. This makes the document deterministic for snapshot tests
+    and surfaces the largest command surfaces first.
+    """
+    cli_entries = [
+        ep for ep in entry_points if ep.kind == EntryPointKind.CLI_COMMAND
+    ]
+    if not cli_entries:
+        return []
+
+    file_paths = [ep.location.file for ep in cli_entries]
+    command_root = infer_command_root(file_paths)
+
+    buckets: dict[str, list[DiscoveredEntryPoint]] = defaultdict(list)
+    for ep in cli_entries:
+        key = family_key_for_path(ep.location.file, command_root)
+        buckets[key].append(ep)
+
+    families: list[CommandFamily] = []
+    for family_key, members in buckets.items():
+        # source_root = command_root + "/" + family_key (relative to repo root).
+        # When command_root is empty (single-file CLI), the source_root is just
+        # the family_key (typically the file's directory).
+        if command_root:
+            source_root = f"{command_root.rstrip('/')}/{family_key}/"
+        else:
+            source_root = f"{family_key}/" if family_key != "root" else ""
+        family = CommandFamily(
+            family_key=family_key,
+            source_root=source_root,
+            display_name=family_key,  # T024 enriches this from parent Use: text
+            members=members,
+            import_signatures=set(),  # populated by ranking layer if needed
+            stride_categories=[],  # populated by assign_cli_stride_categories
+            needs_reviewer_attention=True,
+        )
+        families.append(family)
+
+    families.sort(key=lambda f: (-len(f.members), f.family_key))
+    return families

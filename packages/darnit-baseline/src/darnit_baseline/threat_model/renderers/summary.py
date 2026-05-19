@@ -277,6 +277,52 @@ def _render_limitations(
 # ---------------------------------------------------------------------------
 
 
+def _render_cli_entry_points(families: list[Any]) -> list[str]:
+    """Render the ``## Entry Points`` / ``### CLI Entry Points`` section.
+
+    Feature 014-cobra-threat-model. See
+    ``specs/014-cobra-threat-model/contracts/output-document-contract.md``
+    for the contract.
+
+    Returns the empty list when ``families`` is empty — no placeholder
+    is emitted per FR-014. Families are pre-sorted by
+    ``group_by_cli_family`` for deterministic output. Each family
+    becomes one ``#### Family: <display_name>`` block with source root,
+    subcommand list, STRIDE categories, confidence line, location
+    table, and a refinement-note paragraph that flags the categories
+    as heuristic.
+    """
+    if not families:
+        return []
+    md: list[str] = ["## Entry Points", "", "### CLI Entry Points", ""]
+    for family in families:
+        md.append(f"#### Family: {family.display_name}")
+        md.append("")
+        md.append(f"**Source root**: `{family.source_root}`")
+        sub_names = [m.name for m in family.members]
+        md.append(
+            f"**Subcommands**: {len(family.members)} ({', '.join(sub_names)})"
+        )
+        md.append(
+            f"**STRIDE categories**: {', '.join(family.stride_categories)}"
+        )
+        md.append("**Confidence**: heuristic — needs reviewer attention")
+        md.append("")
+        md.append("| Subcommand | Location | Notes |")
+        md.append("|---|---|---|")
+        for member in family.members:
+            loc = f"`{member.location.file}:{member.location.line}`"
+            md.append(f"| {member.name} | {loc} |  |")
+        md.append("")
+        md.append(
+            "_Refinement notes: This family was categorised by "
+            "import-based heuristic; categories may need recategorisation "
+            "per the project's threat model._"
+        )
+        md.append("")
+    return md
+
+
 def render_summary(
     groups: list[FindingGroup],
     sidecar_matches: dict[str, Any],
@@ -284,6 +330,7 @@ def render_summary(
     options: GeneratorOptions,
     overflow_hint: TrimmedOverflow | None = None,
     repo_path: str = ".",
+    cli_families: list[Any] | None = None,
 ) -> str:
     """Render the top-level ``SUMMARY.md`` for the multi-file threat model.
 
@@ -302,6 +349,12 @@ def render_summary(
         Optional overflow data describing findings trimmed by the cap.
     repo_path:
         Path to the repository root (used for display name derivation).
+    cli_families:
+        Optional list of :class:`CommandFamily` instances produced by the
+        cobra extractor + grouping + STRIDE assignment (feature
+        014-cobra-threat-model). When non-empty, surfaces a ``## Entry
+        Points`` / ``### CLI Entry Points`` section in the rendered
+        document. When ``None`` or empty, no CLI section is emitted (FR-014).
 
     Returns
     -------
@@ -317,6 +370,7 @@ def render_summary(
     md.extend(_render_executive_summary(result, all_findings, repo_path))
     md.extend(_render_top_risks(groups, sidecar_matches, options, overflow_hint))
     md.extend(_render_unmitigated(groups, sidecar_matches))
+    md.extend(_render_cli_entry_points(cli_families or []))
     md.extend(_render_companion_links())
     md.extend(_render_recommendations(groups, sidecar_matches))
     md.extend(_render_verification_prompts())

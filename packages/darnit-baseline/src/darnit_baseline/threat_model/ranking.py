@@ -16,6 +16,10 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .discovery_models import CommandFamily  # noqa: F401  (typing only)
 
 from .discovery_models import (
     CandidateFinding,
@@ -282,6 +286,32 @@ def assign_cli_stride_categories(import_signatures: set[str]) -> list[str]:
     return list(CLI_STRIDE_FALLBACK)
 
 
+def assign_stride_for_cli_families(
+    families: list[CommandFamily], file_imports: dict[str, set[str]]
+) -> None:
+    """Populate ``import_signatures`` and ``stride_categories`` on each family.
+
+    For each family, takes the union of imports across its member files
+    (looked up by relpath in ``file_imports``) and runs that union through
+    :func:`assign_cli_stride_categories`. Mutates families in place.
+
+    Args:
+        families: list of :class:`CommandFamily` to enrich.
+        file_imports: dict from relative file path to that file's import
+            set, as produced by the discovery layer (see
+            ``DiscoveryResult.cobra_file_imports``).
+    """
+    for family in families:
+        union: set[str] = set()
+        for member in family.members:
+            file_path = member.location.file
+            file_imps = file_imports.get(file_path)
+            if file_imps:
+                union.update(file_imps)
+        family.import_signatures = union
+        family.stride_categories = assign_cli_stride_categories(union)
+
+
 __all__ = [
     "severity_for",
     "confidence_for",
@@ -291,4 +321,5 @@ __all__ = [
     "CLI_STRIDE_HEURISTIC",
     "CLI_STRIDE_FALLBACK",
     "assign_cli_stride_categories",
+    "assign_stride_for_cli_families",
 ]

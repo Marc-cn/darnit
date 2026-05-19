@@ -337,6 +337,11 @@ class DiscoveryResult:
     file_scan_stats: FileScanStats | None = None
     opengrep_available: bool = False
     opengrep_degraded_reason: str | None = None
+    # Feature 014-cobra-threat-model: per-file import sets for cobra-importing
+    # Go files, collected during discovery for the STRIDE heuristic at
+    # rendering time. Keyed by ScannedFile.relpath. Empty for non-cobra
+    # files / non-Go projects.
+    cobra_file_imports: dict[str, set[str]] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

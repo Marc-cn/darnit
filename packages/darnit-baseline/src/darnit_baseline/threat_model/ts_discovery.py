@@ -1433,6 +1433,135 @@ def is_cobra_file(imports: set[str]) -> bool:
     return False
 
 
+def _extract_cobra_use_string(body_node: Any, source: bytes) -> str | None:
+    """Walk a cobra.Command literal's body to find the Use: string value.
+
+    The body is a ``literal_value`` whose children are ``keyed_element``
+    nodes. We look for the one whose key is the identifier ``Use`` and
+    whose value is an ``interpreted_string_literal``. Returns the literal
+    text with surrounding quotes stripped, or ``None`` if the field isn't
+    present or isn't a string literal (e.g., a variable reference).
+    """
+    if body_node is None:
+        return None
+    # The body has children: '{' keyed_element ',' keyed_element '}' etc.
+    # We iterate named children only, which skips the punctuation.
+    for child in body_node.named_children:
+        if child.type != "keyed_element":
+            continue
+        # keyed_element shape varies across tree-sitter-go versions. The key
+        # node is the first named child; the value node is the second.
+        # Sometimes both are wrapped in literal_element nodes; sometimes
+        # the identifier appears directly. Handle both.
+        key_node = child.named_children[0] if child.named_children else None
+        value_node = child.named_children[1] if len(child.named_children) > 1 else None
+        if key_node is None or value_node is None:
+            continue
+        # Unwrap literal_element if present.
+        if key_node.type == "literal_element" and key_node.named_children:
+            key_node = key_node.named_children[0]
+        if value_node.type == "literal_element" and value_node.named_children:
+            value_node = value_node.named_children[0]
+        # Match Use: field with a string literal value.
+        if key_node.type == "identifier" and _text(key_node, source) == "Use":
+            if value_node.type == "interpreted_string_literal":
+                return _strip_quotes(_text(value_node, source))
+    return None
+
+
+def _extract_go_cli_commands(
+    file: ScannedFile, source: bytes, tree: Any, imports: set[str]
+) -> list[DiscoveredEntryPoint]:
+    """Extract cobra-based Go CLI command entry points from a single file.
+
+    Runs two queries:
+
+    1. ``go.entry.cobra_command_literal`` for ``&cobra.Command{...}`` and
+       ``cobra.Command{...}`` composite literals — the primary signal.
+    2. ``go.entry.cobra_new_func`` for ``func New() *cobra.Command``-style
+       constructor declarations — a coarser fallback for projects that
+       wrap each command in a New-style factory.
+
+    Findings from the two queries are deduplicated by (file, line). When
+    both match the same source line (because the literal lives one line
+    below the function declaration in idiomatic code), the literal wins
+    because it carries the ``Use:`` text.
+
+    Skips files whose import set fails :func:`is_cobra_file`. Unrecognised
+    patterns (composite literals whose Use: value isn't a string literal,
+    or whose body parses unexpectedly) are silently skipped per FR-011 —
+    the extractor never raises on malformed input.
+    """
+    if not is_cobra_file(imports):
+        return []
+
+    entries: list[DiscoveredEntryPoint] = []
+
+    # Pass 1: composite literals — primary, carries the Use: text.
+    query = go_queries.QUERY_REGISTRY["go.entry.cobra_command_literal"].query
+    for caps in run_query(query, tree.root_node):
+        try:
+            pkg_node = caps["pkg"][0]
+            typename_node = caps["typename"][0]
+            body_node = caps["body"][0] if "body" in caps else None
+            whole = caps["whole"][0]
+        except (KeyError, IndexError):
+            continue  # Malformed match — skip silently (FR-011).
+        if _text(pkg_node, source) != "cobra" or _text(typename_node, source) != "Command":
+            continue  # Not actually a cobra.Command literal — skip.
+        use_string = _extract_cobra_use_string(body_node, source)
+        # If Use: is missing or not a string literal, we still emit an
+        # entry point but with a fallback name derived from the file.
+        name = use_string if use_string else f"(unnamed: {file.relpath})"
+        entries.append(
+            DiscoveredEntryPoint(
+                kind=EntryPointKind.CLI_COMMAND,
+                name=name,
+                location=_build_location(whole, file.relpath),
+                language="go",
+                framework="cobra",
+                route_path=None,
+                http_method=None,
+                has_auth_decorator=False,
+                source_query="go.entry.cobra_command_literal",
+            )
+        )
+
+    # Pass 2: ``func New() *cobra.Command`` constructors — only meaningful
+    # as a coarse fallback when Pass 1 found NOTHING in this file. The
+    # typical idiom is ``func New() *cobra.Command { return &cobra.Command{...} }``
+    # where Pass 1 already captured the literal; surfacing the New() too
+    # would duplicate every command in the rendered output.
+    if not entries:
+        query = go_queries.QUERY_REGISTRY["go.entry.cobra_new_func"].query
+        for caps in run_query(query, tree.root_node):
+            try:
+                pkg_node = caps["pkg"][0]
+                typename_node = caps["typename"][0]
+                func_name_node = caps["func_name"][0]
+                whole = caps["whole"][0]
+            except (KeyError, IndexError):
+                continue  # Malformed match — skip silently (FR-011).
+            if _text(pkg_node, source) != "cobra" or _text(typename_node, source) != "Command":
+                continue
+            name = f"{_text(func_name_node, source)}()"
+            entries.append(
+                DiscoveredEntryPoint(
+                    kind=EntryPointKind.CLI_COMMAND,
+                    name=name,
+                    location=_build_location(whole, file.relpath),
+                    language="go",
+                    framework="cobra",
+                    route_path=None,
+                    http_method=None,
+                    has_auth_decorator=False,
+                    source_query="go.entry.cobra_new_func",
+                )
+            )
+
+    return entries
+
+
 # ---------------------------------------------------------------------------
 # JavaScript / TypeScript extractors (minimal v1)
 # ---------------------------------------------------------------------------
@@ -1957,6 +2086,10 @@ def discover_all(
     data_stores: list[DiscoveredDataStore] = []
     call_graph: list[CallGraphNode] = []
     findings: list[CandidateFinding] = []
+    # Feature 014-cobra-threat-model: per-cobra-file imports for STRIDE
+    # heuristic at rendering time. Populated only when the cobra extractor
+    # emits at least one entry for the file.
+    cobra_file_imports: dict[str, set[str]] = {}
 
     for file in scanned_files:
         try:
@@ -2001,6 +2134,17 @@ def discover_all(
             data_stores.extend(
                 _extract_go_data_stores(file, source, tree, dependency_names)
             )
+            # Feature 014-cobra-threat-model: cobra CLI commands as entry points.
+            # Cheap import-filtered extractor — no-op on Go files that don't
+            # import github.com/spf13/cobra (FR-009).
+            go_imports = _collect_go_imports(source, tree)
+            cobra_entries = _extract_go_cli_commands(file, source, tree, go_imports)
+            entry_points.extend(cobra_entries)
+            # Stash the cobra file's import set for the STRIDE heuristic
+            # at rendering time. Keyed by relpath so it's stable across
+            # the pipeline.
+            if cobra_entries:
+                cobra_file_imports[file.relpath] = go_imports
         elif lang in ("javascript", "typescript", "tsx"):
             entry_points.extend(_extract_js_entry_points(file, source, tree))
         elif lang == "yaml":
@@ -2059,6 +2203,7 @@ def discover_all(
         file_scan_stats=scan_stats,
         opengrep_available=opengrep_available,
         opengrep_degraded_reason=opengrep_degraded_reason,
+        cobra_file_imports=cobra_file_imports,
     )
 
 

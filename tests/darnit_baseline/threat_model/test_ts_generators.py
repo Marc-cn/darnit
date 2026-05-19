@@ -383,3 +383,171 @@ class TestDogfoodDarnitDraft:
         for section in REQUIRED_H2_SECTIONS:
             assert section in draft
         assert VERIFICATION_PROMPT_OPEN in draft
+
+
+# ---------------------------------------------------------------------------
+# Feature 014-cobra-threat-model: CLI Entry Points rendering tests
+# ---------------------------------------------------------------------------
+
+
+class TestCliEntryPointsRendering:
+    """T021 — verify the rendered ### CLI Entry Points subsection."""
+
+    def _build_family(
+        self,
+        family_key: str = "cache",
+        source_root: str = "internal/cmd/cache/",
+        display_name: str = "cache",
+        stride: list[str] | None = None,
+        members: list[tuple[str, str, int]] | None = None,
+    ):
+        from darnit_baseline.threat_model.discovery_models import (
+            CommandFamily,
+            DiscoveredEntryPoint,
+            EntryPointKind,
+            Location,
+        )
+
+        if stride is None:
+            stride = ["Tampering"]
+        if members is None:
+            members = [("cache", "internal/cmd/cache/cache.go", 13)]
+        m = [
+            DiscoveredEntryPoint(
+                kind=EntryPointKind.CLI_COMMAND,
+                name=name,
+                location=Location(path, line, 1, line + 2, 1),
+                language="go",
+                framework="cobra",
+                route_path=None,
+                http_method=None,
+                has_auth_decorator=False,
+                source_query="go.entry.cobra_command_literal",
+            )
+            for name, path, line in members
+        ]
+        return CommandFamily(
+            family_key=family_key,
+            source_root=source_root,
+            display_name=display_name,
+            members=m,
+            import_signatures={"os.WriteFile"},
+            stride_categories=stride,
+            needs_reviewer_attention=True,
+        )
+
+    def test_empty_families_renders_nothing(self) -> None:
+        """FR-014: no placeholder when no CLI families exist."""
+        from darnit_baseline.threat_model.renderers.summary import _render_cli_entry_points
+
+        assert _render_cli_entry_points([]) == []
+
+    def test_section_contains_required_headings(self) -> None:
+        from darnit_baseline.threat_model.renderers.summary import _render_cli_entry_points
+
+        family = self._build_family()
+        out = "\n".join(_render_cli_entry_points([family]))
+        assert "## Entry Points" in out
+        assert "### CLI Entry Points" in out
+        assert "#### Family: cache" in out
+
+    def test_family_block_contains_all_required_fields(self) -> None:
+        """Per output contract: source root, subcommands, STRIDE categories,
+        confidence line, table, refinement note."""
+        from darnit_baseline.threat_model.renderers.summary import _render_cli_entry_points
+
+        family = self._build_family(
+            members=[
+                ("cache", "internal/cmd/cache/cache.go", 13),
+                ("init", "internal/cmd/cache/init/init.go", 26),
+                ("delete", "internal/cmd/cache/delete/delete.go", 23),
+            ]
+        )
+        out = "\n".join(_render_cli_entry_points([family]))
+        assert "**Source root**: `internal/cmd/cache/`" in out
+        assert "**Subcommands**: 3 (cache, init, delete)" in out
+        assert "**STRIDE categories**: Tampering" in out
+        assert "**Confidence**: heuristic — needs reviewer attention" in out
+        assert "| Subcommand | Location | Notes |" in out
+        assert "internal/cmd/cache/init/init.go:26" in out
+        assert "Refinement notes:" in out
+        assert "may need recategorisation" in out
+
+    def test_multi_category_rendered_as_comma_separated(self) -> None:
+        from darnit_baseline.threat_model.renderers.summary import _render_cli_entry_points
+
+        family = self._build_family(stride=["Spoofing", "Information Disclosure"])
+        out = "\n".join(_render_cli_entry_points([family]))
+        assert "**STRIDE categories**: Spoofing, Information Disclosure" in out
+
+    def test_render_summary_omits_cli_section_when_no_families(self) -> None:
+        """Integration: render_summary's full output skips the parent
+        ## Entry Points heading when no CLI families exist (FR-014)."""
+        from darnit_baseline.threat_model.discovery_models import (
+            DiscoveryResult,
+            FileScanStats,
+        )
+        from darnit_baseline.threat_model.renderers.common import GeneratorOptions
+        from darnit_baseline.threat_model.renderers.summary import render_summary
+
+        result = DiscoveryResult(
+            entry_points=[],
+            data_stores=[],
+            call_graph=[],
+            findings=[],
+            file_scan_stats=FileScanStats(
+                total_files_seen=0,
+                excluded_dir_count=0,
+                unsupported_file_count=0,
+                in_scope_files=0,
+                by_language={},
+                shallow_mode=False,
+                shallow_threshold=500,
+            ),
+            opengrep_available=False,
+        )
+        out = render_summary(
+            groups=[],
+            sidecar_matches={},
+            result=result,
+            options=GeneratorOptions(),
+            cli_families=None,
+        )
+        assert "## Entry Points" not in out
+        assert "### CLI Entry Points" not in out
+
+    def test_render_summary_includes_cli_section_when_families_present(self) -> None:
+        from darnit_baseline.threat_model.discovery_models import (
+            DiscoveryResult,
+            FileScanStats,
+        )
+        from darnit_baseline.threat_model.renderers.common import GeneratorOptions
+        from darnit_baseline.threat_model.renderers.summary import render_summary
+
+        family = self._build_family()
+        result = DiscoveryResult(
+            entry_points=[],
+            data_stores=[],
+            call_graph=[],
+            findings=[],
+            file_scan_stats=FileScanStats(
+                total_files_seen=1,
+                excluded_dir_count=0,
+                unsupported_file_count=0,
+                in_scope_files=1,
+                by_language={"go": 1},
+                shallow_mode=False,
+                shallow_threshold=500,
+            ),
+            opengrep_available=False,
+        )
+        out = render_summary(
+            groups=[],
+            sidecar_matches={},
+            result=result,
+            options=GeneratorOptions(),
+            cli_families=[family],
+        )
+        assert "## Entry Points" in out
+        assert "### CLI Entry Points" in out
+        assert "#### Family: cache" in out
