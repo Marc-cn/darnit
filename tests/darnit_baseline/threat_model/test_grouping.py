@@ -361,3 +361,118 @@ class TestGroupByCliFamily:
         families = group_by_cli_family(entries)
         assert all(f.source_root.startswith("internal/cmd/") for f in families)
         assert all(f.source_root.endswith("/") for f in families)
+
+
+# ---------------------------------------------------------------------------
+# Feature 014-cobra-threat-model US2: display_name from parent literal Use:
+# ---------------------------------------------------------------------------
+
+
+class TestDisplayNameFromUseText:
+    """T028 — verify display_name picks from the parent literal's Use: text."""
+
+    def _make_ep(self, name: str, path: str, line: int = 10):
+        from darnit_baseline.threat_model.discovery_models import (
+            DiscoveredEntryPoint,
+            EntryPointKind,
+            Location,
+        )
+
+        return DiscoveredEntryPoint(
+            kind=EntryPointKind.CLI_COMMAND,
+            name=name,
+            location=Location(path, line, 1, line + 2, 1),
+            language="go",
+            framework="cobra",
+            route_path=None,
+            http_method=None,
+            has_auth_decorator=False,
+            source_query="go.entry.cobra_command_literal",
+        )
+
+    def test_parent_at_family_root_provides_display_name(self) -> None:
+        """When a member's file is at <command_root>/<family_key>/<file>.go,
+        its Use: text becomes the family display name."""
+        from darnit_baseline.threat_model.grouping import group_by_cli_family
+
+        # 3+ siblings needed for command_root inference to fire at the
+        # cmd/ level (per _COMMAND_ROOT_MIN_CHILDREN threshold).
+        entries = [
+            self._make_ep("policy management", "cmd/trustpolicy/trustpolicy.go", 10),
+            self._make_ep("init", "cmd/trustpolicy/init/init.go", 10),
+            self._make_ep("verify content", "cmd/verify/verify.go", 10),
+            self._make_ep("sign content", "cmd/sign/sign.go", 10),
+        ]
+        families = {f.family_key: f for f in group_by_cli_family(entries)}
+        # trustpolicy: parent literal at cmd/trustpolicy/trustpolicy.go
+        # captured the Use: text "policy management" → that's the display name.
+        assert families["trustpolicy"].display_name == "policy management"
+        # verify and sign each have only one member which IS at family root.
+        assert families["verify"].display_name == "verify content"
+        assert families["sign"].display_name == "sign content"
+
+    def test_no_parent_at_family_root_falls_back_to_family_key(self) -> None:
+        """If all members live in subdirectories of source_root, no parent
+        literal is at the family root — display_name falls back to
+        family_key."""
+        from darnit_baseline.threat_model.grouping import group_by_cli_family
+
+        entries = [
+            # Each "family" here has only deeper subdirectories — no
+            # cmd/foo/foo.go style parent file.
+            self._make_ep("init", "cmd/foo/init/init.go", 10),
+            self._make_ep("verify", "cmd/foo/verify/verify.go", 10),
+            self._make_ep("init", "cmd/bar/init/init.go", 10),
+            self._make_ep("init", "cmd/baz/init/init.go", 10),
+        ]
+        families = {f.family_key: f for f in group_by_cli_family(entries)}
+        # Each family has no member at cmd/<key>/ — display_name == family_key.
+        for key in ("foo", "bar", "baz"):
+            assert families[key].display_name == key
+
+    def test_unnamed_placeholder_falls_back(self) -> None:
+        """If the parent literal failed Use:-extraction (FR-011 placeholder
+        name), display_name still falls back to family_key."""
+        from darnit_baseline.threat_model.grouping import group_by_cli_family
+
+        entries = [
+            self._make_ep("(unnamed: cmd/cache/cache.go)", "cmd/cache/cache.go", 10),
+            self._make_ep("init", "cmd/cache/init/init.go", 10),
+            self._make_ep("verify", "cmd/verify/verify.go", 10),
+            self._make_ep("sign", "cmd/sign/sign.go", 10),
+        ]
+        families = {f.family_key: f for f in group_by_cli_family(entries)}
+        assert families["cache"].display_name == "cache"  # falls back
+
+
+class TestCobraSubcommandFixture:
+    """T028 — end-to-end against the cobra_subcommand fixture."""
+
+    def test_family_count_matches_command_root_layout(self) -> None:
+        from pathlib import Path
+
+        from darnit_baseline.threat_model.grouping import group_by_cli_family
+        from darnit_baseline.threat_model.ts_discovery import discover_all
+
+        result = discover_all(
+            Path(__file__).parent / "fixtures" / "cobra_subcommand"
+        )
+        families = group_by_cli_family(result.entry_points)
+        family_keys = {f.family_key for f in families}
+        # cmd/ has 3 children with cobra files (cache, sign, verify).
+        # main.go's root command goes to the "root" degenerate fallback.
+        assert {"cache", "sign", "verify"}.issubset(family_keys)
+
+    def test_cache_family_has_three_members(self) -> None:
+        from pathlib import Path
+
+        from darnit_baseline.threat_model.grouping import group_by_cli_family
+        from darnit_baseline.threat_model.ts_discovery import discover_all
+
+        result = discover_all(
+            Path(__file__).parent / "fixtures" / "cobra_subcommand"
+        )
+        families = {f.family_key: f for f in group_by_cli_family(result.entry_points)}
+        assert len(families["cache"].members) == 3
+        names = {m.name for m in families["cache"].members}
+        assert names == {"cache", "init", "delete"}

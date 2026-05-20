@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 from .models import StrideCategory  # reuse the existing enum values
 
@@ -342,6 +343,16 @@ class DiscoveryResult:
     # rendering time. Keyed by ScannedFile.relpath. Empty for non-cobra
     # files / non-Go projects.
     cobra_file_imports: dict[str, set[str]] = field(default_factory=dict)
+    # Feature 014-cobra-threat-model: per-command metadata captured from
+    # the cobra.Command composite literal — currently the Short: text used
+    # to populate the per-subcommand Notes column in the rendered output.
+    # Keyed by ``f"{file_relpath}:{line}"`` matching the discovered entry
+    # point's location.
+    cobra_command_metadata: dict[str, dict[str, str]] = field(default_factory=dict)
+    # Feature 014-cobra-threat-model: tallies for the Limitations section
+    # (FR-007). Keys: go_files_scanned, cobra_files, cobra_files_unmatched,
+    # unmatched_examples (list of relpaths, capped at 5).
+    cobra_stats: dict[str, Any] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

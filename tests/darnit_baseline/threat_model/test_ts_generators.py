@@ -551,3 +551,253 @@ class TestCliEntryPointsRendering:
         assert "## Entry Points" in out
         assert "### CLI Entry Points" in out
         assert "#### Family: cache" in out
+
+
+# ---------------------------------------------------------------------------
+# Feature 014-cobra-threat-model US2: Notes column + verification prompts +
+# Limitations counters (T030)
+# ---------------------------------------------------------------------------
+
+
+class TestCliNotesColumn:
+    """T029-related: the Notes column is populated from Short: where present."""
+
+    def _build_family_with_metadata(self):
+        from darnit_baseline.threat_model.discovery_models import (
+            CommandFamily,
+            DiscoveredEntryPoint,
+            EntryPointKind,
+            Location,
+        )
+
+        members = [
+            DiscoveredEntryPoint(
+                kind=EntryPointKind.CLI_COMMAND,
+                name="cache",
+                location=Location("cmd/cache/cache.go", 10, 1, 12, 1),
+                language="go",
+                framework="cobra",
+                route_path=None,
+                http_method=None,
+                has_auth_decorator=False,
+                source_query="go.entry.cobra_command_literal",
+            ),
+            DiscoveredEntryPoint(
+                kind=EntryPointKind.CLI_COMMAND,
+                name="init",
+                location=Location("cmd/cache/init/init.go", 11, 1, 13, 1),
+                language="go",
+                framework="cobra",
+                route_path=None,
+                http_method=None,
+                has_auth_decorator=False,
+                source_query="go.entry.cobra_command_literal",
+            ),
+        ]
+        family = CommandFamily(
+            family_key="cache",
+            source_root="cmd/cache/",
+            display_name="cache",
+            members=members,
+            import_signatures={"os.WriteFile"},
+            stride_categories=["Tampering"],
+            needs_reviewer_attention=True,
+        )
+        metadata = {
+            "cmd/cache/cache.go:10": {"short": "Manage the local cache"},
+            "cmd/cache/init/init.go:11": {"short": "Create the cache directory"},
+        }
+        return family, metadata
+
+    def test_notes_column_populated_from_short(self) -> None:
+        from darnit_baseline.threat_model.renderers.summary import _render_cli_entry_points
+
+        family, metadata = self._build_family_with_metadata()
+        out = "\n".join(_render_cli_entry_points([family], command_metadata=metadata))
+        assert "| cache | `cmd/cache/cache.go:10` | Manage the local cache |" in out
+        assert "| init | `cmd/cache/init/init.go:11` | Create the cache directory |" in out
+
+    def test_notes_column_empty_when_no_metadata(self) -> None:
+        """No metadata → Notes cell renders as a blank space."""
+        from darnit_baseline.threat_model.renderers.summary import _render_cli_entry_points
+
+        family, _ = self._build_family_with_metadata()
+        out = "\n".join(_render_cli_entry_points([family], command_metadata=None))
+        # Empty Notes cell — no "Manage the local cache" text appears.
+        assert "Manage the local cache" not in out
+        # But the row is still well-formed: blank between the location pipes.
+        assert "| cache | `cmd/cache/cache.go:10` |  |" in out
+
+    def test_pipe_in_short_text_is_escaped(self) -> None:
+        """A | character in Short: must be escaped to avoid breaking the
+        markdown table row."""
+        from darnit_baseline.threat_model.renderers.summary import _render_cli_entry_points
+
+        family, _ = self._build_family_with_metadata()
+        metadata = {
+            "cmd/cache/cache.go:10": {"short": "Foo | bar"},
+        }
+        out = "\n".join(
+            _render_cli_entry_points([family], command_metadata=metadata)
+        )
+        assert "Foo \\| bar" in out
+
+
+class TestVerificationPromptCliParagraph:
+    """T030 — CLI-specific paragraph appears inside the verification-prompt
+    block only when CLI families are present."""
+
+    def _make_minimal_result(self):
+        from darnit_baseline.threat_model.discovery_models import (
+            DiscoveryResult,
+            FileScanStats,
+        )
+
+        return DiscoveryResult(
+            entry_points=[],
+            data_stores=[],
+            call_graph=[],
+            findings=[],
+            file_scan_stats=FileScanStats(
+                total_files_seen=0,
+                excluded_dir_count=0,
+                unsupported_file_count=0,
+                in_scope_files=0,
+                by_language={},
+                shallow_mode=False,
+                shallow_threshold=500,
+            ),
+            opengrep_available=False,
+        )
+
+    def _make_family(self):
+        from darnit_baseline.threat_model.discovery_models import (
+            CommandFamily,
+            DiscoveredEntryPoint,
+            EntryPointKind,
+            Location,
+        )
+
+        ep = DiscoveredEntryPoint(
+            kind=EntryPointKind.CLI_COMMAND,
+            name="x",
+            location=Location("cmd/x/x.go", 10, 1, 12, 1),
+            language="go",
+            framework="cobra",
+            route_path=None,
+            http_method=None,
+            has_auth_decorator=False,
+            source_query="go.entry.cobra_command_literal",
+        )
+        return CommandFamily(
+            family_key="x",
+            source_root="cmd/x/",
+            display_name="x",
+            members=[ep],
+            import_signatures={"os.WriteFile"},
+            stride_categories=["Tampering"],
+            needs_reviewer_attention=True,
+        )
+
+    def test_cli_paragraph_present_when_families_exist(self) -> None:
+        from darnit_baseline.threat_model.renderers.common import GeneratorOptions
+        from darnit_baseline.threat_model.renderers.summary import render_summary
+
+        family = self._make_family()
+        out = render_summary(
+            groups=[],
+            sidecar_matches={},
+            result=self._make_minimal_result(),
+            options=GeneratorOptions(),
+            cli_families=[family],
+        )
+        assert "<!-- darnit:verification-prompt-block -->" in out
+        assert "**For the CLI Entry Points section:**" in out
+        assert "import-based heuristic, not a STRIDE analysis" in out
+
+    def test_cli_paragraph_absent_when_no_families(self) -> None:
+        from darnit_baseline.threat_model.renderers.common import GeneratorOptions
+        from darnit_baseline.threat_model.renderers.summary import render_summary
+
+        out = render_summary(
+            groups=[],
+            sidecar_matches={},
+            result=self._make_minimal_result(),
+            options=GeneratorOptions(),
+            cli_families=None,
+        )
+        assert "<!-- darnit:verification-prompt-block -->" in out
+        assert "**For the CLI Entry Points section:**" not in out
+
+
+class TestLimitationsCobraCounters:
+    """T030 — Limitations section includes cobra-specific scan counters."""
+
+    def _make_result_with_cobra_stats(self, stats):
+        from darnit_baseline.threat_model.discovery_models import (
+            DiscoveryResult,
+            FileScanStats,
+        )
+
+        r = DiscoveryResult(
+            entry_points=[],
+            data_stores=[],
+            call_graph=[],
+            findings=[],
+            file_scan_stats=FileScanStats(
+                total_files_seen=10,
+                excluded_dir_count=0,
+                unsupported_file_count=0,
+                in_scope_files=10,
+                by_language={"go": 10},
+                shallow_mode=False,
+                shallow_threshold=500,
+            ),
+            opengrep_available=False,
+        )
+        r.cobra_stats = stats
+        return r
+
+    def test_cobra_file_counts_surface_when_present(self) -> None:
+        from darnit_baseline.threat_model.renderers.summary import _render_limitations
+
+        result = self._make_result_with_cobra_stats(
+            {
+                "go_files_scanned": 10,
+                "cobra_files": 5,
+                "cobra_files_unmatched": 0,
+                "unmatched_examples": [],
+            }
+        )
+        out = "\n".join(_render_limitations(result, None))
+        assert "Scanned **10** Go files" in out
+        assert "**5** imported `github.com/spf13/cobra`" in out
+
+    def test_unmatched_count_surfaces_with_example_when_nonzero(self) -> None:
+        from darnit_baseline.threat_model.renderers.summary import _render_limitations
+
+        result = self._make_result_with_cobra_stats(
+            {
+                "go_files_scanned": 10,
+                "cobra_files": 5,
+                "cobra_files_unmatched": 2,
+                "unmatched_examples": ["pkg/builder/builder.go"],
+            }
+        )
+        out = "\n".join(_render_limitations(result, None))
+        assert "**2** cobra-importing file(s) matched no recognised pattern" in out
+        assert "`pkg/builder/builder.go`" in out
+
+    def test_cobra_section_omitted_when_no_cobra_files(self) -> None:
+        from darnit_baseline.threat_model.renderers.summary import _render_limitations
+
+        result = self._make_result_with_cobra_stats(
+            {
+                "go_files_scanned": 10,
+                "cobra_files": 0,
+                "cobra_files_unmatched": 0,
+                "unmatched_examples": [],
+            }
+        )
+        out = "\n".join(_render_limitations(result, None))
+        assert "imported `github.com/spf13/cobra`" not in out

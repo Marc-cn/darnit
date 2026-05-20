@@ -223,10 +223,20 @@ def group_by_cli_family(
             source_root = f"{command_root.rstrip('/')}/{family_key}/"
         else:
             source_root = f"{family_key}/" if family_key != "root" else ""
+
+        # T024: pick the display_name from the parent cobra.Command literal
+        # if one exists at the family's source_root level. A "parent" member
+        # is one whose file lives directly in source_root (not in a deeper
+        # subdirectory). Its name (the captured Use: text) is what shows up
+        # in the project's --help output. If multiple parents qualify, take
+        # the first by sort order for determinism; if none qualify, keep
+        # family_key as the display name.
+        display_name = _pick_display_name(members, source_root, family_key)
+
         family = CommandFamily(
             family_key=family_key,
             source_root=source_root,
-            display_name=family_key,  # T024 enriches this from parent Use: text
+            display_name=display_name,
             members=members,
             import_signatures=set(),  # populated by ranking layer if needed
             stride_categories=[],  # populated by assign_cli_stride_categories
@@ -236,3 +246,39 @@ def group_by_cli_family(
 
     families.sort(key=lambda f: (-len(f.members), f.family_key))
     return families
+
+
+def _pick_display_name(
+    members: list[DiscoveredEntryPoint],
+    source_root: str,
+    family_key: str,
+) -> str:
+    """Return the family display name, preferring the parent literal's Use: text.
+
+    A "parent" member is one whose file path's directory portion equals
+    ``source_root`` (no trailing slash) — i.e., the file lives directly in
+    the family's source root, not in a deeper subdirectory. The name on
+    that DiscoveredEntryPoint is the Use: text captured by the cobra
+    extractor.
+
+    Falls back to ``family_key`` when:
+    - The family has no member at the source-root level (only subcommands).
+    - The selected parent's name starts with the "unnamed:" placeholder
+      (FR-011 graceful skip).
+    - ``source_root`` is empty (degenerate single-file project).
+    """
+    if not source_root:
+        return family_key
+    target_dir = source_root.rstrip("/")
+    candidates = [
+        m for m in members
+        if os.path.dirname(m.location.file.replace("\\", "/")) == target_dir
+    ]
+    if not candidates:
+        return family_key
+    # Determinism: sort by file path, then by line.
+    candidates.sort(key=lambda m: (m.location.file, m.location.line))
+    name = candidates[0].name
+    if name.startswith("(unnamed:"):
+        return family_key
+    return name
