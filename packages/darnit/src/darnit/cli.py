@@ -585,23 +585,12 @@ def cmd_install(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     """Run the full agentic workflow autonomously.
 
-    impls = discover_implementations()
-    if not impls:
-        logger.info("No implementations found.")
-        return 0
-
     Requires a configured LLM backend and API key.
     Install agent dependencies with: pip install darnit[agent]
     """
-    try:
-        from darnit.agent.graph import build_graph
-        from darnit.agent.state import DarnitState
-    except ImportError:
-        logger.error(
-            "Agent dependencies not installed. "
-            "Run: pip install darnit[agent]"
-        )
-        return 1
+    from darnit.agent.feedback import InteractiveFeedback
+    from darnit.agent.graph import audit, collect_context, remediate, route
+    from darnit.agent.state import AuditState
 
     repo_path = str(Path(args.repo_path).resolve())
 
@@ -626,36 +615,60 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"  LLM backend: {llm_backend}")
     print()
 
-    # Lazy imports — langgraph is optional (darnit[agent])
-    from darnit.agent.state import DarnitState
-
-    # Build initial state
-    state = DarnitState(
+    # AuditState carries no LLM fields — backend and key are read from the
+    # environment by darnit.llm.backends. framework_name=None auto-resolves
+    # from .baseline.toml inside audit().
+    state = AuditState(
         local_path=repo_path,
-        llm_backend=llm_backend,
-        llm_api_key=api_key,
-        feedback_mode=feedback_mode,
+        framework_name=getattr(args, "framework", None),
+        level=getattr(args, "level", 3),
     )
 
-    # Run the graph
+    feedback = InteractiveFeedback() if feedback_mode == "interactive" else None
+
+    # Inline orchestration (replaces LangGraph): audit, then route() decides the
+    # next node ("audit" | "collect_context" | "remediate" | "end"). A re-audit
+    # is only meaningful right after collect_context (which clears audit_results
+    # to request one), so we re-audit inside that branch. A bare "audit" from
+    # route here means the audit produced no results — stop rather than spin.
     try:
-        graph = build_graph()
-        final_state = graph.invoke(state)
+        state = audit(state)
+        for _ in range(10):
+            if state.error:
+                break
+            step = route(state)
+            if step == "collect_context":
+                if feedback is None:
+                    break  # noninteractive: leave questions queued, print below
+                answers = {
+                    q.context_key: (feedback.ask(q.control_id, q.question) or "")
+                    for q in state.feedback_questions
+                    if not q.answered
+                }
+                answers = {k: v for k, v in answers.items() if v}
+                if not answers:
+                    break  # nothing answered — avoid re-routing forever
+                state = collect_context(state, answers)
+                state = audit(state)  # re-audit with confirmed context
+            elif step == "remediate":
+                state = remediate(state, dry_run=getattr(args, "dry_run", False))
+                break
+            else:  # "audit" (no results) or "end"
+                break
     except Exception as e:
         logger.error(f"Agent run failed: {e}")
         return 1
 
-   # LangGraph returns a dict, not a DarnitState object
-    check_results = final_state.get("check_results") or []
-    human_messages = final_state.get("human_messages") or []
-    errors = final_state.get("errors") or []
+    final_state = state
 
-    # Print summary
-    results_list = check_results if isinstance(check_results, list) else []
-    total = len(results_list)
-    passed = len([r for r in results_list if isinstance(r, dict) and r.get("status") == "PASS"])
-    failed = len([r for r in results_list if isinstance(r, dict) and r.get("status") == "FAIL"])
-    warned = len([r for r in results_list if isinstance(r, dict) and r.get("status") == "WARN"])
+    # AuditState is a dataclass — attribute access, real field names.
+    check_results = final_state.audit_results or []
+    error = final_state.error
+
+    total = len(check_results)
+    passed = len([r for r in check_results if r.get("status") == "PASS"])
+    failed = len([r for r in check_results if r.get("status") == "FAIL"])
+    warned = len([r for r in check_results if r.get("status") == "WARN"])
 
     print("Run complete.")
     print(f"  Total  : {total}")
@@ -663,28 +676,17 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"  Failed : {failed}")
     print(f"  Warned : {warned}")
 
-    if human_messages:
-        print(f"\nItems needing manual review ({len(human_messages)}):")
-        for msg in human_messages:
-            print(f"  - {msg}")
+    # Pending human feedback — FeedbackQuestion is a dataclass, not a dict.
+    pending = [q for q in final_state.feedback_questions if not q.answered]
+    if pending:
+        print(f"\nPending human feedback ({len(pending)} unanswered):")
+        for q in pending:
+            print(f"  Control : {q.control_id}")
+            print(f"  Question: {q.question}")
+            print()
 
-    # Print any queued feedback questions (non-interactive mode)
-    feedback_questions = final_state.get("feedback_questions") or []
-    if feedback_questions:
-        unanswered = [q for q in feedback_questions if not q.get("answer")]
-        if unanswered:
-            print(f"\nPending human feedback ({len(unanswered)} unanswered questions):")
-            for q in unanswered:
-                print(f"  Control : {q['control_id']}")
-                print(f"  Question: {q['question']}")
-                if q.get("details"):
-                    print(f"  Details : {q['details']}")
-                print()
-
-    if errors:
-        print("\nErrors encountered:")
-        for err in errors:
-            print(f"  - {err}")
+    if error:
+        print(f"\nError: {error}")
         return 1
 
     return 1 if failed else 0

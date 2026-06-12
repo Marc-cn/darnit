@@ -56,7 +56,8 @@ attestation = [
     "cryptography>=46.0.6,<48",  # CVE-2026-34073 DNS name constraint bypass
 ]
 agent = [
-    "langgraph>=0.2.0",
+    "anthropic>=0.40.0",
+    "openai>=1.0.0",
 ]
 
 [build-system]
