@@ -37,35 +37,26 @@ The Baseline isn't just about security—it covers testing requirements, build p
 
 ## Installation
 
-The quickest path for most users is `pipx install darnit-mcp`. Five channels are supported (PyPI, container image, Homebrew, standalone binary, Claude Code plugin) — see [`docs/install/README.md`](docs/install/README.md) for a decision tree and per-channel walkthroughs with verification recipes.
-
-```bash
-# pipx — isolated install, recommended for end users
-pipx install darnit-mcp
-
-# Or use uv tool install for the fastest path:
-uv tool install darnit-mcp
-
-# Then:
-darnit audit /path/to/repo
-darnit serve --framework openssf-baseline   # MCP server mode
-```
-
-For development against this repository, clone and use the workspace:
+> [!NOTE]
+> PyPI, pipx, `uv tool install`, container, Homebrew, and standalone-binary
+> channels are not published yet - tracked in
+> [#229](https://github.com/kusari-oss/darnit/issues/229) (which depends on
+> PyPI publishing, [#228](https://github.com/kusari-oss/darnit/issues/228)).
+> Until those land, install from source with [`uv`](https://docs.astral.sh/uv/):
 
 ```bash
 git clone https://github.com/kusari-oss/darnit
 cd darnit
 uv sync
+
 uv run darnit audit /path/to/repo
+uv run darnit serve --framework openssf-baseline   # MCP server mode
 ```
 
-Other install paths:
-- **Container (CI)** → `docker run --rm -v "$PWD:/repo" ghcr.io/kusari-oss/darnit:latest audit` ([docs](docs/install/container.md))
-- **Homebrew** → `brew install kusari-oss/tap/darnit` ([docs](docs/install/homebrew.md))
-- **Standalone binary** → download from a [GitHub release](https://github.com/kusari-oss/darnit/releases) ([docs](docs/install/binary.md))
-- **Claude Code plugin** → see [docs/install/claude-code-plugin.md](docs/install/claude-code-plugin.md)
-
+Once [#229](https://github.com/kusari-oss/darnit/issues/229) lands, `pipx install darnit-mcp`
+and `uv tool install darnit-mcp` will become the recommended end-user paths, with
+container, Homebrew, standalone-binary, and Claude Code plugin channels documented in
+[`docs/install/README.md`](docs/install/README.md).
 ### Optional: Opengrep for taint analysis
 
 The threat model generator can use [Opengrep](https://github.com/opengrep/opengrep)
