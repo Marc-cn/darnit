@@ -356,17 +356,19 @@ else:
     result = []
 ```
 
+## Technology Stack
+- **Language**: Python 3.11+ (targets 3.11/3.12)
+- **Core deps**: FastMCP, Pydantic >=2.0, PyYAML, cel-python
+- **Threat model**: tree-sitter, tree-sitter-language-pack (Python/JS/Go/YAML grammars)
+- **Attestation**: sigstore, in-toto (optional)
+- **Config**: TOML framework configs, `.project/project.yaml` (YAML), `.baseline.toml` (user overrides)
+- **Storage**: Filesystem only (Markdown, JSON, YAML output files; no database)
+
 ## Active Technologies
-- Python >=3.11 (project targets 3.11/3.12) + darnit (core framework), darnit-baseline (001-tiered-control-automation)
-- TOML config files, `.project/` YAML context, local filesystem (001-tiered-control-automation)
-- Markdown (GitHub-Flavored Markdown with Mermaid diagram support) + None (pure documentation) (005-getting-started-guide)
-- Filesystem (Markdown files in `docs/` directory) (005-getting-started-guide)
-- Python >=3.11 (project targets 3.11/3.12) + darnit (core framework), darnit-baseline (implementation package) — no new external dependencies (006-detailed-stride-threats)
-- N/A (generates reports from static analysis; no persistence) (006-detailed-stride-threats)
-- Python >=3.11 (project targets 3.11/3.12) + darnit (core framework — sieve handler registry), darnit-baseline (threat model engine) (007-threatmodel-remediation-handler)
-- N/A (writes a single file to the repository) (007-threatmodel-remediation-handler)
-- Python >=3.11 (project targets 3.11/3.12) + darnit (core framework), darnit-baseline (implementation), FastMCP, Pydantic >=2.0, PyYAML, cel-python (008-skills-orchestration)
-- `.project/project.yaml` (YAML), `.baseline.toml` (TOML), framework TOML configs (008-skills-orchestration)
+- Python 3.11/3.12 (workspace targets) plus bash for release scripts and GitHub Actions YAML + `shiv` (binary builder), `cosign` (image + binary signing), `syft` (SBOM generation), `docker buildx` (multi-arch images), `gh` CLI (release creation), Sigstore-action (PyPI wheel signing via `pypa/gh-action-pypi-publish`). No new runtime dependencies in any darnit Python package. (012-packaging-distribution)
+- External release surfaces only — PyPI, TestPyPI, GHCR, GitHub Releases (binary assets + attestations), `kusari-oss/homebrew-tap` repo (formula). Repo itself stores only build configs and workflow definitions. (012-packaging-distribution)
+- Python 3.11/3.12 (workspace targets — same as the rest of darnit) + `pydantic >= 2.0` (already used for `FrameworkConfig`); `packaging` (already a transitive dep via setuptools metadata) for PEP 440 `SpecifierSet`. `tomllib` from stdlib for TOML parsing. No new runtime dependencies. (013-plugin-composition)
+- Filesystem only. Composition is resolved in-memory at framework-config load time; no new persistent state. (013-plugin-composition)
 
 ## Recent Changes
-- 001-tiered-control-automation: Added Python >=3.11 (project targets 3.11/3.12) + darnit (core framework), darnit-baseline
+- 012-packaging-distribution: Added Python 3.11/3.12 (workspace targets) plus bash for release scripts and GitHub Actions YAML + `shiv` (binary builder), `cosign` (image + binary signing), `syft` (SBOM generation), `docker buildx` (multi-arch images), `gh` CLI (release creation), Sigstore-action (PyPI wheel signing via `pypa/gh-action-pypi-publish`). No new runtime dependencies in any darnit Python package.

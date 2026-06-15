@@ -1,4 +1,5 @@
-[framework]
+[metadata]
+schema_version = "0.1.0-alpha"
 name = "reproducibility"
 display_name = "Scientific Reproducibility Checks"
 version = "0.1.0"

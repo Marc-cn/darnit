@@ -16,11 +16,12 @@ This repository includes an MCP (Model Context Protocol) server for AI assistant
 ## Features
 
 - **Plugin Architecture**: Implement any compliance standard as a darnit plugin
+- **Composition**: Assemble your organization's posture as a TOML-only mix of slices from other installed implementations — no forking, no Python ([quickstart](specs/013-plugin-composition/quickstart.md))
 - **MCP Server**: Integrates with AI assistants (Claude, etc.) for interactive auditing
 - **Automated Remediation**: Generate fixes for compliance gaps with dry-run support
 - **Project Configuration**: Canonical `.project.yaml` for project metadata and documentation locations
 - **Attestation Generation**: Create cryptographically signed in-toto attestations
-- **STRIDE Threat Modeling**: (Alpha) Built-in security threat analysis. To be only used for basic drafting.
+- **STRIDE Threat Modeling**: (Alpha) Built-in security threat analysis — works best on Python web services (Flask, FastAPI, Django, MCP servers); Go/JavaScript and CLI tools have limited coverage today. See [Coverage scope](#threat-model-coverage-scope) below. To be used for basic drafting only.
 - **CEL Expressions**: Flexible pass logic using Common Expression Language
 - **Plugin Verification**: Sigstore-based plugin signing and verification
 
@@ -36,16 +37,68 @@ The Baseline isn't just about security—it covers testing requirements, build p
 
 ## Installation
 
+> [!NOTE]
+> PyPI, pipx, `uv tool install`, container, Homebrew, and standalone-binary
+> channels are not published yet - tracked in
+> [#229](https://github.com/kusari-oss/darnit/issues/229) (which depends on
+> PyPI publishing, [#228](https://github.com/kusari-oss/darnit/issues/228)).
+> Until those land, install from source with [`uv`](https://docs.astral.sh/uv/):
+
 ```bash
-# Using uv
+git clone https://github.com/kusari-oss/darnit
+cd darnit
 uv sync
 
-# Run the MCP server
-uv run darnit serve --framework openssf-baseline
-
-# Or use the CLI for terminal-based audits
 uv run darnit audit /path/to/repo
+uv run darnit serve --framework openssf-baseline   # MCP server mode
 ```
+
+Once [#229](https://github.com/kusari-oss/darnit/issues/229) lands, `pipx install darnit-mcp`
+and `uv tool install darnit-mcp` will become the recommended end-user paths, with
+container, Homebrew, standalone-binary, and Claude Code plugin channels documented in
+[`docs/install/README.md`](docs/install/README.md).
+### Optional: Opengrep for taint analysis
+
+The threat model generator can use [Opengrep](https://github.com/opengrep/opengrep)
+(or Semgrep) to perform intra-procedural taint analysis, producing higher-confidence
+findings with data-flow traces. Without it, the generator uses tree-sitter structural
+analysis only — accurate but without taint confirmation.
+
+Install via your platform's package manager (recommended — gets you a signed,
+checksummed artifact rather than piping an unverified script into your shell):
+
+```bash
+# macOS / Linux with Homebrew
+brew install opengrep
+
+# Or pin a specific release directly from GitHub:
+#   https://github.com/opengrep/opengrep/releases
+# Download, verify the SHA-256 against the release notes, then place
+# the binary on your PATH.
+
+# Verify the install succeeded
+opengrep --version
+```
+
+If you'd rather use Semgrep (also supported by darnit): `pipx install semgrep`.
+
+### Threat-model coverage scope
+
+The tree-sitter discovery pipeline is tuned for **web-service shapes**. What works well today:
+
+| Project shape | Coverage |
+|---|---|
+| Python web service (Flask, FastAPI, Django, MCP server) | Best path — full STRIDE: routes, data stores, sinks, info-disclosure, elevation-of-privilege |
+| JavaScript/Node service (Express-style) | Moderate — route registration + basic sink set |
+| Go HTTP service (`net/http`, chi, gorilla) | Thin — HTTP route registration + `sql.Open` only |
+| Go CLI built on [`spf13/cobra`](https://github.com/spf13/cobra) | Moderate — command families discovered, STRIDE assigned heuristically by import set; `needs reviewer attention` marker on every finding ([feature 014](specs/014-cobra-threat-model/spec.md)) |
+| YAML / GitHub Actions workflows | Some — overly-broad permissions and similar config issues |
+| Python CLI frameworks (argparse, click, typer) | Not modeled — sibling to the Go cobra work ([#264](https://github.com/kusari-oss/darnit/issues/264)) |
+| Other Go CLI frameworks (urfave/cli, kingpin) / message handlers / gRPC | Not modeled — out of scope for the cobra pass ([#262](https://github.com/kusari-oss/darnit/issues/262)) |
+| Crypto/signing **client** libraries (sigstore-python, in-toto) | Out of scope — these call out rather than receive; entry-point queries don't fire |
+| Systems software, daemons, libraries, ML pipelines | Not modeled |
+
+If your project doesn't match a supported shape, the generator will still write a report — but it will likely show "Total findings: 0" because no entry points were discovered. That's a coverage gap on our side, not a clean bill of health. Expanding the query set is [tracked in our issue tracker](https://github.com/kusari-oss/darnit/issues?q=is%3Aissue+threat-model+coverage).
 
 ## Quick Start
 
@@ -168,7 +221,11 @@ confirm_project_context(
 
 ## Creating a Plugin
 
-To create a new compliance implementation, see the [Implementation Development Guide](docs/getting-started/implementation-development.md) and the [step-by-step tutorial](docs/tutorials/create-new-implementation.md).
+To create a new compliance implementation, start with the [**third-party plugin packaging guide**](docs/packaging-plugins.md) — it walks through `pyproject.toml`, entry points, the `ComplianceImplementation` protocol, the TOML control schema, signing, and distribution end-to-end. A minimal worked example lives at [`packages/darnit-hello/`](packages/darnit-hello/); copy it as a starting point.
+
+For implementation-level details (Python control handlers, custom MCP tools, remediation patterns), see the [Implementation Development Guide](docs/getting-started/implementation-development.md) and the [step-by-step tutorial](docs/tutorials/create-new-implementation.md).
+
+**If your "implementation" is really a curated mix of existing ones** — e.g., "OpenSSF Baseline levels 1–2 + three named SLSA controls + four of our own" — see the [composition quickstart](specs/013-plugin-composition/quickstart.md). Composition is TOML-only; you don't write Python composition code, and upstream sources stay upgrade-current automatically.
 
 ## Available MCP Tools
 

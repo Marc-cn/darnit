@@ -1,6 +1,6 @@
 """Sieve handler registry for the confidence gradient pipeline.
 
-Handlers are pluggable units that perform verification, context gathering, or
+Handlers are pluggable units that perform verification, data gathering, or
 remediation work within a phase of the confidence gradient:
 
     deterministic → pattern → llm → manual
@@ -84,11 +84,12 @@ class HandlerContext:
         owner: Repository owner (org or user).
         repo: Repository name.
         default_branch: Default branch name (e.g., "main").
-        control_id: ID of the control being verified (empty for context gathering).
+        control_id: ID of the control being verified (empty for data gathering).
         project_context: Flattened .project/project.yaml values.
         gathered_evidence: Evidence accumulated from previous handlers in this control.
         shared_cache: Cache for shared handler results (keyed by shared handler name).
         dependency_results: Results from dependency controls (keyed by control ID).
+        execution_context: Shared context instance across the entire audit run.
     """
 
     local_path: str
@@ -100,6 +101,7 @@ class HandlerContext:
     gathered_evidence: dict[str, Any] = field(default_factory=dict)
     shared_cache: dict[str, HandlerResult] = field(default_factory=dict)
     dependency_results: dict[str, Any] = field(default_factory=dict)
+    execution_context: Any | None = None
 
 
 # Handler callable signature: (config, context) -> HandlerResult
@@ -254,6 +256,7 @@ def get_sieve_handler_registry() -> SieveHandlerRegistry:
         _sieve_handler_registry = SieveHandlerRegistry()
         # Auto-register builtin handlers
         from darnit.sieve.builtin_handlers import register_builtin_handlers
+
         register_builtin_handlers()
     return _sieve_handler_registry
 

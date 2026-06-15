@@ -39,12 +39,60 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
+_FILE_DISCOVERY_PRUNE_DIRS = frozenset(
+    {
+        # VCS
+        ".git", ".hg", ".svn",
+        # Python
+        "__pycache__", ".venv", "venv", ".tox", ".mypy_cache",
+        ".pytest_cache", ".ruff_cache", "site-packages",
+        # JS/TS
+        "node_modules",
+        # Rust / Go / Java build outputs
+        "target", "build", "dist", "out",
+        # IDE / OS
+        ".idea", ".vscode", ".DS_Store",
+    }
+)
+
+
+def _walk_depth_limited(root: str, max_depth: int):
+    """Yield directories under ``root`` up to ``max_depth`` levels deep.
+
+    Skips well-known noise directories (``.git``, ``node_modules``,
+    ``__pycache__``, build outputs, etc.) so performance stays sane on
+    real monorepos. ``max_depth=0`` yields only ``root`` itself; ``=1``
+    yields root + its immediate subdirs; etc.
+    """
+    root_abs = os.path.abspath(root)
+    yield root_abs, 0
+    if max_depth <= 0:
+        return
+    for dirpath, dirnames, _files in os.walk(root_abs):
+        depth = dirpath[len(root_abs):].count(os.sep)
+        # Prune in-place so os.walk skips them (matches os.walk's contract)
+        dirnames[:] = [d for d in dirnames if d not in _FILE_DISCOVERY_PRUNE_DIRS]
+        if depth >= max_depth:
+            # Don't descend further; stop yielding deeper dirs
+            dirnames.clear()
+            continue
+        for d in dirnames:
+            yield os.path.join(dirpath, d), depth + 1
+
+
 def file_exists_handler(config: dict[str, Any], context: HandlerContext) -> HandlerResult:
     """Check if any file from a list of paths exists.
 
     Config fields:
         files: list[str] - File paths/patterns to check (any match = pass)
         use_locator: bool - If true, files are populated from locator.discover at load time
+        max_depth: int - When > 0, search subdirectories up to this many levels
+            deep for any non-glob pattern in ``files``. Default 0 (root only,
+            backward-compatible). Glob patterns containing ``*`` are NOT
+            depth-walked — they're still evaluated by ``glob.glob`` exactly as
+            before. Well-known noise directories (``.git``, ``node_modules``,
+            ``__pycache__``, build outputs, etc.) are pruned during the walk
+            so monorepo performance stays bounded. Resolves issue #221.
     """
     files = config.get("files", [])
     if not files:
@@ -52,6 +100,8 @@ def file_exists_handler(config: dict[str, Any], context: HandlerContext) -> Hand
             status=HandlerResultStatus.INCONCLUSIVE,
             message="No files specified for existence check",
         )
+
+    max_depth = int(config.get("max_depth", 0) or 0)
 
     for pattern in files:
         if "*" in pattern:
@@ -67,6 +117,27 @@ def file_exists_handler(config: dict[str, Any], context: HandlerContext) -> Hand
                     confidence=1.0,
                     evidence={"found_file": found, "relative_path": rel_path, "files_checked": files},
                 )
+        elif max_depth > 0:
+            # Depth-limited search for nested manifests (issue #221). Walks up
+            # to `max_depth` levels under `context.local_path`, pruning noise
+            # directories. First hit wins; we report its relative path so
+            # downstream consumers (and audit reviewers) can see where it
+            # actually lives.
+            for dirpath, _depth in _walk_depth_limited(context.local_path, max_depth):
+                candidate = os.path.join(dirpath, pattern)
+                if os.path.exists(candidate):
+                    rel_path = os.path.relpath(candidate, context.local_path)
+                    return HandlerResult(
+                        status=HandlerResultStatus.PASS,
+                        message=f"Required file found: {rel_path}",
+                        confidence=1.0,
+                        evidence={
+                            "found_file": candidate,
+                            "relative_path": rel_path,
+                            "files_checked": files,
+                            "max_depth": max_depth,
+                        },
+                    )
         else:
             path = os.path.join(context.local_path, pattern)
             if os.path.exists(path):
@@ -81,7 +152,7 @@ def file_exists_handler(config: dict[str, Any], context: HandlerContext) -> Hand
         status=HandlerResultStatus.FAIL,
         message=f"None of the required files found: {files}",
         confidence=1.0,
-        evidence={"files_checked": files},
+        evidence={"files_checked": files, "max_depth": max_depth},
     )
 
 
@@ -633,6 +704,102 @@ def project_update_handler(config: dict[str, Any], context: HandlerContext) -> H
     )
 
 
+def yaml_inject_handler(config: dict[str, Any], context: HandlerContext) -> HandlerResult:
+    """Inject a top-level key into YAML files that lack it.
+
+    Designed for safe, idempotent additions — e.g., adding `permissions: {}`
+    to GitHub Actions workflows. Only modifies files that are missing the key.
+
+    Config fields:
+        files: str - Glob pattern for YAML files (relative to repo)
+        key: str - The top-level key to inject (e.g., "permissions")
+        value: str - The YAML value to inject (e.g., "{}")
+        insert_after: str - Insert after this key (e.g., "on"). If not found,
+            inserts at the top of the file after any leading comments.
+    """
+    import glob as glob_mod
+
+    files_pattern = config.get("files", "")
+    key = config.get("key", "")
+    value = config.get("value", "{}")
+    insert_after = config.get("insert_after", "on")
+
+    if not files_pattern or not key:
+        return HandlerResult(
+            status=HandlerResultStatus.ERROR,
+            message="yaml_inject requires 'files' and 'key' config fields",
+        )
+
+    pattern = os.path.join(context.local_path, files_pattern)
+    matched_files = glob_mod.glob(pattern)
+    if not matched_files:
+        return HandlerResult(
+            status=HandlerResultStatus.INCONCLUSIVE,
+            message=f"No files matched pattern: {files_pattern}",
+            evidence={"pattern": files_pattern},
+        )
+
+    import re
+
+    modified = []
+    skipped = []
+    for filepath in matched_files:
+        try:
+            with open(filepath, encoding="utf-8") as f:
+                content = f.read()
+        except OSError:
+            continue
+
+        # Skip if key already exists at the top level (not indented)
+        if re.search(rf"^{re.escape(key)}\s*:", content, re.MULTILINE):
+            skipped.append(os.path.relpath(filepath, context.local_path))
+            continue
+
+        # Find insertion point: after the insert_after key's block
+        lines = content.split("\n")
+        insert_idx = 0
+        in_target_block = False
+        for i, line in enumerate(lines):
+            if re.match(rf"^{re.escape(insert_after)}\s*:", line):
+                in_target_block = True
+                continue
+            if in_target_block:
+                # End of block: next top-level key or blank line after content
+                if line and not line[0].isspace() and not line.startswith("#"):
+                    insert_idx = i
+                    break
+                if not line.strip() and i > 0 and lines[i - 1].strip():
+                    insert_idx = i + 1
+                    break
+        else:
+            if in_target_block:
+                insert_idx = len(lines)
+
+        injection = f"\n{key}: {value}\n"
+        lines.insert(insert_idx, injection.rstrip())
+
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+            modified.append(os.path.relpath(filepath, context.local_path))
+        except OSError:
+            continue
+
+    if not modified:
+        return HandlerResult(
+            status=HandlerResultStatus.PASS,
+            message=f"All {len(skipped)} file(s) already have '{key}:'",
+            evidence={"skipped": skipped},
+        )
+
+    return HandlerResult(
+        status=HandlerResultStatus.PASS,
+        message=f"Injected '{key}: {value}' into {len(modified)} file(s)",
+        confidence=1.0,
+        evidence={"modified": modified, "skipped": skipped},
+    )
+
+
 # =============================================================================
 # Registration
 # =============================================================================
@@ -665,3 +832,5 @@ def register_builtin_handlers() -> None:
                        description="Make an HTTP API call")
     registry.register("project_update", phase="deterministic", handler_fn=project_update_handler,
                        description="Update .project/project.yaml values")
+    registry.register("yaml_inject", phase="deterministic", handler_fn=yaml_inject_handler,
+                       description="Inject a top-level key into YAML files that lack it")

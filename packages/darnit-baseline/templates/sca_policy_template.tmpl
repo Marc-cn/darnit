@@ -17,7 +17,7 @@
 
 ## Remediation Process
 
-1. Automated alerts from dependency scanning tools
+1. Automated alerts from << scan.ci_sca_tools | default('GitHub Dependency Review') >> — see [`.github/workflows/sca.yml`](../.github/workflows/sca.yml) for configuration
 2. Triage by maintainers to confirm applicability
 3. Apply patch, upgrade, or document as not affected (VEX)
 4. Verify fix does not introduce regressions

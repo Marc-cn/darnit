@@ -432,3 +432,272 @@ class TestOldStyleVsCELComparison:
 
         assert result.success is True
         assert result.value is True
+
+
+class TestWarnControlCELExpressions:
+    """Tests for improved CEL expressions used in WARN control checks.
+
+    These validate the strengthened expressions from the openssf-baseline.toml
+    that replace weak "existence-only" checks with meaningful validation.
+    """
+
+    # -- OSPS-LE-02.02 / LE-03.02: GH license endpoint (primary pass) --
+
+    def test_gh_license_endpoint_pass_with_spdx(self) -> None:
+        """GitHub returns a recognized SPDX id → PASS."""
+        evaluator = CELEvaluator()
+        expr = (
+            'has(output.json.license) && output.json.license.spdx_id != ""'
+            ' && output.json.license.spdx_id != "NOASSERTION"'
+        )
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": {
+                    "name": "LICENSE",
+                    "path": "LICENSE",
+                    "license": {"spdx_id": "Apache-2.0", "key": "apache-2.0"},
+                }
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is True
+
+    def test_gh_license_endpoint_fail_noassertion(self) -> None:
+        """GitHub found a LICENSE file but couldn't classify it → not a PASS."""
+        evaluator = CELEvaluator()
+        expr = (
+            'has(output.json.license) && output.json.license.spdx_id != ""'
+            ' && output.json.license.spdx_id != "NOASSERTION"'
+        )
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": {
+                    "name": "LICENSE",
+                    "license": {"spdx_id": "NOASSERTION", "key": "other"},
+                }
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is False
+
+    def test_gh_license_endpoint_fail_no_license_field(self) -> None:
+        """Response missing the license field → not a PASS (handled by has() guard)."""
+        evaluator = CELEvaluator()
+        expr = (
+            'has(output.json.license) && output.json.license.spdx_id != ""'
+            ' && output.json.license.spdx_id != "NOASSERTION"'
+        )
+        program = evaluator.compile(expr)
+        context = {"output": {"json": {"name": "LICENSE"}}}
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is False
+
+    # -- OSPS-LE-02.02: ReleaseLicense --
+
+    def test_release_license_pass_body_keyword(self) -> None:
+        """Release body containing 'MIT License' should pass."""
+        evaluator = CELEvaluator()
+        expr = (
+            'output.json.body.matches("(?i)(licen[cs]e|apache|mit\\\\s|bsd|gpl|mpl|isc|unlicense)")'
+            ' || output.json.assets.exists(a, a.name.matches("(?i)^(license|copying|notice)"))'
+        )
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": {
+                    "body": "## Changes\n- Bug fixes\n\nReleased under MIT License",
+                    "assets": [],
+                }
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is True
+
+    def test_release_license_pass_asset_name(self) -> None:
+        """Release with LICENSE asset but no license in body should pass."""
+        evaluator = CELEvaluator()
+        expr = (
+            'output.json.body.matches("(?i)(licen[cs]e|apache|mit\\\\s|bsd|gpl|mpl|isc|unlicense)")'
+            ' || output.json.assets.exists(a, a.name.matches("(?i)^(license|copying|notice)"))'
+        )
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": {
+                    "body": "Bug fixes only",
+                    "assets": [{"name": "LICENSE"}, {"name": "app.tar.gz"}],
+                }
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is True
+
+    def test_release_license_fail_no_mention(self) -> None:
+        """Release with no license mention in body or assets should fail."""
+        evaluator = CELEvaluator()
+        expr = (
+            'output.json.body.matches("(?i)(licen[cs]e|apache|mit\\\\s|bsd|gpl|mpl|isc|unlicense)")'
+            ' || output.json.assets.exists(a, a.name.matches("(?i)^(license|copying|notice)"))'
+        )
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": {
+                    "body": "Bug fixes and performance improvements",
+                    "assets": [{"name": "app.tar.gz"}],
+                }
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is False
+
+    # -- OSPS-BR-02.01: UniqueVersionIdentifiers --
+
+    def test_unique_version_pass_semver_tag(self) -> None:
+        """Release with semver tag should pass."""
+        evaluator = CELEvaluator()
+        expr = 'size(output.json) > 0 && output.json[0].tagName.matches("^v?[0-9]")'
+        program = evaluator.compile(expr)
+        context = {"output": {"json": [{"tagName": "v1.2.3"}]}}
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is True
+
+    def test_unique_version_pass_no_v_prefix(self) -> None:
+        """Release with numeric tag (no v prefix) should pass."""
+        evaluator = CELEvaluator()
+        expr = 'size(output.json) > 0 && output.json[0].tagName.matches("^v?[0-9]")'
+        program = evaluator.compile(expr)
+        context = {"output": {"json": [{"tagName": "1.0.0"}]}}
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is True
+
+    def test_unique_version_fail_no_releases(self) -> None:
+        """No releases should fail."""
+        evaluator = CELEvaluator()
+        expr = 'size(output.json) > 0 && output.json[0].tagName.matches("^v?[0-9]")'
+        program = evaluator.compile(expr)
+        context = {"output": {"json": []}}
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is False
+
+    def test_unique_version_fail_non_semver(self) -> None:
+        """Release with non-version tag like 'latest' should fail."""
+        evaluator = CELEvaluator()
+        expr = 'size(output.json) > 0 && output.json[0].tagName.matches("^v?[0-9]")'
+        program = evaluator.compile(expr)
+        context = {"output": {"json": [{"tagName": "latest"}]}}
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is False
+
+    # -- OSPS-BR-02.02: ClearAssetAssociation --
+
+    def test_clear_asset_any_release_has_assets(self) -> None:
+        """If any release has assets (not just first), should pass."""
+        evaluator = CELEvaluator()
+        expr = "output.json.exists(r, size(r.assets) > 0)"
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": [
+                    {"tagName": "v2.0.0", "assets": []},
+                    {"tagName": "v1.0.0", "assets": [{"name": "app.tar.gz"}]},
+                ]
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is True
+
+    def test_clear_asset_no_releases_have_assets(self) -> None:
+        """If no release has assets, should fail."""
+        evaluator = CELEvaluator()
+        expr = "output.json.exists(r, size(r.assets) > 0)"
+        program = evaluator.compile(expr)
+        context = {
+            "output": {
+                "json": [
+                    {"tagName": "v2.0.0", "assets": []},
+                    {"tagName": "v1.0.0", "assets": []},
+                ]
+            }
+        }
+        result = evaluator.evaluate(program, context)
+        assert result.success is True
+        assert result.value is False
+
+
+class TestIssue220HasGuards:
+    """Regression tests for issue #220.
+
+    The openssf-baseline.toml CEL expressions for
+    ``two_factor_requirement_enabled`` (OSPS-AC-01.01) and
+    ``allow_deletions.enabled`` (OSPS-AC-03.02) used to crash with KeyError
+    whenever the ``gh api`` response omitted those fields — which happens
+    routinely for non-admin tokens or orgs that hide 2FA settings. The fix
+    wraps each access with ``has()`` so missing fields cleanly evaluate
+    to ``false`` (INCONCLUSIVE → fall through to the next pass) rather than
+    raising.
+    """
+
+    # OSPS-AC-01.01 — two_factor_requirement_enabled
+    OSPS_AC_01_01_EXPR = (
+        "has(output.json.two_factor_requirement_enabled) && "
+        "output.json.two_factor_requirement_enabled == true"
+    )
+
+    # OSPS-AC-03.02 — allow_deletions.enabled. Chained has() because the
+    # outer key (`allow_deletions`) may itself be missing.
+    OSPS_AC_03_02_EXPR = (
+        "has(output.json.allow_deletions) && "
+        "has(output.json.allow_deletions.enabled) && "
+        "output.json.allow_deletions.enabled == false"
+    )
+
+    def _eval(self, expr: str, context: dict) -> object:
+        evaluator = CELEvaluator()
+        result = evaluator.evaluate(evaluator.compile(expr), context)
+        assert result.success is True, f"CEL failed: {result.error}"
+        return result.value
+
+    def test_ac_01_01_2fa_enabled_passes(self) -> None:
+        ctx = {"output": {"json": {"two_factor_requirement_enabled": True}}}
+        assert self._eval(self.OSPS_AC_01_01_EXPR, ctx) is True
+
+    def test_ac_01_01_2fa_disabled_fails(self) -> None:
+        ctx = {"output": {"json": {"two_factor_requirement_enabled": False}}}
+        assert self._eval(self.OSPS_AC_01_01_EXPR, ctx) is False
+
+    def test_ac_01_01_2fa_missing_does_not_crash(self) -> None:
+        """The original bug: missing key used to raise KeyError. Now → false."""
+        ctx = {"output": {"json": {}}}
+        assert self._eval(self.OSPS_AC_01_01_EXPR, ctx) is False
+
+    def test_ac_03_02_deletions_locked_passes(self) -> None:
+        ctx = {"output": {"json": {"allow_deletions": {"enabled": False}}}}
+        assert self._eval(self.OSPS_AC_03_02_EXPR, ctx) is True
+
+    def test_ac_03_02_deletions_allowed_fails(self) -> None:
+        ctx = {"output": {"json": {"allow_deletions": {"enabled": True}}}}
+        assert self._eval(self.OSPS_AC_03_02_EXPR, ctx) is False
+
+    def test_ac_03_02_outer_key_missing_does_not_crash(self) -> None:
+        """The original bug, outer key form: API omits `allow_deletions`."""
+        ctx = {"output": {"json": {}}}
+        assert self._eval(self.OSPS_AC_03_02_EXPR, ctx) is False
+
+    def test_ac_03_02_inner_key_missing_does_not_crash(self) -> None:
+        """The chained-has() case: outer present, leaf missing."""
+        ctx = {"output": {"json": {"allow_deletions": {}}}}
+        assert self._eval(self.OSPS_AC_03_02_EXPR, ctx) is False
