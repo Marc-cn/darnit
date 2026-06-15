@@ -444,7 +444,7 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 def cmd_profiles(args: argparse.Namespace) -> int:
     """List available audit profiles defined by loaded implementations."""
-    from darnit.core.plugin import discover_implementations
+    from darnit.core.discovery import discover_implementations
 
     impls = discover_implementations()
     if not impls:
@@ -457,7 +457,10 @@ def cmd_profiles(args: argparse.Namespace) -> int:
     for name, impl in impls.items():
         if filter_impl and name != filter_impl:
             continue
-        profiles = getattr(impl, "audit_profiles", None)
+        get_profiles = getattr(impl, "get_audit_profiles", None)
+        if not callable(get_profiles):
+            continue
+        profiles = get_profiles()
         if not profiles:
             continue
         found_any = True
@@ -975,7 +978,7 @@ def create_parser() -> argparse.ArgumentParser:
     run_parser = subparsers.add_parser(
         "run",
         help="Run full agentic workflow (LLM-powered)",
-        description="Run the full autonomous compliance pipeline using LangGraph. "
+        description="Run the full autonomous compliance pipeline. "
                     "Loads project context, runs all checks, collects context, "
                     "and remediates failures. Requires an LLM API key.",
     )
