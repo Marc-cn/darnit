@@ -14,7 +14,10 @@ def register() -> ReproducibilityImplementation:
 
 
 def get_framework_path() -> Path:
-    """Entry point for framework TOML discovery."""
+    # Required by the 'darnit.frameworks' entry point: the framework registry
+    # (config/merger.py) resolves framework TOMLs via this path for `darnit list`
+    # and name lookup. The 'darnit.implementations' get_framework_config_path()
+    # feeds the audit path instead; both entry points are required.
     return Path(__file__).parent.parent.parent / "reproducibility.toml"
 
 

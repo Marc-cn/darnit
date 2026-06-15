@@ -41,6 +41,9 @@ steps = [
 safe = true
 dry_run_supported = true
 
+# NOTE: `uv lock` is Python-specific; on non-Python projects (Cargo.toml,
+# go.mod, etc.) this suggestion does not apply.
+# TODO: detect project.primary_language and gate remediation per language.
 [[controls."RE-01.01".remediation.handlers]]
 handler = "exec"
 command = ["uv", "lock"]
@@ -73,6 +76,9 @@ steps = [
 # lock file. Network access during build = non-reproducible.
 # =============================================================================
 
+# v0.1 heuristic: greps .github/workflows for network-fetch commands only.
+# Misses Makefile/setup.py/composite actions/Dockerfile and does not verify
+# true build isolation. Roadmap: https://github.com/kusari-oss/darnit/issues/227
 [controls."RE-02.01"]
 name = "HermeticBuild"
 description = "Build does not fetch dependencies at build time"

@@ -86,6 +86,8 @@ class ReproducibilityImplementation:
         return {}
 
     def get_remediation_registry(self) -> dict[str, Any]:
+        # Intentionally empty: TOML is the source of truth for remediation.
+        # RemediationExecutor reads FrameworkConfig.controls[id].remediation directly.
         return {}
 
     def get_framework_config_path(self) -> Path | None:
@@ -133,18 +135,3 @@ class ReproducibilityImplementation:
         )
 
         registry.set_plugin_context(None)
-
-    def get_check_handlers(self) -> dict:
-        return {
-            "repro_deps_pinned": handlers.repro_deps_pinned_handler,
-            "repro_build_env_declared": handlers.repro_build_env_declared_handler,
-            "repro_hermetic_build": handlers.repro_hermetic_build_handler,
-            "repro_provenance_exists": handlers.repro_provenance_exists_handler,
-            "repro_bit_for_bit": handlers.repro_bit_for_bit_handler,
-        }
-
-    def get_context_handlers(self) -> dict:
-        return {}
-
-    def get_remediation_handlers(self) -> dict:
-        return {}

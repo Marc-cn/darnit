@@ -143,6 +143,10 @@ def repro_hermetic_build_handler(
     live network fetches during the build step.
     PASS if no fetches found, FAIL if suspicious patterns found,
     INCONCLUSIVE if no CI files to check.
+
+    v0.1 limitation: only .github/workflows/*.{yml,yaml} are scanned; network
+    fetches from Makefile, setup.py, composite actions or Dockerfile are not
+    detected. See https://github.com/kusari-oss/darnit/issues/227 for the roadmap.
     """
     path = Path(ctx.local_path)
     workflows_dir = path / ".github" / "workflows"

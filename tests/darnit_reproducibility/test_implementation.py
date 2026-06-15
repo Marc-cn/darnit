@@ -41,15 +41,33 @@ class TestReproducibilityImplementation:
         assert path.exists()
 
     def test_check_handlers_covers_all_controls(self) -> None:
-        handlers = self.impl.get_check_handlers()
-        assert len(handlers) == 5
+        from darnit.sieve.handler_registry import (
+            get_sieve_handler_registry,
+            reset_sieve_handler_registry,
+        )
+        reset_sieve_handler_registry()
+        self.impl.register_sieve_handlers()
+        registry = get_sieve_handler_registry()
         expected = {
             "repro_deps_pinned", "repro_build_env_declared",
             "repro_hermetic_build", "repro_provenance_exists",
             "repro_bit_for_bit",
         }
-        assert set(handlers.keys()) == expected
+        for name in expected:
+            assert registry.get(name) is not None, f"{name} not registered"
 
     def test_all_check_handlers_are_callable(self) -> None:
-        for name, fn in self.impl.get_check_handlers().items():
-            assert callable(fn), f"{name} is not callable"
+        from darnit.sieve.handler_registry import (
+            get_sieve_handler_registry,
+            reset_sieve_handler_registry,
+        )
+        reset_sieve_handler_registry()
+        self.impl.register_sieve_handlers()
+        registry = get_sieve_handler_registry()
+        for name in [
+            "repro_deps_pinned", "repro_build_env_declared",
+            "repro_hermetic_build", "repro_provenance_exists",
+            "repro_bit_for_bit",
+        ]:
+            info = registry.get(name)
+            assert info is not None and callable(info.fn), f"{name} not callable"
