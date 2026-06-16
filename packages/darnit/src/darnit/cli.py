@@ -74,7 +74,7 @@ def format_result_text(result: dict) -> str:
     return f"  {icon} {control_id}: {status} - {details}"
 
 
-def format_results_text(results: list[dict], framework_name: str) -> str:
+def format_results_text(results: list[dict], framework_name: str, show_all: bool = False) -> str:
     """Format all results for text output."""
     lines = [f"\n=== {framework_name} Audit Results ===\n"]
 
@@ -105,13 +105,27 @@ def format_results_text(results: list[dict], framework_name: str) -> str:
         for r in by_status["WARN"]:
             lines.append(format_result_text(r))
 
-    # Show passes (optional, can be verbose)
+    # Show passes
     if "PASS" in by_status:
         lines.append(f"\n--- Passed ({len(by_status['PASS'])}) ---")
-        for r in by_status["PASS"][:10]:  # Limit to 10
+        passes = by_status["PASS"] if show_all else by_status["PASS"][:10]
+        for r in passes:
             lines.append(format_result_text(r))
-        if len(by_status["PASS"]) > 10:
-            lines.append(f"  ... and {len(by_status['PASS']) - 10} more")
+        if not show_all and len(by_status["PASS"]) > 10:
+            lines.append(
+                f"  ... and {len(by_status['PASS']) - 10} more "
+                "(use --show-all to list every check)"
+            )
+
+    # With --show-all, list every remaining status (e.g. N/A) so the output
+    # documents every check for conformance evidence.
+    if show_all:
+        for status, group in by_status.items():
+            if status in ("FAIL", "WARN", "PASS"):
+                continue
+            lines.append(f"\n--- {status} ({len(group)}) ---")
+            for r in group:
+                lines.append(format_result_text(r))
 
     return "\n".join(lines)
 
@@ -221,7 +235,9 @@ def cmd_audit(args: argparse.Namespace) -> int:
     if args.output == "json":
         sys.stdout.write(format_results_json(results, config.framework_name) + "\n")
     else:
-        sys.stdout.write(format_results_text(results, config.framework_name) + "\n")
+        sys.stdout.write(
+            format_results_text(results, config.framework_name, show_all=args.show_all) + "\n"
+        )
 
     # Return non-zero if any failures
     failures = [r for r in results if r.get("status") == "FAIL"]
@@ -773,6 +789,12 @@ def create_parser() -> argparse.ArgumentParser:
         "--no-fail",
         action="store_true",
         help="Don't exit with error code on failures",
+    )
+    audit_parser.add_argument(
+        "--show-all",
+        action="store_true",
+        help="List every check in text output: show all passed checks (no truncation) "
+             "and include N/A checks. Useful for documenting full OSPS Baseline conformance.",
     )
     audit_parser.add_argument(
         "--profile", "-p",
