@@ -55,6 +55,13 @@ class TestRepoDepsPin:
         result = repro_deps_pinned_handler({}, make_ctx(tmp_path))
         assert result.status == HandlerResultStatus.INCONCLUSIVE
 
+    def test_lock_and_loose_both_present_passes(self, tmp_path: Path) -> None:
+        """A lock file takes precedence over a loose manifest -> PASS."""
+        (tmp_path / "uv.lock").write_text("lock content")
+        (tmp_path / "requirements.txt").write_text("requests>=2.0")
+        result = repro_deps_pinned_handler({}, make_ctx(tmp_path))
+        assert result.status == HandlerResultStatus.PASS
+
 
 class TestBuildEnvDeclared:
     """Tests for repro_build_env_declared_handler()."""
@@ -77,6 +84,12 @@ class TestBuildEnvDeclared:
     def test_inconclusive_with_nothing(self, tmp_path: Path) -> None:
         result = repro_build_env_declared_handler({}, make_ctx(tmp_path))
         assert result.status == HandlerResultStatus.INCONCLUSIVE
+
+    def test_pass_with_devcontainer_dir(self, tmp_path: Path) -> None:
+        """.devcontainer is a directory, not a file; it must still be detected."""
+        (tmp_path / ".devcontainer").mkdir()
+        result = repro_build_env_declared_handler({}, make_ctx(tmp_path))
+        assert result.status == HandlerResultStatus.PASS
 
 
 class TestHermeticBuild:
@@ -111,6 +124,15 @@ class TestHermeticBuild:
         )
         result = repro_hermetic_build_handler({}, make_ctx(tmp_path))
         assert result.status == HandlerResultStatus.FAIL
+
+    def test_editable_install_not_flagged(self, tmp_path: Path) -> None:
+        """`pip install -e .` is a local editable install, not a network fetch."""
+        wf_dir = tmp_path / ".github" / "workflows"
+        wf_dir.mkdir(parents=True)
+        (wf_dir / "ci.yml").write_text("steps:\n  - run: pip install -e .")
+        result = repro_hermetic_build_handler({}, make_ctx(tmp_path))
+        assert result.status == HandlerResultStatus.PASS
+
 
 class TestProvenanceExists:
     """Tests for repro_provenance_exists_handler()."""
@@ -154,11 +176,14 @@ class TestBitForBit:
         result = repro_bit_for_bit_handler({}, make_ctx(tmp_path))
         assert result.status == HandlerResultStatus.PASS
 
-    def test_fail_with_date_macro(self, tmp_path: Path) -> None:
+    def test_date_macro_not_flagged(self, tmp_path: Path) -> None:
+        """__DATE__ is a C-source macro, not a workflow signal; a workflow-only
+        scan must not FAIL on it. With no positive signal present the result is
+        INCONCLUSIVE (manual verification), never a false FAIL."""
         wf_dir = tmp_path / ".github" / "workflows"
         wf_dir.mkdir(parents=True)
         (wf_dir / "ci.yml").write_text(
             "steps:\n  - run: echo __DATE__"
         )
         result = repro_bit_for_bit_handler({}, make_ctx(tmp_path))
-        assert result.status == HandlerResultStatus.FAIL
+        assert result.status == HandlerResultStatus.INCONCLUSIVE

@@ -3,7 +3,7 @@ schema_version = "0.1.0-alpha"
 name = "reproducibility"
 display_name = "Scientific Reproducibility Checks"
 version = "0.1.0"
-spec_version = "repro v0.1"
+spec_version = "0.1.0"
 description = "Checks that builds are reproducible and verifiable"
 
 [mcp]
@@ -41,11 +41,13 @@ steps = [
 safe = true
 dry_run_supported = true
 
-# NOTE: `uv lock` is Python-specific; on non-Python projects (Cargo.toml,
-# go.mod, etc.) this suggestion does not apply.
-# TODO: detect project.primary_language and gate remediation per language.
+# `uv lock` is Python-specific, so the remediation is gated to Python projects
+# via `when = { primary_language = "python" }`; on non-Python projects it is
+# simply not applicable, keeping the safe = true claim accurate where it runs.
+# TODO: add per-language remediations (cargo update, go mod tidy, ...).
 [[controls."RE-01.01".remediation.handlers]]
 handler = "exec"
+when = { primary_language = "python" }
 command = ["uv", "lock"]
 dry_run_command = ["uv", "lock", "--dry-run"]
 

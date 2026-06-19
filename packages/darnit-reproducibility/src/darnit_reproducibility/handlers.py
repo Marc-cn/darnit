@@ -68,7 +68,7 @@ def repro_deps_pinned_handler(
         return HandlerResult(
             status=HandlerResultStatus.PASS,
             message=f"Lock file(s) found: {', '.join(found_locks)}",
-            confidence=0.9,
+            confidence=0.8,  # a lock file proves deps were pinned once, not that it is current
             evidence=evidence,
         )
 
@@ -156,6 +156,7 @@ def repro_hermetic_build_handler(
             status=HandlerResultStatus.INCONCLUSIVE,
             message="No GitHub Actions workflows found to check",
             confidence=0.0,
+            evidence={"workflows_checked": [], "violations_found": []},
         )
 
     # Patterns that suggest live network fetches during build
@@ -174,6 +175,7 @@ def repro_hermetic_build_handler(
         "uv sync",
         "uv pip install",
         "pip install --no-index",
+        "pip install -e ",  # editable install of local source, not a network fetch
         "npm ci",         # npm ci uses lock file
         "yarn --frozen-lockfile",
     ]
@@ -195,7 +197,8 @@ def repro_hermetic_build_handler(
                             f"{wf_file.name}: contains '{pattern.strip()}'"
                         )
                         break  # one violation per line is enough
-        except Exception:
+        except Exception as exc:
+            logger.debug("skipped workflow %s: %s", wf_file.name, exc)
             continue
 
     evidence = {
@@ -252,7 +255,8 @@ def repro_provenance_exists_handler(
                 for signal in provenance_signals:
                     if signal in content:
                         found_signals.append(f"{wf_file.name}: {signal}")
-            except Exception:
+            except Exception as exc:
+                logger.debug("skipped workflow %s: %s", wf_file.name, exc)
                 continue
 
     evidence = {
@@ -289,20 +293,20 @@ def repro_bit_for_bit_handler(
     path = Path(ctx.local_path)
     workflows_dir = path / ".github" / "workflows"
 
+    # Positive signals only. A workflow-only scan can confirm that good
+    # reproducibility practices are present (PASS) but cannot prove that their
+    # absence means a non-reproducible build, so we return INCONCLUSIVE rather
+    # than FAIL when nothing is found. (Dropped __DATE__/__TIME__/"date +":
+    # those are C-source macros / routine log timestamps that this
+    # workflow-only scan can't attribute to build artifacts — they only ever
+    # produced false signals.)
     good_signals = [
         "SOURCE_DATE_EPOCH",   # Normalizes timestamps — required for repro builds
         "reprotest",           # Tool that builds twice and compares
         "diffoscope",          # Tool that diffs build artifacts
     ]
 
-    bad_signals = [
-        "__DATE__",            # C macro that embeds build date
-        "__TIME__",            # C macro that embeds build time
-        "date +",              # Shell command embedding current date
-    ]
-
     found_good = []
-    found_bad = []
     files_checked = []
 
     if workflows_dir.exists():
@@ -313,25 +317,14 @@ def repro_bit_for_bit_handler(
                 for signal in good_signals:
                     if signal in content:
                         found_good.append(f"{wf_file.name}: {signal}")
-                for signal in bad_signals:
-                    if signal in content:
-                        found_bad.append(f"{wf_file.name}: {signal}")
-            except Exception:
+            except Exception as exc:
+                logger.debug("skipped workflow %s: %s", wf_file.name, exc)
                 continue
 
     evidence = {
         "files_checked": files_checked,
         "reproducibility_signals": found_good,
-        "non_reproducible_signals": found_bad,
     }
-
-    if found_bad and not found_good:
-        return HandlerResult(
-            status=HandlerResultStatus.FAIL,
-            message=f"Build embeds timestamps or non-deterministic values: {'; '.join(found_bad)}",
-            confidence=0.7,
-            evidence=evidence,
-        )
 
     if found_good:
         return HandlerResult(
