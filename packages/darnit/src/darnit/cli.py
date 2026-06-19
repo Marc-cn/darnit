@@ -27,7 +27,6 @@ Examples:
 import argparse
 import importlib.metadata
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -585,49 +584,44 @@ def cmd_install(args: argparse.Namespace) -> int:
     logger.info("Skills available: /darnit-audit, /darnit-data, /darnit-comply, /darnit-remediate")
     return 0
 
-def cmd_run(args: argparse.Namespace) -> int:
-    """Run the full agentic workflow autonomously.
+# Safety ceiling on audit<->collect_context rounds. Each iteration resolves ALL
+# pending questions in one batch (the answers comprehension in cmd_run), so this
+# bounds re-audit rounds, not the number of controls.
+MAX_AGENT_ITERATIONS = 10
 
-    Requires a configured LLM backend and API key.
-    Install agent dependencies with: pip install darnit[agent]
+
+def cmd_run(args: argparse.Namespace) -> int:
+    """Run the audit workflow with human feedback.
+
+    Runs the audit -> collect_context -> remediate pipeline. Checks that
+    require LLM judgement halt for an external agent (e.g. Claude Code);
+    questions needing a human are handled per --feedback mode. Automated
+    in-process LLM backends are not wired into this command yet.
     """
-    from darnit.agent.feedback import InteractiveFeedback
+    from darnit.agent.feedback import get_feedback_handler
     from darnit.agent.graph import audit, collect_context, remediate, route
     from darnit.agent.state import AuditState
 
     repo_path = str(Path(args.repo_path).resolve())
-
-    # Pick up API key from environment
-    llm_backend = args.llm_backend or os.environ.get("DARNIT_LLM_BACKEND", "anthropic")
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "") or \
-              os.environ.get("OPENAI_API_KEY", "") or ""
 
     # Feedback mode — default to interactive if terminal, noninteractive if not
     feedback_mode = args.feedback_mode
     if feedback_mode == "auto":
         feedback_mode = "interactive" if sys.stdin.isatty() else "noninteractive"
 
-    if not api_key and llm_backend != "ollama":
-        logger.warning(
-            f"No API key found for backend '{llm_backend}'. "
-            f"Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable."
-        )
-
-    print("\nDarnit agentic run")
+    print("\nDarnit run")
     print(f"  Repository : {repo_path}")
-    print(f"  LLM backend: {llm_backend}")
+    print(f"  Feedback   : {feedback_mode}")
     print()
 
-    # AuditState carries no LLM fields — backend and key are read from the
-    # environment by darnit.llm.backends. framework_name=None auto-resolves
-    # from .baseline.toml inside audit().
+    # framework_name=None auto-resolves from .baseline.toml inside audit().
     state = AuditState(
         local_path=repo_path,
         framework_name=getattr(args, "framework", None),
         level=getattr(args, "level", 3),
     )
 
-    feedback = InteractiveFeedback() if feedback_mode == "interactive" else None
+    feedback = get_feedback_handler(feedback_mode)
 
     # Inline orchestration (replaces LangGraph): audit, then route() decides the
     # next node ("audit" | "collect_context" | "remediate" | "end"). A re-audit
@@ -636,13 +630,14 @@ def cmd_run(args: argparse.Namespace) -> int:
     # route here means the audit produced no results — stop rather than spin.
     try:
         state = audit(state)
-        for _ in range(10):
+        for _ in range(MAX_AGENT_ITERATIONS):
             if state.error:
                 break
             step = route(state)
             if step == "collect_context":
-                if feedback is None:
-                    break  # noninteractive: leave questions queued, print below
+                # Noninteractive ask() always returns None -> answers ends up
+                # empty -> we break below with questions left queued for the
+                # summary. Interactive prompts the user.
                 answers = {
                     q.context_key: (feedback.ask(q.control_id, q.question) or "")
                     for q in state.feedback_questions
@@ -987,13 +982,6 @@ def create_parser() -> argparse.ArgumentParser:
         nargs="?",
         default=".",
         help="Path to repository (default: current directory)",
-    )
-    run_parser.add_argument(
-        "--llm-backend",
-        dest="llm_backend",
-        choices=["anthropic", "openai", "ollama"],
-        default=None,
-        help="LLM backend to use (default: anthropic, or DARNIT_LLM_BACKEND env var)",
     )
     run_parser.add_argument(
         "--feedback",
