@@ -42,12 +42,12 @@ safe = true
 dry_run_supported = true
 
 # `uv lock` is Python-specific, so the remediation is gated to Python projects
-# via `when = { primary_language = "python" }`; on non-Python projects it is
+# via `when = { detected_ecosystem = "python" }`; on non-Python projects it is
 # simply not applicable, keeping the safe = true claim accurate where it runs.
 # TODO: add per-language remediations (cargo update, go mod tidy, ...).
 [[controls."RE-01.01".remediation.handlers]]
 handler = "exec"
-when = { primary_language = "python" }
+when = { detected_ecosystem = "python" }
 command = ["uv", "lock"]
 dry_run_command = ["uv", "lock", "--dry-run"]
 
