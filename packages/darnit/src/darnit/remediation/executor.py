@@ -338,7 +338,7 @@ class RemediationExecutor:
                 ) from err
 
             try:
-                with open(resolved) as f:
+                with open(resolved, encoding="utf-8") as f:
                     return f.read()
             except OSError as e:
                 logger.warning(f"Failed to read template file {resolved}: {e}")
