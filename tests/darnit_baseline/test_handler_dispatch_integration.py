@@ -549,8 +549,8 @@ body:
         assert result.evidence.get("relative_path") == f".github/ISSUE_TEMPLATE/{template_filename}"
 
     @pytest.mark.unit
-    def test_osps_do_02_01_fails_for_feature_only_template(self, tmp_path):
-        """OSPS-DO-02.01 should fail when only a feature template exists."""
+    def test_osps_do_02_01_warns_for_feature_only_template(self, tmp_path):
+        """OSPS-DO-02.01 should warn (manual fallback) when only a feature template exists."""
         from pathlib import Path
 
         from darnit.config import load_controls_from_effective, load_effective_config_by_name
@@ -585,4 +585,4 @@ body:
         )
         result = orchestrator.verify(control, context)
 
-        assert result.status == "FAIL"
+        assert result.status == "WARN"
