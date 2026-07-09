@@ -270,10 +270,10 @@ def merge_control(
             tags=tags,
             security_severity=framework_control.security_severity,
             docs_url=framework_control.docs_url,
-            when=framework_control.when if hasattr(framework_control, "when") else None,
-            depends_on=framework_control.depends_on if hasattr(framework_control, "depends_on") else None,
-            inferred_from=framework_control.inferred_from if hasattr(framework_control, "inferred_from") else None,
-            on_pass=framework_control.on_pass.model_dump() if getattr(framework_control, "on_pass", None) else None,
+            when=framework_control.when,
+            depends_on=framework_control.depends_on,
+            inferred_from=framework_control.inferred_from,
+            on_pass=framework_control.on_pass.model_dump() if framework_control.on_pass else None,
         )
 
         # Apply framework check config
