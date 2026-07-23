@@ -58,6 +58,7 @@ def sh(args: list[str], cwd: Path | None = None, check: bool = True) -> str:
 def audit(path: Path) -> dict[str, str]:
     """Deterministic audit (no LLM): every control resolves to PASS or FAIL."""
     import darnit_csl  # noqa: F401  - registers the plugin handlers
+
     from darnit.config import load_controls_from_effective, load_effective_config_by_name
     from darnit.tools.audit import run_sieve_audit
 
