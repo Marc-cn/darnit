@@ -98,6 +98,10 @@ def main() -> int:
     p.add_argument("--repo", required=True, help="owner/name, e.g. uptane/uptane-standard")
     p.add_argument("--scope-file", help="markdown file holding the drafted scope")
     p.add_argument("--contacts", default="", help="real Code of Conduct contacts")
+    p.add_argument("--coc-policy", choices=["csl", "umbrella", "org"], default="csl",
+                   help="org = point the notices at an existing project/org Code of Conduct")
+    p.add_argument("--coc-reference", default="",
+                   help="markdown sentence linking the existing CoC (required with --coc-policy org)")
     p.add_argument("--code-license", default="Apache-2.0")
     p.add_argument("--governance-mode", choices=["csl", "umbrella"], default="csl",
                    help="'umbrella' references existing project governance instead "
@@ -133,6 +137,8 @@ def main() -> int:
             print(f"\nscope template written: {tmpl}")
         print("\nNext: fill in that file, then re-run with")
         print(f'  --scope-file "{tmpl}" --contacts "Name <email>, Name <email>"')
+        print('  (or, if the project already has a Code of Conduct: '
+              '--coc-policy org --coc-reference "<markdown sentence linking it>")')
         return 0
 
     scope = Path(a.scope_file).read_text(encoding="utf-8").strip()
@@ -152,6 +158,7 @@ def main() -> int:
         code_license=a.code_license, spec_name=a.spec_name or name,
         governance_mode=a.governance_mode,
         governance_reference=a.governance_reference,
+        coc_policy=a.coc_policy, coc_reference=a.coc_reference,
     ))
     print("  " + report.replace("\n", "\n  "))
     if report.lstrip().startswith("Error:"):

@@ -2,7 +2,7 @@
 
 ## Code of Conduct
 
-<< ('This Working Group follows the ' ~ context.csl_coc_reference ~ ' for Code of Conduct matters.\n\n') if (context.csl_coc_policy == 'umbrella' and context.csl_coc_reference) else '' >>Contact for Code of Conduct issues or inquiries:  << context.csl_coc_contacts | default('_________________') >>
+<< context.csl_coc_reference if (context.csl_coc_policy == 'org' and context.csl_coc_reference) else ((('This Working Group follows the ' ~ context.csl_coc_reference ~ ' for Code of Conduct matters.\n\n') if (context.csl_coc_policy == 'umbrella' and context.csl_coc_reference) else '') ~ 'Contact for Code of Conduct issues or inquiries:  ' ~ (context.csl_coc_contacts | default('_________________'))) >>
 
 
 ## License Acceptance

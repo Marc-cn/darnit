@@ -62,7 +62,7 @@ description = "List the CSL 1.0 compliance controls."
 # builtin, so it lives in the plugin.
 [mcp.tools.remediate_community_spec]
 handler = "darnit_csl.mcp_tools:remediate_community_spec"
-description = "Write the CSL 1.0 file set (governance/00..05) into a spec repo from a drafted scope and context, then re-audit."
+description = "Write the CSL 1.0 file set (governance/00..05) into a spec repo from a drafted scope and context, then re-audit. Code of Conduct is org-first: BEFORE calling, check whether the project already has one (a repo CODE_OF_CONDUCT file, the org's community or .github repo, or a foundation CoC such as CNCF, LF, or JDF). If it does, pass coc_policy='org' with coc_reference = one markdown sentence linking it; the notices will point there and name no individuals. Only when no such CoC exists, pass two named individuals in coc_contacts (never a mailing list)."
 
 # -----------------------------------------------------------------------------
 # Audit profiles
@@ -377,12 +377,12 @@ set = { "legal.csl.scope.path" = "governance/02-scope.md" }
 # -----------------------------------------------------------------------------
 [controls."CSL-03.01"]
 name = "NoticesAndCodeOfConductContact"
-description = "The repo has a Notices file with a real Code of Conduct contact (no blank line, no leftover drafting guidance)."
+description = "The repo has a Notices file with a real Code of Conduct contact or an org-level Code of Conduct reference (no blank line, no leftover drafting guidance)."
 tags = { level = 1, domain = "CSL", legal = true, governance = true }
 docs_url = "https://github.com/CommunitySpecification/1.0"
 location_hint = "governance/03-notices.md"
 help_md = """Provide the Notices file and fill in who receives Code of Conduct
-complaints (two named individuals recommended).
+complaints (org-first: point at an existing project/org Code of Conduct; otherwise two named individuals).
 
 **Remediation:** create `governance/03-notices.md` and set the CoC contact(s)."""
 
@@ -391,11 +391,13 @@ complaints (two named individuals recommended).
 # deterministic passes below still answer non-LLM callers.
 [[controls."CSL-03.01".passes]]
 handler = "csl_llm_if_present"
-prompt = """Evaluate whether the Notices file names a real, reachable contact for
-Code of Conduct reports (a person or role plus an email or handle). FAIL if the
-contact line is still a blank ('_________________'), no contact is given, or
-the bracketed drafting guidance ('[Ideally list two different individuals ...]')
-is still present. Otherwise PASS."""
+prompt = """Evaluate the Notices file's Code of Conduct section. PASS if it either
+names a real, reachable contact (a person or role plus an email or handle) OR
+points to an established project/org-level Code of Conduct (the repo's own CoC,
+an org community CoC, or a foundation CoC such as CNCF / LF / JDF) via a working
+reference. FAIL if the contact line is still a blank ('_________________'), the
+bracketed drafting guidance ('[Ideally list two different individuals ...]') is
+still present, or neither a contact nor such a reference is given."""
 files_to_include = ["governance/03-notices.md", "license/03-notices.md", "03-notices.md"]
 confidence_threshold = 0.7
 
@@ -425,8 +427,8 @@ dry_run_supported = true
 # until confirmed). coc_policy / coc_reference are optional refinements.
 [[controls."CSL-03.01".remediation.requires_context]]
 key = "csl_coc_contacts"
-required = true
-warning = "Two named individuals are recommended so a complaint about one can be sent to the other. Do not use a generic mailing list."
+required = false
+warning = "Org-first: if the project already has a Code of Conduct (repo file, org community repo, or a foundation CoC such as CNCF/LF/JDF), set csl_coc_policy='org' with csl_coc_reference and leave contacts empty. Otherwise two named individuals are recommended (never a generic mailing list)."
 
 [[controls."CSL-03.01".remediation.requires_context]]
 key = "csl_coc_policy"
