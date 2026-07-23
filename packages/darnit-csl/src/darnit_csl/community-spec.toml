@@ -57,6 +57,13 @@ description = "Run the CSL 1.0 compliance audit on a specification repository."
 builtin = "list_controls"
 description = "List the CSL 1.0 compliance controls."
 
+# Write phase: renders every CSL file from templates using client-supplied
+# context (the client drafts the Scope first). Module-path handler, not a
+# builtin, so it lives in the plugin.
+[mcp.tools.remediate_community_spec]
+handler = "darnit_csl.mcp_tools:remediate_community_spec"
+description = "Write the CSL 1.0 file set (governance/00..05) into a spec repo from a drafted scope and context, then re-audit."
+
 # -----------------------------------------------------------------------------
 # Audit profiles
 # -----------------------------------------------------------------------------
@@ -313,8 +320,21 @@ contributor's and licensee's patent commitment, so a placeholder is not enough.
 **Remediation:** create `governance/02-scope.md` and describe the Working
 Group's scope (the agent can draft this from the repository for your review)."""
 
-# Step 3: content validity. PASS only if the file exists AND no longer contains
-# the bracketed template placeholder. (Missing file -> INCONCLUSIVE -> next pass.)
+# Step 3 (content): under `darnit serve` the LLM judges the scope FIRST, so it
+# catches weak or off-topic scopes that regex cannot. Under `darnit audit`
+# (no LLM) the sieve stops here and reports PENDING_LLM; the deterministic
+# regex/existence passes below still answer non-LLM callers.
+[[controls."CSL-02.01".passes]]
+handler = "csl_llm_if_present"
+prompt = """Evaluate whether the Scope statement actually describes the bounds of
+this specification's work (what it standardizes and what it excludes). FAIL if it
+contains only the bracketed '[Include a detailed description ...]' placeholder or
+is too vague to bound a patent commitment. Otherwise PASS."""
+files_to_include = ["governance/02-scope.md", "license/02-scope.md", "02-scope.md"]
+confidence_threshold = 0.7
+
+# Deterministic fallback: PASS only if the file exists AND no longer contains the
+# bracketed template placeholder. (Missing file -> INCONCLUSIVE -> next pass.)
 [[controls."CSL-02.01".passes]]
 handler = "regex"
 files = ["governance/02-scope.md", "license/02-scope.md", "02-scope.md"]
@@ -322,19 +342,10 @@ files = ["governance/02-scope.md", "license/02-scope.md", "02-scope.md"]
 [controls."CSL-02.01".passes.pattern.patterns]
 scope_filled = '(?s)\A(?!.*\[Include a detailed description).+\S'
 
-# Step 2: existence. Reached only when the file is missing -> conclusive FAIL.
+# Existence. Reached only when the file is missing -> conclusive FAIL.
 [[controls."CSL-02.01".passes]]
 handler = "file_exists"
 files = ["governance/02-scope.md", "license/02-scope.md", "02-scope.md"]
-
-# MCP-time nuance check (no LLM during `darnit audit`).
-[[controls."CSL-02.01".passes]]
-handler = "llm_eval"
-prompt = """Evaluate whether this Scope statement actually describes the bounds of
-the specification work. It MUST fail if it only contains the bracketed
-'[Include a detailed description ...]' placeholder or is otherwise empty."""
-files_to_include = ["governance/02-scope.md"]
-confidence_threshold = 0.7
 
 [[controls."CSL-02.01".passes]]
 handler = "manual"
@@ -375,27 +386,31 @@ complaints (two named individuals recommended).
 
 **Remediation:** create `governance/03-notices.md` and set the CoC contact(s)."""
 
-# Step 3: content validity. PASS only if the file exists AND the CoC contact
-# line is filled (no 5+ underscore blank). Missing -> INCONCLUSIVE -> next pass.
+# Step 3 (content): under `darnit serve` the LLM judges the CoC contact FIRST.
+# Under `darnit audit` (no LLM) the sieve stops here (PENDING_LLM); the
+# deterministic passes below still answer non-LLM callers.
+[[controls."CSL-03.01".passes]]
+handler = "csl_llm_if_present"
+prompt = """Evaluate whether the Notices file names a real, reachable contact for
+Code of Conduct reports (a person or role plus an email or handle). FAIL if the
+contact line is still a blank ('_________________') or no contact is given.
+Otherwise PASS."""
+files_to_include = ["governance/03-notices.md", "license/03-notices.md", "03-notices.md"]
+confidence_threshold = 0.7
+
+# Deterministic fallback: PASS only if the file exists AND the CoC contact line
+# is filled (no 5+ underscore blank). Missing -> INCONCLUSIVE -> next pass.
 [[controls."CSL-03.01".passes]]
 handler = "regex"
 files = ["governance/03-notices.md", "license/03-notices.md", "03-notices.md"]
 
 [controls."CSL-03.01".passes.pattern.patterns]
-coc_contact_filled = '(?s)\A(?!.*_{5,}).+\S'
+coc_contact_filled = '(?s)\A(?!.*_{5,})(?!.*(?i:real name|real@email|example\.(com|org|net)|\bTODO\b|\bFIXME\b|\bTBD\b|<name>|<email>|your name|firstname|lastname|insert name|name one|name two|john doe|jane doe)).+\S'
 
-# Step 2: existence -> conclusive FAIL when missing.
+# Existence -> conclusive FAIL when missing.
 [[controls."CSL-03.01".passes]]
 handler = "file_exists"
 files = ["governance/03-notices.md", "license/03-notices.md", "03-notices.md"]
-
-[[controls."CSL-03.01".passes]]
-handler = "llm_eval"
-prompt = """Evaluate whether this Notices file names a real contact for Code of
-Conduct issues. It MUST fail if the contact line is still a blank
-('_________________') or no contact is given."""
-files_to_include = ["governance/03-notices.md"]
-confidence_threshold = 0.7
 
 [[controls."CSL-03.01".passes]]
 handler = "manual"
@@ -482,6 +497,27 @@ Specification Governance Policy, or, if the project already follows an umbrella
 governance (e.g. CNCF) - reference that and document the CSL roles on top of it.
 
 **Remediation:** create `governance/05-governance.md` in the chosen mode."""
+
+# Under `darnit serve` the LLM judges governance FIRST: is this genuinely CSL
+# governance (roles, decision-making, an umbrella reference) rather than a
+# passing mention. Under `darnit audit` (no LLM) the sieve stops here
+# (PENDING_LLM); the deterministic content/existence passes below answer
+# non-LLM callers.
+[[controls."CSL-05.01".passes]]
+handler = "csl_llm_if_present"
+prompt = """Evaluate whether this repository's governance is tied to the
+Community Specification process. PASS if it is the full Community Specification
+Governance Policy, OR references an umbrella project's governance (e.g. CNCF)
+while documenting the Community Specification roles/decision-making. FAIL if the
+only governance is generic project governance with no Community Specification
+tie, or if no governance file exists."""
+files_to_include = [
+    "governance/05-governance.md",
+    "GOVERNANCE.md",
+    "governance/GOVERNANCE.md",
+    "docs/GOVERNANCE.md",
+]
+confidence_threshold = 0.7
 
 # Content detection FIRST: governance must be CSL-specific. Both the full CSL
 # policy (title "Community Specification Governance Policy") and the umbrella
@@ -571,7 +607,7 @@ in the README."""
 
 [[controls."CSL-06.01".passes]]
 handler = "regex"
-files = ["README.md", "README.rst", "readme.md", "docs/README.md"]
+files = ["README.md", "readme.md", "README.rst"]
 pass_if_any = false
 
 [controls."CSL-06.01".passes.pattern.patterns]
