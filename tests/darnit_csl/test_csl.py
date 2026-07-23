@@ -93,6 +93,14 @@ NOTICES_FILLED = (
     "# Notices\n\n## Code of Conduct\n\n"
     "Contact for Code of Conduct issues or inquiries:  Jane (@jane), John (@john)\n"
 )
+NOTICES_WITH_GUIDANCE = (
+    "# Notices\n\n## Code of Conduct\n\n"
+    "Contact for Code of Conduct issues or inquiries:  Jane (@jane), John (@john)\n\n"
+    "[Ideally list two different individuals above (not a generic mailing list) "
+    "as someone submitting a Code of Conduct complaint will want to know exactly "
+    "who is receiving the complaint. We recommend two individuals in the case one "
+    "of the individuals is the subject of or directly involved in the subject of a complaint.]\n"
+)
 
 
 class TestScopeContentAudit:
@@ -128,6 +136,13 @@ class TestNoticesContentAudit:
         gov.mkdir()
         (gov / "03-notices.md").write_text(NOTICES_FILLED)
         assert _status("CSL-03.01", tmp_path) == "PASS"
+
+    def test_leftover_guidance_text_fails(self, tmp_path: Path) -> None:
+        # Real contacts but the bracketed drafting guidance was never removed.
+        gov = tmp_path / "governance"
+        gov.mkdir()
+        (gov / "03-notices.md").write_text(NOTICES_WITH_GUIDANCE)
+        assert _status("CSL-03.01", tmp_path) == "FAIL"
 
 
 CSL_LICENSE_TEXT = (
@@ -283,6 +298,30 @@ class TestRemediation:
         assert "not superseded" in out
         # Must be the short reference stub, not the full verbatim policy body.
         assert "Ways of Working" not in out
+
+    def test_notices_render_drops_guidance_and_fills_contacts(self, tmp_path: Path) -> None:
+        cfg, ex = _executor(tmp_path, {"csl_coc_contacts": "Jane (@jane), John (@john)"})
+        res = ex.execute("CSL-03.01", cfg.controls["CSL-03.01"].remediation, dry_run=False)
+        assert res.success
+        out = (tmp_path / "governance" / "03-notices.md").read_text()
+        assert "Jane (@jane), John (@john)" in out
+        assert "[Ideally list two different individuals" not in out
+        assert "_____" not in out
+
+    def test_cla_render_references_current_upstream_filenames(self, tmp_path: Path) -> None:
+        cfg, ex = _executor(tmp_path, {})
+        res = ex.execute("CSL-01.01", cfg.controls["CSL-01.01"].remediation, dry_run=False)
+        assert res.success
+        out = (tmp_path / "governance" / "00-contributor-license-agreement.md").read_text()
+        for ref in (
+            "01-community-specification-license-v1.md",
+            "05-governance.md",
+            "06-contributing.md",
+            "08-code-of-conduct.md",
+        ):
+            assert ref in out, ref
+        assert ".0_Community_Specification_License-v1.md" not in out
+        assert "5._Governance.md" not in out
 
     def test_remediated_repo_passes_reaudit(self, tmp_path: Path) -> None:
         (tmp_path / "README.md").write_text(

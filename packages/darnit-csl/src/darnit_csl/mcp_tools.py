@@ -12,7 +12,7 @@ logger = get_logger("darnit_csl.mcp_tools")
 _PLACEHOLDER_RE = re.compile(
     r"(?i)(real name|real@email|example\.(com|org|net)|\bTODO\b|\bFIXME\b|\bTBD\b"
     r"|<name>|<email>|your name|firstname|lastname|insert name|name one|name two"
-    r"|john doe|jane doe|_{5,})"
+    r"|john doe|jane doe|_{5,}|\[Ideally list two different individuals)"
 )
 
 
