@@ -70,6 +70,7 @@ def _status(cid: str, repo: Path, framework_name: str = "community-spec") -> str
         default_branch="main",
         apply_user_config=False,
         framework_name=framework_name,
+        stop_on_llm=False,
     )
     match = [r for r in results if r.get("id") == cid]
     assert match, f"no result for {cid}"
