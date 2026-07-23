@@ -121,7 +121,7 @@ def validate_pass_types_sync() -> ValidationResult:
             message="Cannot validate handler names: spec not found",
         )
 
-    spec_content = SPEC_PATH.read_text()
+    spec_content = SPEC_PATH.read_text(encoding="utf-8")
 
     # Expected built-in handler names from spec (registered handler names only)
     spec_handler_names = set()
@@ -138,7 +138,7 @@ def validate_pass_types_sync() -> ValidationResult:
             details=str(handlers_file),
         )
 
-    code_content = handlers_file.read_text()
+    code_content = handlers_file.read_text(encoding="utf-8")
 
     missing_in_code = []
     for handler_name in spec_handler_names:
@@ -173,7 +173,7 @@ def validate_sarif_reads_from_toml() -> ValidationResult:
             details=str(sarif_path),
         )
 
-    content = sarif_path.read_text()
+    content = sarif_path.read_text(encoding="utf-8")
 
     # Check for TOML loading
     if "_load_framework_config" not in content:
