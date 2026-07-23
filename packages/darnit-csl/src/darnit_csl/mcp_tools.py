@@ -32,6 +32,28 @@ def _looks_like_placeholder(value: str) -> bool:
     return not value.strip() or bool(_PLACEHOLDER_RE.search(value))
 
 
+_URL_RE = re.compile(r"https?://")
+
+_COC_CANDIDATES = (
+    "CODE_OF_CONDUCT.md",
+    "CODE-OF-CONDUCT.md",
+    "code-of-conduct.md",
+    "code_of_conduct.md",
+    ".github/CODE_OF_CONDUCT.md",
+    ".github/CODE-OF-CONDUCT.md",
+    "docs/CODE_OF_CONDUCT.md",
+    "docs/CODE-OF-CONDUCT.md",
+)
+
+
+def _find_existing_coc(repo: Path) -> str | None:
+    """Relative path of an existing Code of Conduct file in the repo, if any."""
+    for rel in _COC_CANDIDATES:
+        if (repo / rel).is_file():
+            return rel
+    return None
+
+
 _ORDER = ["CSL-01.01", "CSL-01.02", "CSL-02.01", "CSL-03.01", "CSL-04.01", "CSL-05.01"]
 
 
@@ -56,20 +78,47 @@ async def remediate_community_spec(
     if not repo.exists():
         return f"Error: repository path not found: {repo}"
 
-    if _looks_like_placeholder(coc_contacts):
+    coc_policy = (coc_policy or "csl").strip().lower()
+
+    # Org-first: a project that already has a Code of Conduct (its own file,
+    # an org community repo, or a foundation CoC such as CNCF / LF / JDF)
+    # must point at it rather than naming individuals.
+    existing_coc = _find_existing_coc(repo)
+    if coc_policy != "org" and existing_coc:
         return (
-            f"Error: coc_contacts looks like a placeholder ({coc_contacts!r}). "
-            "CSL requires a real Code of Conduct contact, ideally two named "
-            "individuals with emails. Nothing was written."
+            f"Error: this repository already has a Code of Conduct at "
+            f"'{existing_coc}'. Re-run with coc_policy='org' and coc_reference "
+            "set to one markdown sentence linking that document. Nothing was "
+            "written."
         )
 
-    if _looks_like_mailing_list(coc_contacts):
-        return (
-            f"Error: coc_contacts is a group address ({coc_contacts!r}). CSL asks "
-            "for named individuals rather than a generic mailing list, so that "
-            "someone filing a complaint knows exactly who receives it. Ask the "
-            "project who should be listed. Nothing was written."
-        )
+    if coc_policy == "org":
+        if _looks_like_placeholder(coc_reference) or not _URL_RE.search(coc_reference):
+            return (
+                "Error: coc_policy='org' requires coc_reference: one markdown "
+                "sentence linking the project's existing Code of Conduct (the "
+                "repo's own file, the org's community repo, or a foundation "
+                "CoC such as CNCF / LF / JDF). Check those locations first; "
+                "only fall back to named individuals when no such CoC exists. "
+                "Nothing was written."
+            )
+        # The linked CoC defines the reporting procedure; no inline contacts.
+        coc_contacts = ""
+    else:
+        if _looks_like_placeholder(coc_contacts):
+            return (
+                f"Error: coc_contacts looks like a placeholder ({coc_contacts!r}). "
+                "CSL requires a real Code of Conduct contact, ideally two named "
+                "individuals with emails. Nothing was written."
+            )
+
+        if _looks_like_mailing_list(coc_contacts):
+            return (
+                f"Error: coc_contacts is a group address ({coc_contacts!r}). CSL asks "
+                "for named individuals rather than a generic mailing list, so that "
+                "someone filing a complaint knows exactly who receives it. Ask the "
+                "project who should be listed. Nothing was written."
+            )
 
     # The csl_scope template supplies the "# Scope" heading and the closing
     # "Any changes of Scope are not retroactive." line. A caller that drafts a

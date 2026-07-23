@@ -383,3 +383,52 @@ class TestOptionalFramework:
     def test_missing_optional_files_fail(self, tmp_path: Path) -> None:
         for cid in ("CSL-OPT-01", "CSL-OPT-02", "CSL-OPT-03"):
             assert _status(cid, tmp_path, "community-spec-optional") == "FAIL"
+
+
+class TestOrgCocMode:
+    ORG_REF = (
+        "Example is a [CNCF](https://www.cncf.io/) project and follows the "
+        "[Example Code of Conduct](https://github.com/example/community/blob/main/CODE-OF-CONDUCT.md)."
+    )
+
+    def test_org_render_has_reference_and_no_contact_line(self, tmp_path: Path) -> None:
+        cfg, ex = _executor(tmp_path, {"csl_coc_policy": "org", "csl_coc_reference": self.ORG_REF})
+        res = ex.execute("CSL-03.01", cfg.controls["CSL-03.01"].remediation, dry_run=False)
+        assert res.success
+        out = (tmp_path / "governance" / "03-notices.md").read_text()
+        assert self.ORG_REF in out
+        assert "Contact for Code of Conduct issues or inquiries" not in out
+        assert "_____" not in out
+        assert "[Ideally list two different individuals" not in out
+
+    def test_org_reference_only_notices_passes_audit(self, tmp_path: Path) -> None:
+        gov = tmp_path / "governance"
+        gov.mkdir()
+        (gov / "03-notices.md").write_text(
+            "# Notices\n\n## Code of Conduct\n\n" + self.ORG_REF + "\n\n## License Acceptance\n"
+        )
+        assert _status("CSL-03.01", tmp_path) == "PASS"
+
+    def test_tool_rejects_individuals_when_repo_has_coc(self, tmp_path: Path) -> None:
+        import asyncio
+
+        from darnit_csl.mcp_tools import remediate_community_spec
+
+        (tmp_path / "CODE_OF_CONDUCT.md").write_text("# CoC\n")
+        out = asyncio.run(remediate_community_spec(
+            local_path=str(tmp_path), scope="s",
+            coc_contacts="Jane (@jane), John (@john)",
+        ))
+        assert out.startswith("Error:")
+        assert "coc_policy='org'" in out
+
+    def test_tool_org_requires_linked_reference(self, tmp_path: Path) -> None:
+        import asyncio
+
+        from darnit_csl.mcp_tools import remediate_community_spec
+
+        out = asyncio.run(remediate_community_spec(
+            local_path=str(tmp_path), scope="s", coc_policy="org", coc_reference="TODO",
+        ))
+        assert out.startswith("Error:")
+
