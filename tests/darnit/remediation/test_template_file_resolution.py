@@ -146,8 +146,10 @@ class TestTemplateFileResolution:
 
 def test_non_ascii_template_read_as_utf8(tmp_path, executor_factory):
     body = "# Title\n\nWorking Group\u2019s \u201cScope\u201d \u2014 not retroactive.\n"
-    pkg_dir = tmp_path / "pkg"; pkg_dir.mkdir()
-    tmpl_dir = pkg_dir / "templates"; tmpl_dir.mkdir()
+    pkg_dir = tmp_path / "pkg"
+    pkg_dir.mkdir()
+    tmpl_dir = pkg_dir / "templates"
+    tmpl_dir.mkdir()
     (tmpl_dir / "legal.tmpl").write_text(body, encoding="utf-8")
     executor = executor_factory(
         local_path_str=str(tmp_path / "repo"),

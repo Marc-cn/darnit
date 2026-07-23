@@ -10,6 +10,7 @@ resolution-markers = [
 members = [
     "darnit-baseline",
     "darnit-core",
+    "darnit-csl",
     "darnit-example",
     "darnit-gittuf",
     "darnit-hello",
@@ -482,6 +483,17 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 'attestation'", specifier = ">=2.6.3,<3" },
 ]
 provides-extras = ["attestation"]
+
+[[package]]
+name = "darnit-csl"
+version = "0.1.0"
+source = { editable = "packages/darnit-csl" }
+dependencies = [
+    { name = "darnit-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "darnit-core", editable = "packages/darnit" }]
 
 [[package]]
 name = "darnit-example"

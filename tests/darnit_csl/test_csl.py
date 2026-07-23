@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-
-import pytest
 
 from darnit_csl import get_framework_path, register
 from darnit_csl.implementation import CommunitySpecImplementation
-
 
 # ---------------------------------------------------------------------------
 # Plugin protocol + TOML validity
@@ -351,11 +347,12 @@ class TestOptionalFramework:
     affect the required CSL score, and are presence-checked on demand."""
 
     def test_optional_framework_loads(self) -> None:
+        from darnit_csl import get_optional_framework_path
+
         from darnit.config import (
             load_framework_config,
             validate_framework_config,
         )
-        from darnit_csl import get_optional_framework_path
 
         path = get_optional_framework_path()
         assert path.is_file()
