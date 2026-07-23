@@ -377,7 +377,7 @@ set = { "legal.csl.scope.path" = "governance/02-scope.md" }
 # -----------------------------------------------------------------------------
 [controls."CSL-03.01"]
 name = "NoticesAndCodeOfConductContact"
-description = "The repo has a Notices file with a real Code of Conduct contact (not the blank line)."
+description = "The repo has a Notices file with a real Code of Conduct contact (no blank line, no leftover drafting guidance)."
 tags = { level = 1, domain = "CSL", legal = true, governance = true }
 docs_url = "https://github.com/CommunitySpecification/1.0"
 location_hint = "governance/03-notices.md"
@@ -393,8 +393,9 @@ complaints (two named individuals recommended).
 handler = "csl_llm_if_present"
 prompt = """Evaluate whether the Notices file names a real, reachable contact for
 Code of Conduct reports (a person or role plus an email or handle). FAIL if the
-contact line is still a blank ('_________________') or no contact is given.
-Otherwise PASS."""
+contact line is still a blank ('_________________'), no contact is given, or
+the bracketed drafting guidance ('[Ideally list two different individuals ...]')
+is still present. Otherwise PASS."""
 files_to_include = ["governance/03-notices.md", "license/03-notices.md", "03-notices.md"]
 confidence_threshold = 0.7
 
@@ -405,7 +406,7 @@ handler = "regex"
 files = ["governance/03-notices.md", "license/03-notices.md", "03-notices.md"]
 
 [controls."CSL-03.01".passes.pattern.patterns]
-coc_contact_filled = '(?s)\A(?!.*_{5,})(?!.*(?i:real name|real@email|example\.(com|org|net)|\bTODO\b|\bFIXME\b|\bTBD\b|<name>|<email>|your name|firstname|lastname|insert name|name one|name two|john doe|jane doe)).+\S'
+coc_contact_filled = '(?s)\A(?!.*_{5,})(?!.*\[Ideally list two different individuals)(?!.*(?i:real name|real@email|example\.(com|org|net)|\bTODO\b|\bFIXME\b|\bTBD\b|<name>|<email>|your name|firstname|lastname|insert name|name one|name two|john doe|jane doe)).+\S'
 
 # Existence -> conclusive FAIL when missing.
 [[controls."CSL-03.01".passes]]
