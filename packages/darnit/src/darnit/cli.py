@@ -27,6 +27,7 @@ Examples:
 import argparse
 import importlib.metadata
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -537,8 +538,30 @@ def cmd_install(args: argparse.Namespace) -> int:
     import shutil
 
     if args.client == "claude":
-        settings_path = Path.home() / ".claude" / "settings.json"
-    else:
+        logger.warning(
+            "`--client claude` is deprecated; use `--client claude-code` for Claude Code "
+            "or `--client claude-desktop` for Claude Desktop."
+        )
+    if args.project and args.client not in ("claude", "claude-code"):
+        logger.warning(
+            "`--project` only applies to Claude Code (writes .mcp.json). "
+            f"Ignoring --project for --client {args.client}."
+        )
+
+    if args.client in ("claude", "claude-code"):
+        if args.project:
+            settings_path = Path.cwd() / ".mcp.json"
+        else:
+            settings_path = Path.home() / ".claude.json"
+    elif args.client == "claude-desktop":
+        if sys.platform == "darwin":
+            base = Path.home() / "Library" / "Application Support" / "Claude"
+        elif sys.platform == "win32":
+            base = Path(os.environ.get("APPDATA", str(Path.home() / "AppData" / "Roaming"))) / "Claude"
+        else:
+            base = Path.home() / ".config" / "Claude"
+        settings_path = base / "claude_desktop_config.json"
+    else:  # cursor
         settings_path = Path.home() / ".cursor" / "mcp.json"
 
     settings_path.parent.mkdir(parents=True, exist_ok=True)
@@ -561,9 +584,7 @@ def cmd_install(args: argparse.Namespace) -> int:
     }
 
     if "darnit" in mcp_servers and not args.force:
-        response = input(
-            f"'darnit' entry already exists in {settings_path}. Overwrite? [y/N]: "
-        ).strip().lower()
+        response = input(f"'darnit' entry already exists in {settings_path}. Overwrite? [y/N]: ").strip().lower()
         if response not in {"y", "yes"}:
             logger.info("Install cancelled.")
             return 1
@@ -580,7 +601,7 @@ def cmd_install(args: argparse.Namespace) -> int:
     logger.info(f"✓ Installed darnit MCP server config in {settings_path}")
 
     # Install skills
-    if not args.mcp_only and args.client == "claude":
+    if not args.mcp_only and args.client in ("claude", "claude-code"):
         if args.project:
             skills_target = Path.cwd() / ".claude" / "skills"
             logger.info(f"Installing skills (project) → {skills_target}")
@@ -1023,9 +1044,9 @@ def create_parser() -> argparse.ArgumentParser:
     )
     install_parser.add_argument(
         "--client",
-        choices=["claude", "cursor"],
-        default="claude",
-        help="Client to configure (default: claude)",
+        choices=["claude-code", "claude-desktop", "claude", "cursor"],
+        default="claude-code",
+        help="Client to configure (default: claude-code). 'claude' is deprecated — use claude-code or claude-desktop." ,
     )
     install_parser.add_argument(
         "--force",
@@ -1040,7 +1061,7 @@ def create_parser() -> argparse.ArgumentParser:
     install_parser.add_argument(
         "--project",
         action="store_true",
-        help="Install skills into .claude/skills/ (per-project) instead of ~/.claude/skills/ (global)",
+        help="Install skills into .claude/skills/ and MCP config into .mcp.json (per-project) instead of global paths",
     )
     install_parser.set_defaults(func=cmd_install)
 
