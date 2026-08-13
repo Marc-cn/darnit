@@ -31,6 +31,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from darnit.core.authority import Authority
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,6 +65,13 @@ class HandlerResult:
             Deterministic handlers typically return 1.0 for pass/fail, None for inconclusive.
         evidence: Key-value evidence produced by the handler (e.g., found_file, exit_code).
         details: Additional metadata for debugging or reporting.
+        authority: RFC-0001 Stage 1 (feature 025). Optional per-call authority
+            override. When None (the common case), the orchestrator falls back
+            to the handler's registered ``default_authority`` from
+            ``SieveHandlerInfo``. Set this only when a handler's specific call
+            legitimately produces a different-authority result than its default
+            (rare). NEVER set ``"asserted"`` from code alone -- asserted is
+            human-only per Constitution Principle IV.
     """
 
     status: HandlerResultStatus
@@ -70,6 +79,7 @@ class HandlerResult:
     confidence: float | None = None
     evidence: dict[str, Any] = field(default_factory=dict)
     details: dict[str, Any] = field(default_factory=dict)
+    authority: Authority | None = None
 
 
 @dataclass
@@ -118,6 +128,12 @@ class SieveHandlerInfo:
         fn: The handler callable.
         plugin: Name of the plugin that registered this handler (None for core).
         description: Human-readable description of what the handler does.
+        default_authority: RFC-0001 Stage 1 (feature 025). The authority the
+            orchestrator uses when a handler returns a ``HandlerResult`` with
+            ``authority=None`` and the TOML step declares no explicit
+            ``authority``. Defaults to ``"suggestive"`` -- the safe default
+            (never concludes). Registration MUST set this explicitly for any
+            handler that legitimately produces authoritative results.
     """
 
     name: str
@@ -125,6 +141,7 @@ class SieveHandlerInfo:
     fn: HandlerFn
     plugin: str | None = None
     description: str = ""
+    default_authority: Authority = "suggestive"
 
 
 class SieveHandlerRegistry:
@@ -155,6 +172,8 @@ class SieveHandlerRegistry:
         phase: str | HandlerPhase,
         handler_fn: HandlerFn,
         description: str = "",
+        *,
+        default_authority: Authority,
     ) -> None:
         """Register a sieve handler.
 
@@ -163,6 +182,26 @@ class SieveHandlerRegistry:
             phase: Phase affinity as string or HandlerPhase enum.
             handler_fn: Callable with signature (config, context) -> HandlerResult.
             description: Human-readable description.
+            default_authority: RFC-0001 Stage 1 (feature 025). Authority the
+                orchestrator uses for results from this handler when neither
+                the ``HandlerResult`` nor the TOML step declares one.
+                REQUIRED (keyword-only, no default). Use ``"dispositive"``
+                for handlers that observe ground truth (file_exists, exec,
+                api_call, pattern matching, gittuf verification, etc.),
+                ``"suggestive"`` for handlers that propose candidates
+                (llm_extract, llm_eval), and ``"asserted"`` for
+                manual/confirmation handlers.
+
+                Making this a REQUIRED keyword prevents the pattern that
+                caused PR #365's silent PASS->WARN regression across every
+                plugin control: a plugin author registers a
+                ground-truth-observing handler, forgets the authority
+                argument, gets the ``"suggestive"`` default, and the
+                handler's PASS results silently downgrade to WARN because
+                a suggestive result never terminates the Check phase.
+                Explicit-required forces the plugin author to name the
+                authority; a missing argument is a ``TypeError`` at
+                registration, not a silent runtime regression.
         """
         if isinstance(phase, str):
             phase = HandlerPhase(phase)
@@ -190,6 +229,7 @@ class SieveHandlerRegistry:
             fn=handler_fn,
             plugin=self._plugin_context,
             description=description or handler_fn.__doc__ or "",
+            default_authority=default_authority,
         )
         self._handlers[name] = info
         logger.debug(

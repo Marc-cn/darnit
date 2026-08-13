@@ -30,6 +30,9 @@ from typing import Any
 from darnit.agent.state import AuditState
 from darnit.config.context_storage import save_context_values
 from darnit.config.framework_schema import FrameworkConfig
+from darnit.core.context_validation import (
+    validate_context_answer as _validate_context_answer,
+)
 from darnit.core.logging import get_logger
 from darnit.remediation.executor import RemediationExecutor
 from darnit.tools.audit import prepare_audit, run_checks
@@ -285,28 +288,30 @@ def remediate(state: AuditState, dry_run: bool = False) -> AuditState:
 def route(state: AuditState) -> str:
     """Decide the next step based on the current audit state.
 
+    RFC-0001 Stage 1 (feature 025 T026): now a thin adapter around
+    ``darnit.core.action_plan.next_action``. Returns the historical
+    four-string values for backward compatibility with all existing
+    callers; the ActionPlan protocol is the canonical decision source
+    going forward.
+
     Returns:
-        "collect_context" — WARN controls exist and there are unanswered
+        "collect_context" -- WARN controls exist and there are unanswered
             feedback questions.
-        "remediate"       — FAIL controls exist (and context is complete).
-        "end"             — No actionable findings remain.
+        "remediate"       -- FAIL controls exist (and context is complete).
+        "audit"           -- audit_results empty; needs a fresh audit run.
+        "end"             -- No actionable findings remain.
     """
-    if state.error:
+    from darnit.core.action_plan import HarnessState, next_action
+
+    harness_state = HarnessState.from_audit_state(state)
+    plan = next_action(harness_state)
+    if plan is None:
         return "end"
-
-    if not state.audit_results:
-        # audit_results cleared by collect_context — needs re-audit
-        return "audit"
-
-    has_warn = bool(state.warn_control_ids())
-    has_fail = bool(state.failing_control_ids())
-
-    if has_warn and state.has_unanswered_questions():
-        return "collect_context"
-
-    if has_fail:
-        return "remediate"
-
+    integration = plan.step.integration
+    if integration in ("audit", "collect_context", "remediate"):
+        return integration
+    # Defensive: any future integration name maps to "end" so unknown values
+    # cannot cause runaway loops in legacy callers.
     return "end"
 
 
@@ -342,30 +347,3 @@ def _get_framework_path(framework_name: str | None) -> str | None:
     except Exception as exc:
         logger.warning("Failed to resolve framework path for %r: %s", framework_name, exc)
     return None
-
-
-# Characters that must never appear in user-supplied context answer values.
-# These could be interpreted as shell metacharacters or break argument parsing
-# even when shell=False, and have no legitimate use in compliance context values
-# (paths, maintainer names, policy filenames, etc.).
-_INVALID_ANSWER_CHARS = frozenset("\x00\n\r;|&$`(){}[]<>\\")
-
-
-def _validate_context_answer(key: str, value: str) -> None:
-    """Raise ValueError if *value* contains characters unsafe for context substitution.
-
-    Args:
-        key: The context key (used only for the error message).
-        value: The user-supplied answer string to validate.
-
-    Raises:
-        ValueError: If the value contains shell metacharacters, newlines, or
-            null bytes that could enable injection via command substitution.
-    """
-    found = _INVALID_ANSWER_CHARS & set(value)
-    if found:
-        raise ValueError(
-            f"Context answer for {key!r} contains disallowed character(s) "
-            f"{sorted(found)!r}. Values must not include shell metacharacters, "
-            "newlines, or null bytes."
-        )
