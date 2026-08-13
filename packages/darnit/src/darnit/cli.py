@@ -750,6 +750,30 @@ def cmd_harness(args: argparse.Namespace) -> int:
     output_format = getattr(args, "format", "markdown")
     output_path = getattr(args, "output", None)
     answers_path = getattr(args, "answers", None)
+    interactive = getattr(args, "interactive", False)
+    per_resolver_timeout_s = getattr(args, "per_resolver_timeout", None)
+
+    # Feature 027: --interactive fail-fast guard (IR-7..IR-9 / SC-005).
+    # Must run BEFORE any control iteration so a CI misfire never silently
+    # skips every question.
+    if interactive:
+        if not sys.stdin.isatty():
+            _emit_exit_summary(
+                "setup_error, interactive channel unavailable "
+                "(stdin is not a TTY)",
+                HarnessExitCode.SETUP_ERROR,
+            )
+            return int(HarnessExitCode.SETUP_ERROR)
+        try:
+            _tty_probe = open("/dev/tty", "r+", buffering=1)  # noqa: SIM115
+            _tty_probe.close()
+        except OSError as exc:
+            _emit_exit_summary(
+                "setup_error, interactive channel unavailable "
+                f"(/dev/tty not openable: {exc.strerror or type(exc).__name__})",
+                HarnessExitCode.SETUP_ERROR,
+            )
+            return int(HarnessExitCode.SETUP_ERROR)
 
     # Build the resolver via the explicit factory. Any AnswerSourceLoadError
     # from a bad --answers file surfaces as a SETUP_ERROR.
@@ -765,6 +789,29 @@ def cmd_harness(args: argparse.Namespace) -> int:
         _emit_exit_summary(f"setup_error, {exc}", HarnessExitCode.SETUP_ERROR)
         return int(HarnessExitCode.SETUP_ERROR)
 
+    # Feature 027: build the QuestionResolver chain via entry-point discovery.
+    # PR #367 review Constitution IV fix: external resolvers stay out of the
+    # chain unless --allow-external-resolvers is set. An answer they produce
+    # is recorded with authority="asserted", so silent invocation would let
+    # any installed third-party package produce dispositive-strength values
+    # without operator opt-in.
+    allow_external_resolvers = getattr(args, "allow_external_resolvers", False)
+    try:
+        question_resolvers = HarnessRun.build_default_resolver_chain(
+            interactive=interactive,
+            allow_external_resolvers=allow_external_resolvers,
+        )
+    except HarnessSetupError as exc:
+        _emit_exit_summary(f"setup_error, {exc}", HarnessExitCode.SETUP_ERROR)
+        return int(HarnessExitCode.SETUP_ERROR)
+
+    if question_resolvers:
+        harness_logger = get_logger("harness")
+        harness_logger.info(
+            "harness: resolvers configured: %s",
+            [getattr(r, "name", "unknown") for r in question_resolvers],
+        )
+
     run = HarnessRun(
         local_path=repo_path,
         framework_name=getattr(args, "framework", None),
@@ -773,6 +820,8 @@ def cmd_harness(args: argparse.Namespace) -> int:
         llm_step=PydanticAILLMStep(),
         per_call_timeout_s=getattr(args, "per_call_timeout", 60),
         total_run_timeout_s=getattr(args, "total_run_timeout", 900),
+        question_resolvers=question_resolvers,
+        per_resolver_timeout_s=per_resolver_timeout_s,
     )
 
     try:
@@ -803,11 +852,18 @@ def cmd_harness(args: argparse.Namespace) -> int:
         if not text.endswith("\n"):
             sys.stdout.write("\n")
 
-    # Exit summary
+    # Exit summary. Order matches CLI-13 exactly:
+    #   `complete, <P> PASS, <F> FAIL, <W> WARN, <PEND> pending, exit <N>`
+    # so CI parsers written against the contract keep working. Answered
+    # count is appended AFTER `pending`; the CLI-13 grep pattern is a
+    # prefix match on positional fields, so the extra trailing field is
+    # additive rather than positional-shifting. PR #367 review fix.
     s = report.summary
+    answered_count = len(report.answered_feedback)
+    pending_count = len(report.pending_feedback)
     _emit_exit_summary(
         f"complete, {s.pass_} PASS, {s.fail} FAIL, {s.warn} WARN, "
-        f"{len(report.pending_feedback)} pending",
+        f"{pending_count} pending, {answered_count} answered",
         HarnessExitCode(report.exit_class),
     )
     return report.exit_class
@@ -1184,6 +1240,37 @@ def create_parser() -> argparse.ArgumentParser:
         type=int,
         default=900,
         help="Total audit-run timeout in seconds (default: 900 = 15 min)",
+    )
+    harness_parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help=(
+            "Prompt the operator at the terminal for any pending feedback "
+            "question not covered by --answers or .project/project.yaml. "
+            "Requires stdin to be a TTY and /dev/tty to be openable; fails "
+            "fast with exit 2 otherwise."
+        ),
+    )
+    harness_parser.add_argument(
+        "--per-resolver-timeout",
+        type=float,
+        default=None,
+        help=(
+            "Per-resolver timeout in seconds. Default: no timeout. "
+            "Setting a global bound is usually inappropriate (an operator at "
+            "a terminal cannot be on the same clock as a webhook resolver)."
+        ),
+    )
+    harness_parser.add_argument(
+        "--allow-external-resolvers",
+        action="store_true",
+        help=(
+            "Include third-party question resolvers registered under the "
+            "`darnit.question_resolvers` entry-point group. Off by default: "
+            "external resolvers produce authority='asserted' values, so "
+            "silently including them would violate Constitution Principle IV "
+            "(only human confirmation may assert)."
+        ),
     )
     harness_parser.set_defaults(func=cmd_harness)
 
