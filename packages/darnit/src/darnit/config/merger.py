@@ -73,6 +73,7 @@ from .framework_schema import (
     ControlConfig,
     FrameworkConfig,
     FrameworkDefaults,
+    McpServerConfig,
 )
 from .user_schema import (
     ControlOverride,
@@ -159,6 +160,11 @@ class EffectiveConfig:
     cache_results: bool = True
     cache_ttl: int = 300
     timeout: int = 300
+
+    # Merged MCP-server allowlist: framework + .baseline.toml, with
+    # per-name replacement (spec FR-016). Empty dict is the pre-feature
+    # default and preserves backward compatibility.
+    mcp_servers: dict[str, "McpServerConfig"] = field(default_factory=dict)
 
     # Source configs (for reference)
     _framework_config: FrameworkConfig | None = None
@@ -375,6 +381,16 @@ def merge_configs(
     if user:
         for name, adapter in user.adapters.items():
             effective.adapters[name] = adapter
+
+    # Merge MCP-server allowlist (spec FR-016).
+    # Precedence: framework provides the base; each key present in
+    # `.baseline.toml` REPLACES the framework's block for that name
+    # entirely (no deep merge within a block; the operator's entry is
+    # authoritative). Disjoint names coexist.
+    effective.mcp_servers = dict(framework.mcp_servers)
+    if user:
+        for name, srv in user.mcp_servers.items():
+            effective.mcp_servers[name] = srv
 
     # Apply user settings
     if user:

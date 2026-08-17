@@ -1023,6 +1023,86 @@ class PluginConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class McpServerConfig(BaseModel):
+    """One allowlist entry describing an external MCP server darnit may spawn.
+
+    A control's ``handler = "mcp"`` pass declares ``server = "<name>"``;
+    that name MUST match a key under ``[mcp_servers.<name>]`` in the
+    effective framework config (or in ``.baseline.toml``, which wins
+    per-name per spec FR-016). Absence of the entry produces ERROR at
+    audit time without spawning anything -- allowlist is the primary
+    trust boundary.
+
+    Fields locked at the schema layer:
+
+    * ``command`` is required and non-empty; the first element is the
+      executable name (resolved via ``PATH``) or an absolute path.
+    * ``env`` values MAY contain ``$VAR`` placeholders, substituted from
+      the operator's shell at spawn time. Unset variables substitute as
+      empty string, matching the ``exec`` handler.
+    * ``trusted_publisher`` triggers Sigstore sidecar verification when
+      set; failure to verify produces ERROR without ever entering
+      evidence (spec FR-007).
+    * ``optional = true`` (default) turns a missing binary into
+      INCONCLUSIVE; ``optional = false`` promotes it to FAIL.
+    * ``install_hint`` surfaces in the INCONCLUSIVE/FAIL message.
+
+    ``extra = "forbid"`` locks spec FR-015: unknown fields such as a
+    hypothetical future ``transport = "http"`` MUST raise
+    :class:`ValidationError` at load time rather than silently accepting.
+    v0 supports stdio only; a future transport addition changes the
+    schema at that time.
+    """
+
+    command: list[str] = Field(..., min_length=1)
+    env: dict[str, str] = Field(default_factory=dict)
+    trusted_publisher: str | None = None
+    optional: bool = True
+    install_hint: str = ""
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("command")
+    @classmethod
+    def _validate_command_nonempty(cls, v: list[str]) -> list[str]:
+        if not v:
+            raise ValueError(
+                "mcp_servers[*].command must be a non-empty list; the first "
+                "element names the executable (resolved via PATH) or is an "
+                "absolute path."
+            )
+        return v
+
+    @field_validator("trusted_publisher")
+    @classmethod
+    def _validate_trusted_publisher_shape(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError(
+                "mcp_servers[*].trusted_publisher, when set, must not be blank."
+            )
+        # Advisory-only shape check: accept github.com URLs and bare
+        # owner/repo strings. Any other shape is permitted at the schema
+        # layer but produces a runtime verification failure at spawn.
+        import logging as _logging
+
+        looks_like_github = (
+            stripped.startswith("https://github.com/")
+            or stripped.startswith("http://github.com/")
+            or "/" in stripped.strip("/")
+        )
+        if not looks_like_github:
+            _logging.getLogger(__name__).warning(
+                "mcp_servers[*].trusted_publisher=%r does not look like a "
+                "github.com URL or owner/repo pair; verification will "
+                "likely fail at spawn time.",
+                stripped,
+            )
+        return stripped
+
+
 class PluginsConfig(BaseModel):
     """Container for plugin configurations.
 
@@ -1419,6 +1499,12 @@ class FrameworkConfig(BaseModel):
 
     # Plugin configurations (for extending framework with additional handlers)
     plugins: PluginsConfig = Field(default_factory=PluginsConfig)
+
+    # Allowlist of external MCP servers this framework may consult via the
+    # built-in ``mcp`` sieve handler. Keyed by operator-chosen server name;
+    # the pass references it as ``server = "<name>"``. Empty dict preserves
+    # backward-compatible behavior for every existing framework TOML.
+    mcp_servers: dict[str, McpServerConfig] = Field(default_factory=dict)
 
     # Named audit profiles (optional, for multi-scenario implementations)
     audit_profiles: dict[str, AuditProfileConfig] = Field(default_factory=dict)
