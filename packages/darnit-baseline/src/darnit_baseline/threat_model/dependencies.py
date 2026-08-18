@@ -189,7 +189,7 @@ def _parse_go_mod(repo_path: str, declared: set[str]) -> None:
 
 
 def _read_file(path: str) -> str:
-    with open(path, errors="ignore") as f:
+    with open(path, errors="ignore", encoding="utf-8") as f:
         return f.read()
 
 

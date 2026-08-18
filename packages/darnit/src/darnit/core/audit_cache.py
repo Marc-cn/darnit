@@ -135,7 +135,7 @@ def write_audit_cache(
     # Atomic write: write to temp file in same directory, then rename.
     fd, tmp_path = tempfile.mkstemp(dir=str(cache_dir), suffix=".tmp", prefix="audit-cache-")
     try:
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(envelope, f, indent=2)
         os.replace(tmp_path, str(cache_path))
         logger.debug("Wrote audit cache to %s", cache_path)
@@ -167,7 +167,7 @@ def read_audit_cache(local_path: str, ttl_seconds: int = 3600) -> dict[str, Any]
 
     # Parse JSON
     try:
-        with open(cache_path) as f:
+        with open(cache_path, encoding="utf-8") as f:
             data = json.load(f)
     except (json.JSONDecodeError, OSError) as exc:
         logger.debug("Corrupt or unreadable audit cache: %s", exc)

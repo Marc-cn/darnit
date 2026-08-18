@@ -168,7 +168,7 @@ class OrgProjectResolver:
                 )
 
             if project_content:
-                (project_dir / "project.yaml").write_text(project_content)
+                (project_dir / "project.yaml").write_text(project_content, encoding="utf-8")
             else:
                 logger.debug("No project.yaml found in %s/.project", owner)
                 return None
@@ -182,7 +182,7 @@ class OrgProjectResolver:
                     owner, ".project/maintainers.yaml"
                 )
             if maintainers_content:
-                (project_dir / "maintainers.yaml").write_text(maintainers_content)
+                (project_dir / "maintainers.yaml").write_text(maintainers_content, encoding="utf-8")
 
             # Parse using existing reader
             reader = DotProjectReader(tmpdir)

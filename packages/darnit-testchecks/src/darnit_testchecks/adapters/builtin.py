@@ -98,7 +98,7 @@ def check_pattern_not_found(
         for file_path in repo.glob(file_pattern):
             if file_path.is_file():
                 try:
-                    content = file_path.read_text(errors="ignore")
+                    content = file_path.read_text(errors="ignore", encoding="utf-8")
                     for pattern_name, regex in regex_patterns.items():
                         matches = re.findall(regex, content, re.MULTILINE)
                         if matches:
@@ -134,7 +134,7 @@ def check_pattern_found(
         for file_path in repo.glob(file_pattern):
             if file_path.is_file():
                 try:
-                    content = file_path.read_text(errors="ignore")
+                    content = file_path.read_text(errors="ignore", encoding="utf-8")
                     for pattern_name, regex in regex_patterns.items():
                         if re.search(regex, content, re.MULTILINE):
                             found[pattern_name] = True
@@ -589,7 +589,7 @@ See [LICENSE](LICENSE) for details.
                 source="testchecks",
             )
 
-        readme_path.write_text(content)
+        readme_path.write_text(content, encoding="utf-8")
         return RemediationResult(
             control_id="TEST-DOC-01",
             success=True,
@@ -641,7 +641,7 @@ Thumbs.db
                 source="testchecks",
             )
 
-        gitignore_path.write_text(content)
+        gitignore_path.write_text(content, encoding="utf-8")
         return RemediationResult(
             control_id="TEST-IGN-01",
             success=True,

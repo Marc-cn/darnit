@@ -1089,7 +1089,7 @@ def generate_threat_model(
 
             target = repo_path / output_path
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(content)
+            target.write_text(content, encoding="utf-8")
             return (
                 f"Threat model written to {output_path} ({len(content)} bytes, "
                 f"{len(emitted)} findings, {overflow.total} trimmed)"

@@ -83,7 +83,7 @@ class TestWriteFileSafe:
         content = "Hello, 世界! 🌍"
         success, msg = write_file_safe(str(filepath), content)
         assert success is True
-        assert filepath.read_text() == content
+        assert filepath.read_text(encoding="utf-8") == content
 
     @pytest.mark.unit
     def test_invalid_path(self, temp_dir: Path):

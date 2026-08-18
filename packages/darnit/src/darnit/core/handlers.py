@@ -101,7 +101,7 @@ class TemplateInfo:
     def load_content(self) -> str:
         """Load template content from file."""
         if self.content is None:
-            self.content = self.path.read_text()
+            self.content = self.path.read_text(encoding="utf-8")
         return self.content
 
 
