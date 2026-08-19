@@ -1,4 +1,4 @@
-[framework]
+[metadata]
 name = "gittuf"
 display_name = "Gittuf Policy Checks"
 version = "0.1.0"
