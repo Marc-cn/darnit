@@ -144,6 +144,31 @@ def _get_framework_config_path(framework_name: str | None = None) -> Path | None
     return None
 
 
+def _load_merged_mcp_servers(
+    local_path: str, framework_name: str | None
+) -> dict[str, Any]:
+    """Return the merged ``mcp_servers`` allowlist for this audit run.
+
+    Composes the framework TOML's block with any ``.baseline.toml``
+    overrides via the standard :func:`merge_configs` rule (per-name
+    replacement, spec FR-016). Returns an empty dict when no framework
+    is resolved or neither surface declares any servers.
+    """
+    from darnit.config import (
+        load_framework_config,
+        load_user_config,
+        merge_configs,
+    )
+
+    framework_path = _get_framework_config_path(framework_name)
+    if not framework_path:
+        return {}
+    framework = load_framework_config(framework_path)
+    user = load_user_config(Path(local_path))
+    effective = merge_configs(framework, user)
+    return dict(effective.mcp_servers)
+
+
 def load_effective_audit_config(local_path: str, framework_name: str | None = None) -> Any | None:
     """Load the effective configuration for auditing.
 
@@ -427,6 +452,19 @@ def run_sieve_audit(
         repo=repo,
         local_path=local_path,
     )
+
+    # Feature 031: populate the MCP-server allowlist on the execution
+    # context so the sieve orchestrator can lazy-construct the pool when
+    # a control's pass references `handler = "mcp"`. Failure to load
+    # merged config here is non-fatal -- audits that don't use MCP
+    # simply see an empty allowlist and any mcp handler pass resolves
+    # ERROR ("unknown MCP server: ...") at dispatch time.
+    try:
+        execution_context.mcp_servers = _load_merged_mcp_servers(
+            local_path, resolved_fw
+        )
+    except Exception as err:  # noqa: BLE001 - config load must not break audit
+        logger.debug("MCP allowlist load failed (non-fatal): %s", err)
     all_results: list[CheckResult] = []
 
     # Build project_context once for all controls.

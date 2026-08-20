@@ -33,6 +33,18 @@ from .handler_registry import (
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# Feature 031: mcp handler constants
+# =============================================================================
+
+MCP_DEFAULT_TIMEOUT_SECONDS: float = 60.0
+"""Per-call timeout for `handler = "mcp"` passes when the pass omits `timeout`.
+
+Spec FR-002 (clarified 2026-08-16). Individual passes MAY override via
+``timeout = <seconds>``. Kept as a module constant so tests can monkeypatch
+it without stubbing the whole handler.
+"""
+
 
 # =============================================================================
 # Verification Handlers
@@ -942,6 +954,254 @@ def yaml_inject_handler(config: dict[str, Any], context: HandlerContext) -> Hand
 
 
 # =============================================================================
+# Feature 031: mcp handler
+# =============================================================================
+
+
+def mcp_handler(config: dict[str, Any], context: HandlerContext) -> HandlerResult:
+    """Call a tool on an allowlisted MCP server and evaluate ``expr`` over ``result.*``.
+
+    Config fields:
+        server: Name of an allowlisted ``[mcp_servers.<name>]`` block.
+        tool: Name of the tool to invoke on that server.
+        args: Dict of tool arguments; ``$OWNER``, ``$REPO``, ``$BRANCH``,
+            and ``$PATH`` placeholders in string values are substituted
+            from the ``HandlerContext``.
+        expr: Optional CEL expression evaluated over ``{"result": <response>}``.
+            When absent, PASS iff the tool returned successfully.
+        timeout: Optional per-call timeout override in seconds. Defaults
+            to :data:`MCP_DEFAULT_TIMEOUT_SECONDS`.
+
+    Emits :class:`HandlerResult` per the failure-mode table in
+    ``docs/architecture/feature-031/mcp-handler-contract.md``. Does NOT
+    emit the ``dispatching_mcp`` progress line -- the orchestrator's
+    dispatch site owns that so ``[N/M]`` counter state is available.
+    """
+    server_name = config.get("server")
+    tool_name = config.get("tool")
+    args = dict(config.get("args") or {})
+    expr = config.get("expr")
+    timeout = float(config.get("timeout", MCP_DEFAULT_TIMEOUT_SECONDS))
+
+    if not isinstance(server_name, str) or not server_name:
+        return HandlerResult(
+            status=HandlerResultStatus.ERROR,
+            message="mcp handler pass missing 'server' field",
+        )
+    if not isinstance(tool_name, str) or not tool_name:
+        return HandlerResult(
+            status=HandlerResultStatus.ERROR,
+            message="mcp handler pass missing 'tool' field",
+        )
+
+    pool = context.mcp_pool
+    if pool is None:
+        return HandlerResult(
+            status=HandlerResultStatus.ERROR,
+            message="mcp handler invoked without pool wiring (internal error)",
+        )
+
+    server_config = _lookup_mcp_server(context, server_name)
+    substituted_args = _substitute_mcp_args(args, context)
+
+    import time as _time
+
+    from .mcp_pool import (
+        McpServerBinaryMissing,
+        McpServerHandshakeFailed,
+        McpServerUnusable,
+        McpServerVerificationFailed,
+        McpToolError,
+        McpToolResponseNotJson,
+        McpToolTimeout,
+        UnknownMcpServer,
+    )
+
+    call_start = _time.time()
+    error_info: tuple[HandlerResultStatus, str] | None = None
+    raw_response: dict[str, Any] | None = None
+    trust_label: str
+
+    try:
+        raw_response = pool.call_tool(server_name, tool_name, substituted_args, timeout)
+    except UnknownMcpServer as err:
+        error_info = (HandlerResultStatus.ERROR, str(err))
+    except McpServerBinaryMissing as err:
+        # optional=true (default) -> INCONCLUSIVE; optional=false -> FAIL
+        optional = True
+        if server_config is not None:
+            optional = bool(getattr(server_config, "optional", True))
+        status = HandlerResultStatus.INCONCLUSIVE if optional else HandlerResultStatus.FAIL
+        message = str(err) if optional else f"Required MCP server binary not found. {err}"
+        error_info = (status, message)
+    except McpServerVerificationFailed as err:
+        error_info = (HandlerResultStatus.ERROR, str(err))
+    except McpServerHandshakeFailed as err:
+        # Contract: INCONCLUSIVE by default; FAIL when the operator marked
+        # the server as required (optional=false).
+        optional = True
+        if server_config is not None:
+            optional = bool(getattr(server_config, "optional", True))
+        status = HandlerResultStatus.INCONCLUSIVE if optional else HandlerResultStatus.FAIL
+        error_info = (status, str(err))
+    except McpServerUnusable as err:
+        # Broken twice -- treat like an unusable binary: INCONCLUSIVE unless
+        # the operator marked the server required (optional=false), then FAIL.
+        optional = True
+        if server_config is not None:
+            optional = bool(getattr(server_config, "optional", True))
+        status = HandlerResultStatus.INCONCLUSIVE if optional else HandlerResultStatus.FAIL
+        error_info = (status, str(err))
+    except McpToolTimeout as err:
+        error_info = (HandlerResultStatus.ERROR, str(err))
+    except McpToolError as err:
+        error_info = (HandlerResultStatus.ERROR, str(err))
+    except McpToolResponseNotJson as err:
+        error_info = (HandlerResultStatus.ERROR, str(err))
+    except Exception as err:  # noqa: BLE001 - final safety net
+        error_info = (
+            HandlerResultStatus.ERROR,
+            f"MCP handler unexpected error: {type(err).__name__}: {err}",
+        )
+
+    elapsed_ms = int((_time.time() - call_start) * 1000)
+
+    if server_config is not None:
+        trust_label = (
+            "sigstore-verified"
+            if getattr(server_config, "trusted_publisher", None)
+            else "operator-trusted-path"
+        )
+    else:
+        trust_label = "operator-trusted-path"
+
+    session = pool._sessions.get(server_name) if hasattr(pool, "_sessions") else None
+    if session is not None:
+        trust_label = session.trust_label
+
+    if error_info is not None:
+        status, message = error_info
+        invocation_record = {
+            "server": server_name,
+            "tool": tool_name,
+            "args_after_substitution": substituted_args,
+            "error": message,
+            "trust_label": trust_label,
+            "elapsed_ms": elapsed_ms,
+        }
+        evidence: dict[str, Any] = {"mcp_calls": [invocation_record]}
+        return HandlerResult(status=status, message=message, evidence=evidence)
+
+    assert raw_response is not None
+    invocation_record = {
+        "server": server_name,
+        "tool": tool_name,
+        "args_after_substitution": substituted_args,
+        "raw_response": raw_response,
+        "trust_label": trust_label,
+        "elapsed_ms": elapsed_ms,
+    }
+    evidence = {"mcp_calls": [invocation_record], "result": raw_response}
+
+    if expr:
+        cel_ok, cel_value, cel_error = _eval_cel_over_result(expr, raw_response)
+        if not cel_ok:
+            return HandlerResult(
+                status=HandlerResultStatus.ERROR,
+                message=f"MCP expr evaluation failed: {cel_error}",
+                evidence=evidence,
+            )
+        if cel_value:
+            return HandlerResult(
+                status=HandlerResultStatus.PASS,
+                message=f"MCP {server_name}.{tool_name} expr matched",
+                confidence=1.0,
+                evidence=evidence,
+            )
+        return HandlerResult(
+            status=HandlerResultStatus.FAIL,
+            message=f"MCP {server_name}.{tool_name} expr did not match",
+            evidence=evidence,
+        )
+
+    # No expr -> presence of a successful tool response is PASS.
+    return HandlerResult(
+        status=HandlerResultStatus.PASS,
+        message=f"MCP {server_name}.{tool_name} returned successfully",
+        confidence=1.0,
+        evidence=evidence,
+    )
+
+
+def _lookup_mcp_server(context: HandlerContext, server_name: str) -> Any | None:
+    """Return the ``McpServerConfig`` for ``server_name`` on the exec context, if any."""
+    execution_context = context.execution_context
+    if execution_context is None:
+        return None
+    servers = getattr(execution_context, "mcp_servers", None)
+    if not isinstance(servers, dict):
+        return None
+    return servers.get(server_name)
+
+
+def _substitute_mcp_args(args: dict[str, Any], context: HandlerContext) -> dict[str, Any]:
+    """Substitute ``$OWNER``/``$REPO``/``$BRANCH``/``$PATH`` in string values."""
+    replacements = {
+        "OWNER": context.owner or "",
+        "REPO": context.repo or "",
+        "BRANCH": context.default_branch or "main",
+        "PATH": context.local_path or "",
+    }
+    out: dict[str, Any] = {}
+    for key, value in args.items():
+        if isinstance(value, str):
+            out[key] = _apply_replacements(value, replacements)
+        else:
+            out[key] = value
+    return out
+
+
+def _apply_replacements(template: str, replacements: dict[str, str]) -> str:
+    result: list[str] = []
+    i = 0
+    while i < len(template):
+        ch = template[i]
+        if ch == "$" and i + 1 < len(template):
+            end = i + 1
+            while end < len(template) and (template[end].isalnum() or template[end] == "_"):
+                end += 1
+            if end > i + 1:
+                name = template[i + 1 : end]
+                if name in replacements:
+                    result.append(replacements[name])
+                    i = end
+                    continue
+        result.append(ch)
+        i += 1
+    return "".join(result)
+
+
+def _eval_cel_over_result(
+    expr: str, raw_response: dict[str, Any]
+) -> tuple[bool, Any, str | None]:
+    """Evaluate ``expr`` against ``{"result": raw_response}``.
+
+    Returns ``(ok, value, error)``. ``ok=False`` means evaluation itself
+    failed (surface as ERROR); ``ok=True`` means it produced a value that
+    the caller interprets as truthy/falsy.
+    """
+    try:
+        from .cel_evaluator import evaluate_cel
+    except Exception as err:  # noqa: BLE001 - CEL evaluator import surprise
+        return False, None, f"CEL evaluator unavailable: {err}"
+
+    cel_result = evaluate_cel(expr, {"result": raw_response})
+    if not cel_result.success:
+        return False, None, str(cel_result.error)
+    return True, cel_result.value, None
+
+
+# =============================================================================
 # Registration
 # =============================================================================
 
@@ -1014,6 +1274,17 @@ def register_builtin_handlers() -> None:
         handler_fn=manual_steps_handler,
         description="Alias for manual_steps handler (human verification checklist)",
         default_authority="asserted",
+    )
+    # Feature 031: external MCP server as observation source. Dispositive
+    # because the tool observes ground truth (a real subprocess reports
+    # its state); the trust label separately surfaces whether the binary
+    # was Sigstore-verified or operator-trusted-on-PATH.
+    registry.register(
+        "mcp",
+        phase="deterministic",
+        handler_fn=mcp_handler,
+        description="Call a tool on an external MCP server; evaluate CEL over result.*",
+        default_authority="dispositive",
     )
 
     # Remediation handlers

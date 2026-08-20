@@ -98,6 +98,14 @@ class ExecutionContext:
     # Already-computed check results
     cached_results: dict[str, CheckResult] = field(default_factory=dict)
 
+    # Feature 031: allowlist of external MCP servers (merged framework +
+    # `.baseline.toml`, per-name replacement) available to the built-in
+    # ``mcp`` sieve handler. Values are ``McpServerConfig`` instances but
+    # typed as ``Any`` here to avoid a config->core import cycle. Empty
+    # dict is the pre-feature default -- audits that never consult an
+    # MCP server pay zero cost.
+    mcp_servers: dict[str, Any] = field(default_factory=dict)
+
     # Threading locks
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _tool_locks: dict[str, threading.Lock] = field(default_factory=dict, init=False, repr=False)

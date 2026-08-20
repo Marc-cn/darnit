@@ -44,6 +44,7 @@ from .framework_schema import (
     CheckConfig,
     ControlConfig,
     HandlerInvocation,
+    McpServerConfig,
     RemediationConfig,
 )
 
@@ -256,6 +257,11 @@ class UserConfig(BaseModel):
 
     # Control groups for batch configuration
     control_groups: dict[str, ControlGroup] = Field(default_factory=dict)
+
+    # Per-fleet MCP-server allowlist entries. Keys here fully replace the
+    # framework's ``[mcp_servers.<name>]`` block of the same name at merge
+    # time (spec FR-016); disjoint names coexist.
+    mcp_servers: dict[str, McpServerConfig] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="allow")
 

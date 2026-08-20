@@ -1,5 +1,6 @@
 """Sieve orchestrator - runs verification passes in order."""
 
+import logging
 import time
 from enum import Enum
 from typing import Any
@@ -27,6 +28,11 @@ from .models import (
 )
 
 logger = get_logger("sieve.orchestrator")
+
+# ``darnit.harness`` logger is where feature 026 emits ``dispatching_llm``
+# INFO progress lines; feature 031 emits its ``dispatching_mcp`` twin on
+# the same logger so a harness watcher subscribes to one channel for both.
+_harness_logger = logging.getLogger("darnit.harness")
 
 
 # =============================================================================
@@ -236,6 +242,10 @@ class SieveOrchestrator:
         self._shared_cache: dict[str, HandlerResult] = {}
         # Dependency results: keyed by control ID, populated as controls are verified
         self._dependency_results: dict[str, SieveResult] = {}
+        # MCP client-session pool. Constructed lazily on the first dispatch
+        # that references ``handler = "mcp"``; torn down in
+        # ``verify_batch``'s finally block or on ``reset_caches``.
+        self._mcp_pool: Any | None = None
 
     def reset_caches(self) -> None:
         """Reset shared handler cache and dependency results.
@@ -244,6 +254,12 @@ class SieveOrchestrator:
         """
         self._shared_cache.clear()
         self._dependency_results.clear()
+        if self._mcp_pool is not None:
+            try:
+                self._mcp_pool.teardown_all()
+            except Exception as err:  # noqa: BLE001 - best-effort teardown
+                logger.warning("MCP pool teardown during reset raised: %s", err)
+            self._mcp_pool = None
 
     def _evaluate_when(self, control_spec: ControlSpec, context: CheckContext) -> bool:
         """Evaluate when clause for conditional applicability.
@@ -366,6 +382,29 @@ class SieveOrchestrator:
                 # Build handler config from invocation's extra fields
                 handler_config = dict(invocation.model_extra or {})
                 handler_config["handler"] = invocation.handler
+
+                # Feature 031: for the built-in mcp handler, lazily
+                # construct the pool, assign it to the HandlerContext, and
+                # emit the [N/M] dispatching_mcp progress line on the
+                # darnit.harness logger BEFORE the handler runs. Emission
+                # here (not inside the handler) mirrors feature 026's
+                # dispatching_llm pattern and gives us the (idx, total)
+                # counter from the enumerate loop directly.
+                if invocation.handler == "mcp":
+                    if self._mcp_pool is None:
+                        self._mcp_pool = _build_mcp_pool(handler_ctx)
+                    handler_ctx.mcp_pool = self._mcp_pool
+                    server = handler_config.get("server", "?")
+                    tool_name = handler_config.get("tool", "?")
+                    total = len(handler_invocations)
+                    _harness_logger.info(
+                        "[%d/%d] %s dispatching_mcp %s.%s",
+                        pass_index + 1,
+                        total,
+                        control_spec.control_id,
+                        server,
+                        tool_name,
+                    )
 
                 start_time = time.time()
                 try:
@@ -712,12 +751,24 @@ class SieveOrchestrator:
         # Resolve execution order
         ordered = _resolve_execution_order(control_specs)
 
-        # Execute in dependency order, collect results
+        # Execute in dependency order, collect results. The finally block
+        # guarantees the MCP pool (if any was constructed) is torn down on
+        # every exit path -- success, exception, or interrupt.
         result_map: dict[str, SieveResult] = {}
-        for spec in ordered:
-            context = context_factory(spec.control_id)
-            result = self.verify(spec, context)
-            result_map[spec.control_id] = result
+        try:
+            for spec in ordered:
+                context = context_factory(spec.control_id)
+                result = self.verify(spec, context)
+                result_map[spec.control_id] = result
+        finally:
+            if self._mcp_pool is not None:
+                try:
+                    self._mcp_pool.teardown_all()
+                except Exception as err:  # noqa: BLE001 - best-effort teardown
+                    logger.warning(
+                        "MCP pool teardown at verify_batch exit raised: %s", err
+                    )
+                self._mcp_pool = None
 
         # Return in original order
         return [result_map[spec.control_id] for spec in control_specs if spec.control_id in result_map]
@@ -787,6 +838,25 @@ class SieveOrchestrator:
 # =============================================================================
 # Module-level helpers
 # =============================================================================
+
+
+def _build_mcp_pool(handler_ctx: HandlerContext) -> Any:
+    """Construct a per-run :class:`McpPool` seeded from the execution context.
+
+    The execution context (assigned by the audit entrypoint) carries an
+    ``mcp_servers`` mapping when the effective configuration declared any.
+    An audit run that never encounters an mcp-handler pass never reaches
+    this function, so the pool cost stays zero for existing consumers.
+    """
+    from .mcp_pool import McpPool
+
+    servers: dict[str, Any] = {}
+    execution_context = handler_ctx.execution_context
+    if execution_context is not None:
+        maybe = getattr(execution_context, "mcp_servers", None)
+        if isinstance(maybe, dict):
+            servers = maybe
+    return McpPool(servers=servers)
 
 
 def _handler_status_to_outcome(status: HandlerResultStatus) -> PassOutcome:

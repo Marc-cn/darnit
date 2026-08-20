@@ -112,6 +112,11 @@ class HandlerContext:
     shared_cache: dict[str, HandlerResult] = field(default_factory=dict)
     dependency_results: dict[str, Any] = field(default_factory=dict)
     execution_context: Any | None = None
+    # Feature 031: assigned by the orchestrator's dispatch site when the
+    # invocation targets the built-in ``mcp`` handler. None for every
+    # other handler kind. A ``None`` value inside the mcp handler
+    # indicates a plumbing bug and MUST resolve the pass ERROR.
+    mcp_pool: Any | None = None
 
 
 # Handler callable signature: (config, context) -> HandlerResult
