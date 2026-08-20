@@ -13,6 +13,25 @@ tuple; the pool maps that to :class:`McpServerVerificationFailed`, which
 the handler resolves ERROR. There is NO code path from verification failure
 to PASS.
 
+Bundle shapes supported:
+
+1. Direct-artifact signatures (``cosign sign-blob`` output, GitHub
+   Actions' Sigstore action against a binary artifact). Verification
+   uses :func:`sigstore.verify.Verifier.verify_artifact` with the
+   binary's precomputed SHA-256, which binds the signature to the
+   bytes on disk.
+2. DSSE-wrapped in-toto attestations (the GoReleaser / SLSA shape).
+   Verification uses :func:`Verifier.verify_dsse` and then checks that
+   at least one ``subject[].digest.sha256`` in the returned statement
+   equals the binary's SHA-256. Without this second check, any valid
+   bundle from the trusted publisher's workflow would pass regardless
+   of which binary sat beside it.
+
+Direct-artifact is tried first because it is the cheaper and more
+directly bound shape; DSSE fallback runs only when the bundle is not a
+direct signature. Both paths reject a bundle whose subject digest does
+not match the on-disk binary.
+
 Alternatives considered:
 
 * Fetching a transparency-log attestation by SHA-256 at spawn time was
@@ -25,6 +44,8 @@ Alternatives considered:
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from pathlib import Path
 
@@ -42,10 +63,11 @@ def verify(binary_path: Path, trusted_publisher: str) -> tuple[bool, str]:
 
     Returns:
         ``(True, reason)`` if verification succeeds against a policy
-        derived from ``trusted_publisher``; ``(False, reason)`` on any
-        failure -- missing sidecar, malformed bundle, sigstore SDK not
-        installed, or policy mismatch. The pool never sees an exception
-        from this function.
+        derived from ``trusted_publisher`` AND the bundle is bound to
+        the on-disk binary bytes; ``(False, reason)`` on any failure --
+        missing sidecar, malformed bundle, unbound signature, sigstore
+        SDK not installed, or policy mismatch. The pool never sees an
+        exception from this function.
     """
     sidecar = _find_sidecar(binary_path)
     if sidecar is None:
@@ -55,6 +77,8 @@ def verify(binary_path: Path, trusted_publisher: str) -> tuple[bool, str]:
         )
 
     try:
+        from sigstore._utils import HashAlgorithm  # type: ignore[import-not-found]
+        from sigstore.hashes import Hashed  # type: ignore[import-not-found]
         from sigstore.models import Bundle  # type: ignore[import-not-found]
         from sigstore.verify import Verifier  # type: ignore[import-not-found]
         from sigstore.verify.policy import (  # type: ignore[import-not-found]
@@ -79,13 +103,81 @@ def verify(binary_path: Path, trusted_publisher: str) -> tuple[bool, str]:
         )
 
     try:
+        binary_bytes = binary_path.read_bytes()
+    except OSError as err:
+        return False, f"Sigstore verification failed: cannot read {binary_path}: {err}"
+    binary_sha256 = hashlib.sha256(binary_bytes).digest()
+    binary_sha256_hex = binary_sha256.hex()
+
+    try:
         policy = GitHubWorkflowRepository(repo_ref)
         verifier = Verifier.production()
-        verifier.verify_dsse(bundle, policy)
-    except Exception as err:  # noqa: BLE001 - sigstore raises assorted subclasses
+    except Exception as err:  # noqa: BLE001
         return False, f"Sigstore verification failed: {err}"
 
-    return True, f"verified against {trusted_publisher}"
+    # Path A: direct-artifact signature. verify_artifact binds the
+    # signature to the SHA-256 digest we hand it, so a substituted
+    # binary produces a mismatch here rather than a false accept.
+    hashed = Hashed(algorithm=HashAlgorithm.SHA2_256, digest=binary_sha256)
+    try:
+        verifier.verify_artifact(hashed, bundle, policy)
+        return True, (
+            f"verified against {trusted_publisher} "
+            f"(direct-artifact signature; sha256={binary_sha256_hex[:16]}...)"
+        )
+    except Exception as artifact_err:  # noqa: BLE001 - fall through to DSSE
+        artifact_reason = str(artifact_err)
+
+    # Path B: DSSE-wrapped attestation. verify_dsse returns the payload;
+    # we still have to check that the attested subject is our binary.
+    try:
+        payload_type, payload = verifier.verify_dsse(bundle, policy)
+    except Exception as dsse_err:  # noqa: BLE001
+        return False, (
+            f"Sigstore verification failed for both paths: "
+            f"direct-artifact ({artifact_reason}); "
+            f"DSSE ({dsse_err})"
+        )
+
+    if payload_type != "application/vnd.in-toto+json":
+        return False, (
+            f"Sigstore verification failed: DSSE payload type "
+            f"{payload_type!r} is not an in-toto statement"
+        )
+
+    try:
+        statement = json.loads(payload)
+    except json.JSONDecodeError as err:
+        return False, (
+            f"Sigstore verification failed: in-toto statement not JSON: {err}"
+        )
+
+    subjects = statement.get("subject") or []
+    if not isinstance(subjects, list) or not subjects:
+        return False, (
+            "Sigstore verification failed: in-toto statement declares no "
+            "subject; cannot bind attestation to this binary"
+        )
+
+    for subject in subjects:
+        if not isinstance(subject, dict):
+            continue
+        digest_map = subject.get("digest")
+        if not isinstance(digest_map, dict):
+            continue
+        candidate = digest_map.get("sha256")
+        if isinstance(candidate, str) and candidate.lower() == binary_sha256_hex:
+            return True, (
+                f"verified against {trusted_publisher} "
+                f"(DSSE in-toto attestation; sha256={binary_sha256_hex[:16]}...)"
+            )
+
+    return False, (
+        "Sigstore verification failed: DSSE attestation is valid but no "
+        f"subject.digest.sha256 matches the on-disk binary "
+        f"(binary sha256={binary_sha256_hex[:16]}...); attestation may "
+        "cover a different artifact"
+    )
 
 
 # ---------------------------------------------------------------------------

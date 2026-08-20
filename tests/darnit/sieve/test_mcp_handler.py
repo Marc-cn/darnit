@@ -581,6 +581,51 @@ def test_handshake_failure_produces_inconclusive_no_evidence(tmp_path, mcp_count
     assert "raw_response" not in call
 
 
+# ---------------------------------------------------------------------------
+# Regression: captured sys.stderr must not break subprocess spawn
+# ---------------------------------------------------------------------------
+
+
+def test_pool_survives_captured_sys_stderr(
+    tmp_path, mock_mcp_server_command, mcp_counter_file, request, monkeypatch
+):
+    """PR #380 review finding 3.
+
+    ``mcp.client.stdio.stdio_client`` binds its ``errlog=sys.stderr``
+    default at module-import time. Under pytest, if the mcp module was
+    first imported while a capsys-active test held ``sys.stderr``
+    replaced with a non-fd stream, every subsequent spawn raised
+    ``io.UnsupportedOperation: fileno``. Simulate that state directly
+    (a stderr stream without a working ``fileno()``) and confirm the
+    pool still spawns cleanly.
+    """
+    import io as _io
+
+    class _NoFilenoStream(_io.StringIO):
+        def fileno(self):
+            raise _io.UnsupportedOperation("fileno")
+
+    monkeypatch.setattr("sys.stderr", _NoFilenoStream())
+
+    pool, ctx = _make_pool_and_ctx(
+        tmp_path, mock_mcp_server_command, mcp_counter_file
+    )
+    request.addfinalizer(pool.teardown_all)
+
+    result = mcp_handler(
+        {
+            "server": "mock",
+            "tool": "get_score",
+            "args": {},
+            "expr": "result.score >= 7.0",
+        },
+        ctx,
+    )
+    assert result.status == HandlerResultStatus.PASS, (
+        f"handler said {result.status}: {result.message}"
+    )
+
+
 def test_progress_log_line_emitted(
     tmp_path, mock_mcp_server_command, mcp_counter_file, caplog, request
 ):

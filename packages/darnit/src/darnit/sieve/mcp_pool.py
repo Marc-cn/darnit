@@ -145,10 +145,19 @@ class _LoopBridge:
     The pool submits coroutines here so stdio-client subprocesses stay
     alive across successive sync ``call_tool`` invocations. Kept private
     to this module; not part of the reader contract.
+
+    Thread-ownership contract: the loop MUST be constructed inside the
+    runner thread, not the calling thread. On POSIX, asyncio's child
+    watcher (used for subprocess pipe management) binds to the thread
+    that CREATED the loop. If the creating thread had an existing loop
+    with an incompatible watcher (a common state after other tests
+    exercise asyncio in the calling thread), stdio-subprocess spawn
+    fails inside anyio with the tell-tale ``fileno`` error. Creating
+    the loop in the runner side-steps that entirely.
     """
 
     def __init__(self) -> None:
-        self._loop = asyncio.new_event_loop()
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._ready = threading.Event()
         self._thread = threading.Thread(
             target=self._runner,
@@ -156,20 +165,24 @@ class _LoopBridge:
             daemon=True,
         )
         self._thread.start()
+        # Block until _runner has set self._loop AND started run_forever.
         self._ready.wait()
 
     def _runner(self) -> None:
-        asyncio.set_event_loop(self._loop)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        self._loop = loop
         self._ready.set()
         try:
-            self._loop.run_forever()
+            loop.run_forever()
         finally:
             try:
-                self._loop.close()
+                loop.close()
             except Exception:  # noqa: BLE001 - shutdown best-effort
                 pass
 
     def run(self, coro: Any, timeout: float | None = None) -> Any:
+        assert self._loop is not None, "bridge not ready"
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         try:
             return future.result(timeout=timeout)
@@ -178,9 +191,10 @@ class _LoopBridge:
             raise McpToolTimeout(f"MCP call exceeded {timeout:g}s") from err
 
     def close(self) -> None:
-        if not self._loop.is_running():
+        loop = self._loop
+        if loop is None or not loop.is_running():
             return
-        self._loop.call_soon_threadsafe(self._loop.stop)
+        loop.call_soon_threadsafe(loop.stop)
         self._thread.join(timeout=5)
 
 
@@ -385,6 +399,13 @@ class McpPool:
 
         env = self.build_child_env(config)
 
+        # Close a PATH TOCTOU: exec the resolved absolute path we
+        # verified above, not the caller's relative command name. If we
+        # handed StdioServerParameters `command[0]` unchanged, the OS
+        # would re-resolve PATH at exec time and could pick up a
+        # different binary than the one we hashed / Sigstore-verified.
+        exec_command = [str(binary_path), *command[1:]]
+
         # Ensure the bridge loop is running before we schedule the owner
         # task on it.
         if self._bridge is None:
@@ -396,7 +417,7 @@ class McpPool:
         async def _run_session_owner() -> None:
             shutdown = asyncio.Event()
             try:
-                session, _stack = await _open_session_async(command, env)
+                session, _stack = await _open_session_async(exec_command, env)
             except Exception as err:  # noqa: BLE001 -- surface to caller
                 ready_future.set_exception(err)
                 return
@@ -542,12 +563,48 @@ async def _open_session_async(
 
     params = StdioServerParameters(command=command[0], args=command[1:], env=env)
 
+    # Resolve child stderr at call time, not at mcp-module-import time.
+    # ``stdio_client`` binds its ``errlog=sys.stderr`` default when the
+    # mcp module first loads; if that happened inside a pytest capsys
+    # context, the captured stream lacks a ``fileno()`` and every
+    # subsequent subprocess spawn raises ``io.UnsupportedOperation``.
+    # Pick a stream that always has a valid OS-level fd.
+    errlog = _resolve_child_stderr()
+
     stack = AsyncExitStack()
-    streams = await stack.enter_async_context(stdio_client(params))
+    streams = await stack.enter_async_context(stdio_client(params, errlog=errlog))
     read, write = streams
     session = await stack.enter_async_context(ClientSession(read, write))
     await session.initialize()
     return session, stack
+
+
+def _resolve_child_stderr() -> Any:
+    """Return a stderr stream the child subprocess can inherit.
+
+    Preference order:
+
+    1. ``sys.stderr`` if it exposes a working ``fileno()`` -- normal case
+       for CLI and interactive runs.
+    2. ``sys.__stderr__`` (the original pre-capture stderr) if usable.
+    3. ``os.devnull`` opened for write as a last resort.
+    """
+    for candidate in (sys.stderr, sys.__stderr__):
+        if candidate is None:
+            continue
+        fileno = getattr(candidate, "fileno", None)
+        if not callable(fileno):
+            continue
+        try:
+            fileno()
+        except (OSError, ValueError):
+            continue
+        return candidate
+    # Fall back to devnull so the subprocess still gets a valid fd for
+    # its stderr. The caller MUST NOT close this stream; the AsyncExitStack
+    # is not responsible for it, but the fd leak is bounded to one per
+    # spawn and the OS reclaims it on process exit.
+    return open(os.devnull, "w")  # noqa: SIM115 - lifetime tied to child
 
 
 __all__ = [
