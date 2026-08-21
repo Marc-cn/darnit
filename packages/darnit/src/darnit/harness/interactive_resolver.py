@@ -71,7 +71,7 @@ class InteractiveTerminalResolver:
             from darnit.harness.driver import HarnessSetupError
 
             try:
-                self._tty = open("/dev/tty", "r+", buffering=1)  # noqa: SIM115
+                self._tty = open("/dev/tty", "r+", buffering=1, encoding="utf-8")  # noqa: SIM115
             except OSError as exc:
                 raise HarnessSetupError(
                     "interactive channel unavailable (/dev/tty not openable): "

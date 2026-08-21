@@ -141,7 +141,7 @@ def discover_project_name(local_path: str) -> str | None:
     try:
         pkg_path = os.path.join(local_path, "package.json")
         if os.path.exists(pkg_path):
-            with open(pkg_path) as f:
+            with open(pkg_path, encoding="utf-8") as f:
                 data = json.load(f)
                 if "name" in data:
                     return data["name"]
@@ -176,7 +176,7 @@ def discover_project_name(local_path: str) -> str | None:
     try:
         go_mod_path = os.path.join(local_path, "go.mod")
         if os.path.exists(go_mod_path):
-            with open(go_mod_path) as f:
+            with open(go_mod_path, encoding="utf-8") as f:
                 first_line = f.readline().strip()
                 if first_line.startswith("module "):
                     module_path = first_line[7:].strip()

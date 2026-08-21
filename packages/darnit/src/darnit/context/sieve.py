@@ -232,7 +232,7 @@ class ContextSieve:
             filepath = path / filename
             if filepath.exists():
                 try:
-                    content = filepath.read_text()
+                    content = filepath.read_text(encoding="utf-8")
                     maintainers = self._parse_maintainers_file(content)
                     if maintainers:
                         signals.append(ContextSignal(
@@ -251,7 +251,7 @@ class ContextSieve:
             filepath = path / codeowners_path
             if filepath.exists():
                 try:
-                    content = filepath.read_text()
+                    content = filepath.read_text(encoding="utf-8")
                     owners = self._parse_codeowners(content)
                     if owners:
                         signals.append(ContextSignal(
@@ -282,7 +282,7 @@ class ContextSieve:
         package_json = path / "package.json"
         if package_json.exists():
             try:
-                data = json.loads(package_json.read_text())
+                data = json.loads(package_json.read_text(encoding="utf-8"))
                 authors = []
 
                 # Get author
@@ -332,7 +332,7 @@ class ContextSieve:
 
             if tomllib:
                 try:
-                    data = tomllib.loads(pyproject.read_text())
+                    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
                     authors = []
 
                     # Get authors from [project] section
@@ -437,7 +437,7 @@ class ContextSieve:
             filepath = path / filename
             if filepath.exists():
                 try:
-                    content = filepath.read_text()
+                    content = filepath.read_text(encoding="utf-8")
                     contact = self._parse_security_contact(content)
                     if contact:
                         signals.append(ContextSignal(
@@ -462,7 +462,7 @@ class ContextSieve:
             filepath = path / filename
             if filepath.exists():
                 try:
-                    content = filepath.read_text()
+                    content = filepath.read_text(encoding="utf-8")
                     # Look for security section
                     security_section = re.search(
                         r"(?:^|\n)#+\s*Security[^\n]*\n([\s\S]*?)(?=\n#+|\Z)",
@@ -498,7 +498,7 @@ class ContextSieve:
             filepath = path / filename
             if filepath.exists():
                 try:
-                    content = filepath.read_text()
+                    content = filepath.read_text(encoding="utf-8")
                     model = self._parse_governance_model(content)
                     if model:
                         signals.append(ContextSignal(

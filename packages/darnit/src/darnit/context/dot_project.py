@@ -364,7 +364,7 @@ class DotProjectReader:
             yaml = YAML()
             yaml.preserve_quotes = True
 
-            with open(self.project_yaml) as f:
+            with open(self.project_yaml, encoding="utf-8") as f:
                 data = yaml.load(f)
 
             if data is None:
@@ -405,7 +405,7 @@ class DotProjectReader:
             from ruamel.yaml import YAML
 
             yaml = YAML()
-            with open(self.maintainers_yaml) as f:
+            with open(self.maintainers_yaml, encoding="utf-8") as f:
                 data = yaml.load(f)
 
             if data is None:
@@ -905,7 +905,7 @@ class DotProjectWriter:
 
         # Read existing content or create new
         if self.project_yaml.exists():
-            with open(self.project_yaml) as f:
+            with open(self.project_yaml, encoding="utf-8") as f:
                 data = yaml.load(f)
             if data is None:
                 data = {}
@@ -918,7 +918,7 @@ class DotProjectWriter:
         self._deep_update(data, updates)
 
         # Write back
-        with open(self.project_yaml, "w") as f:
+        with open(self.project_yaml, "w", encoding="utf-8") as f:
             yaml.dump(data, f)
 
         logger.info("Updated .project/project.yaml")

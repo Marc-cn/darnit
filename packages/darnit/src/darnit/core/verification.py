@@ -223,7 +223,7 @@ class VerificationCache:
             return None
 
         try:
-            with open(cache_path) as f:
+            with open(cache_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Check expiration
@@ -298,7 +298,7 @@ class VerificationCache:
                 "version": version,
             }
 
-            with open(cache_path, "w") as f:
+            with open(cache_path, "w", encoding="utf-8") as f:
                 json.dump(data, f)
 
             logger.debug(f"Cached verification result for {package_name}:{version}")

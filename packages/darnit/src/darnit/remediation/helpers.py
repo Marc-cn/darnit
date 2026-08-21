@@ -50,7 +50,7 @@ def write_file_safe(path: str, content: str) -> tuple[bool, str]:
         Tuple of (success: bool, message: str)
     """
     try:
-        with open(path, 'w') as f:
+        with open(path, 'w', encoding="utf-8") as f:
             f.write(content)
         return True, f"Successfully wrote {path}"
     except OSError as e:

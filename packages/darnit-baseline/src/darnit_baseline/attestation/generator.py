@@ -135,7 +135,7 @@ def generate_attestation_from_results(
     # Save the attestation
     try:
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-        with open(output_path, 'w') as f:
+        with open(output_path, 'w', encoding="utf-8") as f:
             f.write(output)
         logger.info(f"Attestation saved to: {output_path}")
     except OSError as e:

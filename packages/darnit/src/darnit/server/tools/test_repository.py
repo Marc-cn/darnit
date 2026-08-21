@@ -55,7 +55,7 @@ def create_test_repository_impl(
   }
 }
 """
-    with open(os.path.join(repo_path, "package.json"), "w") as f:
+    with open(os.path.join(repo_path, "package.json"), "w", encoding="utf-8") as f:
         f.write(package_json)
 
     # Create src/index.js
@@ -67,7 +67,7 @@ console.log('');
 console.log('Run an OpenSSF Baseline audit to see what is missing:');
 console.log(chalk.cyan('  audit_openssf_baseline(local_path=".")'));
 """
-    with open(os.path.join(repo_path, "src", "index.js"), "w") as f:
+    with open(os.path.join(repo_path, "src", "index.js"), "w", encoding="utf-8") as f:
         f.write(index_js)
 
     # Create minimal .gitignore (intentionally missing security exclusions)
@@ -75,7 +75,7 @@ console.log(chalk.cyan('  audit_openssf_baseline(local_path=".")'));
 # This is MISSING important security exclusions!
 node_modules/
 """
-    with open(os.path.join(repo_path, ".gitignore"), "w") as f:
+    with open(os.path.join(repo_path, ".gitignore"), "w", encoding="utf-8") as f:
         f.write(gitignore)
 
     # Initialize git

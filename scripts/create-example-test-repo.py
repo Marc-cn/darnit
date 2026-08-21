@@ -71,7 +71,7 @@ name = "hygiene-test"
 version = "0.0.1"
 requires-python = ">=3.10"
 """
-    (repo_path / "pyproject.toml").write_text(pyproject)
+    (repo_path / "pyproject.toml").write_text(pyproject, encoding="utf-8")
 
     # -- src/main.py ----------------------------------------------------------
     main_py = """\
@@ -84,7 +84,7 @@ def main():
 if __name__ == "__main__":
     main()
 """
-    (repo_path / "src" / "main.py").write_text(main_py)
+    (repo_path / "src" / "main.py").write_text(main_py, encoding="utf-8")
 
     # -- .mcp.json (points back to darnit workspace) -------------------------
     mcp_config = {
@@ -103,7 +103,7 @@ if __name__ == "__main__":
             }
         }
     }
-    (repo_path / ".mcp.json").write_text(json.dumps(mcp_config, indent=2) + "\n")
+    (repo_path / ".mcp.json").write_text(json.dumps(mcp_config, indent=2) + "\n", encoding="utf-8")
 
     # -- CLAUDE.md (instructions for Claude Code) -----------------------------
     claude_md = """\
@@ -133,7 +133,7 @@ then fix each failing control.
 | PH-QA-01 | CONTRIBUTING.md |
 | PH-CI-01 | .github/workflows/*.yml |
 """
-    (repo_path / "CLAUDE.md").write_text(claude_md)
+    (repo_path / "CLAUDE.md").write_text(claude_md, encoding="utf-8")
 
     # -- Initialize git -------------------------------------------------------
     try:
@@ -209,42 +209,45 @@ def remediate_repo(repo_path_str: str) -> None:
     if not readme.exists():
         readme.write_text(
             "# hygiene-test-repo\n\n"
-            "A test project for the Project Hygiene Standard demo.\n"
+            "A test project for the Project Hygiene Standard demo.\n",
+            encoding="utf-8",
         )
         created.append("README.md")
 
     # PH-DOC-02: LICENSE
     license_file = repo_path / "LICENSE"
     if not license_file.exists():
-        license_file.write_text("MIT License - test project for demo purposes.\n")
+        license_file.write_text("MIT License - test project for demo purposes.\n", encoding="utf-8")
         created.append("LICENSE")
 
     # PH-SEC-01: SECURITY.md
     security = repo_path / "SECURITY.md"
     if not security.exists():
         security.write_text(
-            "# Security Policy\n\nTo report a vulnerability, open an issue.\n"
+            "# Security Policy\n\nTo report a vulnerability, open an issue.\n",
+            encoding="utf-8",
         )
         created.append("SECURITY.md")
 
     # PH-CFG-01: .gitignore
     gitignore = repo_path / ".gitignore"
     if not gitignore.exists():
-        gitignore.write_text("*.pyc\n__pycache__/\n")
+        gitignore.write_text("*.pyc\n__pycache__/\n", encoding="utf-8")
         created.append(".gitignore")
 
     # PH-CFG-02: .editorconfig
     editorconfig = repo_path / ".editorconfig"
     if not editorconfig.exists():
         editorconfig.write_text(
-            "root = true\n\n[*]\nindent_style = space\nindent_size = 4\n"
+            "root = true\n\n[*]\nindent_style = space\nindent_size = 4\n",
+            encoding="utf-8",
         )
         created.append(".editorconfig")
 
     # PH-QA-01: CONTRIBUTING.md
     contributing = repo_path / "CONTRIBUTING.md"
     if not contributing.exists():
-        contributing.write_text("# Contributing\n\nOpen a pull request.\n")
+        contributing.write_text("# Contributing\n\nOpen a pull request.\n", encoding="utf-8")
         created.append("CONTRIBUTING.md")
 
     # PH-CI-01: CI config
@@ -259,7 +262,8 @@ def remediate_repo(repo_path_str: str) -> None:
             "  check:\n"
             "    runs-on: ubuntu-latest\n"
             "    steps:\n"
-            "      - uses: actions/checkout@v4\n"
+            "      - uses: actions/checkout@v4\n",
+            encoding="utf-8",
         )
         created.append(".github/workflows/ci.yml")
 

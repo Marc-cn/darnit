@@ -429,7 +429,7 @@ timeout = 300
 # check = {{ adapter = "kusari" }}
 '''
 
-    baseline_path.write_text(template)
+    baseline_path.write_text(template, encoding="utf-8")
     logger.info(f"✓ Created {baseline_path}")
     return 0
 
@@ -570,7 +570,7 @@ def cmd_install(args: argparse.Namespace) -> int:
     config = {}
     if settings_path.exists():
         try:
-            config = json.loads(settings_path.read_text())
+            config = json.loads(settings_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in settings file: {settings_path}: {e}")
             return 1
@@ -594,7 +594,7 @@ def cmd_install(args: argparse.Namespace) -> int:
 
     try:
         json.dumps(config)  # validate before write
-        settings_path.write_text(json.dumps(config, indent=2) + "\n")
+        settings_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     except Exception as e:
         logger.error(f"Failed to write settings file: {e}")
         return 1
@@ -765,7 +765,7 @@ def cmd_harness(args: argparse.Namespace) -> int:
             )
             return int(HarnessExitCode.SETUP_ERROR)
         try:
-            _tty_probe = open("/dev/tty", "r+", buffering=1)  # noqa: SIM115
+            _tty_probe = open("/dev/tty", "r+", buffering=1, encoding="utf-8")  # noqa: SIM115
             _tty_probe.close()
         except OSError as exc:
             _emit_exit_summary(
