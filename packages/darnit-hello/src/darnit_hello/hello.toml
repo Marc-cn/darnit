@@ -13,7 +13,7 @@
 # Framework identity. Mirrors what HelloImplementation reports via its
 # `name`, `display_name`, `version`, and `spec_version` properties.
 # -----------------------------------------------------------------------------
-[framework]
+[metadata]
 name = "hello"
 display_name = "Hello — Minimal Darnit Plugin"
 version = "0.1.0"
