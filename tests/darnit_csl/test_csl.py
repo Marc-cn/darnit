@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from darnit_csl import get_framework_path, register
 from darnit_csl.implementation import CommunitySpecImplementation
+
+pytestmark = pytest.mark.unit
 
 # ---------------------------------------------------------------------------
 # Plugin protocol + TOML validity
