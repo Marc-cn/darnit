@@ -42,6 +42,7 @@ def csl_llm_if_present(config: dict[str, Any], context: HandlerContext) -> Handl
     return HandlerResult(
         status=HandlerResultStatus.FAIL,
         message="Required file is missing.",
+        authority="dispositive",
     )
 
 
@@ -50,4 +51,5 @@ get_sieve_handler_registry().register(
     phase="llm",
     handler_fn=csl_llm_if_present,
     description="Fail if the target file is missing; otherwise defer to the LLM content check.",
+    default_authority="suggestive",
 )
