@@ -30,7 +30,7 @@ def get_framework_path() -> Path:
         [project.entry-points."darnit.frameworks"]
         community-spec = "darnit_csl:get_framework_path"
     """
-    return Path(__file__).parent / "community-spec.toml"
+    return CommunitySpecImplementation().get_framework_config_path()
 
 
 def get_optional_framework_path() -> Path:
@@ -44,7 +44,17 @@ def get_optional_framework_path() -> Path:
         [project.entry-points."darnit.frameworks"]
         community-spec-optional = "darnit_csl:get_optional_framework_path"
     """
-    return Path(__file__).parent / "community-spec-optional.toml"
+    from importlib.resources import files
+
+    resource = files(__package__) / "community-spec-optional.toml"
+    path = Path(str(resource))
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"community-spec-optional.toml not found in installed darnit_csl "
+            f"package at {path}. This indicates a broken build; check the "
+            f"wheel's force-include configuration."
+        )
+    return path
 
 
 __all__ = [

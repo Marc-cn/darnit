@@ -39,7 +39,17 @@ class CommunitySpecImplementation:
 
     def get_framework_config_path(self) -> Path | None:
         """Absolute path to the bundled TOML config (the source of truth)."""
-        return Path(__file__).parent / "community-spec.toml"
+        from importlib.resources import files
+
+        resource = files(__package__) / "community-spec.toml"
+        path = Path(str(resource))
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"community-spec.toml not found in installed darnit_csl package "
+                f"at {path}. This indicates a broken build; check the wheel's "
+                f"force-include configuration."
+            )
+        return path
 
     def register_controls(self) -> None:
         """No Python-registered controls — everything is in the TOML."""
