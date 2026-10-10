@@ -633,6 +633,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remediation treated as a full audit, and with a configured
   `[stores.cache]` a remediation left the old audit in place. Cache files
   from earlier versions are ignored and rebuilt.
+- `darnit audit --profile NAME` now narrows the audit to the controls the
+  profile selects. The flag was accepted and then ignored, so every
+  control ran. An unknown profile name is an error, and a profile that
+  lists controls the framework does not define says which ones.
 - Installs without the development dependencies work again (`uv tool install`
   from a checkout, and any install from a built wheel). Two things broke
   them: `tree-sitter-language-pack` 1.6.3, the newest release the old
