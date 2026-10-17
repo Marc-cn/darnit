@@ -222,11 +222,15 @@ def test_install_from_source_fails_when_executable_is_missing(tmp_path, monkeypa
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
     monkeypatch.setattr(sys, "executable", str(tmp_path / "nowhere" / "python"))
     monkeypatch.setattr("shutil.which", lambda name: None)
+    settings = tmp_path / ".claude.json"
+    settings.write_text('{"mcpServers": {}}')
 
     exit_code = main(["install", "--mcp-only", "--from-source"])
 
     assert exit_code == 1
-    assert not (tmp_path / ".claude.json").exists()
+    assert settings.read_text() == '{"mcpServers": {}}'
+    assert not settings.with_suffix(".json.bak").exists(), "a failed lookup must not write a backup"
+    assert not (tmp_path / ".cursor").exists()
     assert any("--from-source" in record.message for record in caplog.records)
 
 

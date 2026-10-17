@@ -670,6 +670,27 @@ def cmd_install(args: argparse.Namespace) -> int:
             f"Ignoring --project for --client {args.client}."
         )
 
+    # Resolve the command first, so a failed lookup writes nothing: no
+    # client directory, no backup of an existing settings file.
+    if getattr(args, "from_source", False):
+        darnit_exe = _local_darnit_executable()
+        if darnit_exe is None:
+            logger.error("--from-source: the darnit executable of this installation was not found.")
+            return 1
+        # Name the framework. Both entries do: `darnit serve` without
+        # --framework took the first installed framework by name until #577,
+        # and the uvx entry runs whatever darnit-mcp release is on PyPI.
+        darnit_entry = {
+            "command": str(darnit_exe),
+            "args": ["serve", "--framework", "openssf-baseline"],
+        }
+    else:
+        darnit_entry = {
+            "command": "uvx",
+            "args": ["--from", "darnit-mcp", "darnit", "serve", "--framework", "openssf-baseline"],
+        }
+    logger.info("Registering MCP server command: %s %s", darnit_entry["command"], " ".join(darnit_entry["args"]))
+
     if args.client in ("claude", "claude-code"):
         if args.project:
             settings_path = Path.cwd() / ".mcp.json"
@@ -707,23 +728,6 @@ def cmd_install(args: argparse.Namespace) -> int:
         shutil.copy2(settings_path, backup_path)
 
     mcp_servers = config.setdefault("mcpServers", {})
-    if getattr(args, "from_source", False):
-        darnit_exe = _local_darnit_executable()
-        if darnit_exe is None:
-            logger.error("--from-source: the darnit executable of this installation was not found.")
-            return 1
-        # Name the framework. Both entries do: `darnit serve` without
-        # --framework took the first installed framework by name until #577,
-        # and the uvx entry runs whatever darnit-mcp release is on PyPI.
-        darnit_entry = {
-            "command": str(darnit_exe),
-            "args": ["serve", "--framework", "openssf-baseline"],
-        }
-    else:
-        darnit_entry = {
-            "command": "uvx",
-            "args": ["--from", "darnit-mcp", "darnit", "serve", "--framework", "openssf-baseline"],
-        }
 
     if "darnit" in mcp_servers and not args.force:
         response = input(f"'darnit' entry already exists in {settings_path}. Overwrite? [y/N]: ").strip().lower()

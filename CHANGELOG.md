@@ -143,16 +143,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `darnit install` names the framework in the MCP entry it writes
-  (`darnit serve --framework openssf-baseline`), for both the `uvx` entry
-  and `--from-source`. The `uvx` entry runs the darnit-mcp release on
-  PyPI, and releases before 0.2.0 serve the first installed framework by
-  name, which on a full install is gittuf.
 - `darnit install --from-source` registers the darnit executable of the
-  running installation as the MCP server command, with
-  `--framework openssf-baseline`. Without it,
-  `darnit install` writes `uvx --from darnit-mcp darnit serve`, which runs
-  the PyPI package even when darnit was installed from a source checkout.
+  running installation as the MCP server command. Without it, the entry
+  runs the darnit-mcp release on PyPI through `uvx`, even when darnit was
+  installed from a source checkout.
 - Operator configuration: a user-level TOML file found the same way by the
   CLI, MCP server, and harness (`--operator-config PATH`, else
   `$XDG_CONFIG_HOME/darnit/config.toml` or `~/.config/darnit/config.toml`,
@@ -582,6 +576,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   error now gives the real cause. Both guards said "not installed" for any
   import error, which was wrong for an installed package with a missing
   dependency or a broken release (#573).
+- `darnit install` names the framework in the MCP entry it writes
+  (`serve --framework openssf-baseline`). The `uvx` entry runs the
+  darnit-mcp release on PyPI, and releases before 0.2.0 serve the first
+  installed framework by name, which on a full install is gittuf. The
+  command is also logged, so the PATH fallback of `--from-source` is
+  visible.
 - `darnit serve` with no `--framework` now serves OpenSSF Baseline when it
   is installed, the same default as `darnit audit`. It used to take the
   first installed framework by name, which on a full `darnit-mcp` install
