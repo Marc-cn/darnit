@@ -648,7 +648,7 @@ def cmd_profiles(args: argparse.Namespace) -> int:
         # does, so the two commands agree on what exists.
         try:
             profiles = _framework_profiles(load_effective_config_by_name(name)).get(name)
-        except Exception as exc:  # noqa: BLE001 - one unloadable framework should not hide the others
+        except (ValueError, OSError) as exc:  # unknown name, invalid TOML or unreadable file: skip, do not hide the others
             logger.debug(f"Could not load {name}: {exc}")
             continue
         if not profiles:

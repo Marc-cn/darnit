@@ -478,13 +478,7 @@ class TestFormatting:
                     "level": 1,
                     "error_class": "not_found",
                 },
-                {
-                    "id": "PENDING-01",
-                    "status": "PENDING",
-                    "pending": {"kind": "llm_judgment"},
-                    "details": "",
-                    "level": 1,
-                },
+                {"id": "PENDING-01", "status": "PENDING", "pending": {"kind": "llm_judgment"}, "details": "", "level": 1},
             ],
             "openssf-baseline",
         )
