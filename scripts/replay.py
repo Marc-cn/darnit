@@ -86,6 +86,7 @@ def main() -> int:
     p.add_argument("answers", type=Path)
     p.add_argument("--expected", type=Path)
     p.add_argument("--record", type=Path)
+    p.add_argument("--output", type=Path, help="write the full result here (for recording from CI)")
     args = p.parse_args()
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -98,6 +99,8 @@ def main() -> int:
     passes = (result["before"].get("PASS", 0), result["after"].get("PASS", 0))
     print(f"PASS {passes[0]} -> {passes[1]}, fixed {result['remediation'].get('fixed', 0)}")
 
+    if args.output:
+        args.output.write_text(json.dumps(result, indent=2) + "\n")
     if args.record:
         args.record.write_text(json.dumps(result, indent=2) + "\n")
         print(f"recorded {args.record}")
