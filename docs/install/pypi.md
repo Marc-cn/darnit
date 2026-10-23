@@ -103,5 +103,5 @@ For most users, `pip install darnit-mcp` is the right command. The other package
 |---|---|
 | `ERROR: Package requires a different Python` | Host Python is older than 3.11. Install Python 3.11+ or use [pipx](https://pipx.pypa.io/) with an explicit `--python` flag. |
 | `Could not find a version that satisfies the requirement` (for a pre-release) | Missing `--pre` flag or wrong `--index-url`. |
-| Sigstore verification fails with "no attestation bundles" | The release was published before PEP 740 attestations existed, or the attestation hasn't propagated yet (rare; retry in a few minutes). |
-| Sigstore verification fails with "identity mismatch" | The wheel was not signed by `darnitdevorg/darnit`'s release workflow. **Do not trust this artifact.** Report it via the project's security policy. |
+| Attestation verification fails with "no attestation bundles" | The release was published before PEP 740 attestations existed, or the attestation hasn't propagated yet (rare; retry in a few minutes). |
+| Attestation verification fails with "identity mismatch" | The wheel was not signed by `darnitdevorg/darnit`'s release workflow. **Do not trust this artifact.** Report it via the project's security policy. |
