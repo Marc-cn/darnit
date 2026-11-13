@@ -241,7 +241,7 @@ class _FsStore:
 def _fake_witness(products: dict[str, bytes], exit_code: int = 0):
     """Stand in for ``_witness``: the experiment step writes ``products`` into the checkout and the exit file."""
 
-    def fake(step, key, out, cwd, cmd, tsa=None):
+    def fake(step, key, out, cwd, cmd, tsa=None, token_path=None):
         env = {
             "payload": base64.b64encode(b'{"predicate":{"attestations":[]}}').decode(),
             "payloadType": "t",

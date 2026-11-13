@@ -114,7 +114,7 @@ def no_signing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
     monkeypatch.setattr(
         r,
         "sign_statement",
-        lambda stmt, key, tsa: {
+        lambda stmt, key, tsa, token_path=None: {
             "payloadType": "stmt",
             "payload": base64.b64encode(r._canonical(stmt)).decode(),
             "signatures": [],

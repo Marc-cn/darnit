@@ -473,6 +473,7 @@ dependencies = [
     { name = "cryptography" },
     { name = "darnit-core" },
     { name = "packaging" },
+    { name = "pyopenssl" },
     { name = "rfc3161-client" },
     { name = "sigstore" },
 ]
@@ -482,6 +483,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=46" },
     { name = "darnit-core", editable = "packages/darnit" },
     { name = "packaging", specifier = ">=23.0" },
+    { name = "pyopenssl", specifier = ">=24" },
     { name = "rfc3161-client", specifier = ">=1.0" },
     { name = "sigstore", specifier = ">=4.0,<5" },
 ]

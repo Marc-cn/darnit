@@ -440,11 +440,24 @@ def _canonical(obj: Any) -> bytes:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 
-def _signer_args(key: Path | None) -> list[str]:
-    """``-k key``: the researcher's key, by absolute path because Witness runs inside the checkout."""
+def _signer_args(key: Path | None, token_path: Path | None) -> list[str]:
+    """``-k key`` or, with ``--identity``, a Fulcio certificate from the OIDC token in ``token_path``."""
+    if token_path is not None:
+        from .identity import FULCIO_URL, OIDC_CLIENT_ID, OIDC_ISSUER
+
+        return [
+            "--signer-fulcio-url",
+            FULCIO_URL,
+            "--signer-fulcio-oidc-issuer",
+            OIDC_ISSUER,
+            "--signer-fulcio-oidc-client-id",
+            OIDC_CLIENT_ID,
+            "--signer-fulcio-token-path",
+            str(token_path.resolve()),  # a file, never argv: the token is a secret
+        ]
     if key is None:
-        raise RunError("a signing key is required")
-    return ["-k", str(key.resolve())]
+        raise RunError("a signing key or --identity is required")
+    return ["-k", str(key.resolve())]  # witness runs inside the checkout
 
 
 def _witness_bin() -> str:
@@ -455,8 +468,10 @@ def _witness_bin() -> str:
 
 
 def _witness_env() -> dict[str, str]:
-    """The environment Witness and the experiment run in: this one, plus darnit's own bin dir."""
-    env = dict(os.environ)
+    """The environment Witness and the experiment run in: this one, minus the OIDC token, plus darnit's own bin dir."""
+    from .identity import TOKEN_ENV
+
+    env = {k: v for k, v in os.environ.items() if k != TOKEN_ENV}
     env["PATH"] = os.pathsep.join([str(Path(sys.executable).parent), env.get("PATH", "")])
     return env
 
@@ -517,6 +532,7 @@ def _witness(
     cwd: Path,
     cmd: list[str],
     tsa: str | None = TSA_URL,
+    token_path: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     full = [
         _witness_bin(),
@@ -525,7 +541,7 @@ def _witness(
         step,
         "--attestations",
         WITNESS_ATTESTORS,
-        *_signer_args(key),
+        *_signer_args(key, token_path),
         *(["-t", tsa] if tsa else []),  # RFC 3161 countersignature: proves when the signature existed
         "-o",
         str(out),
@@ -539,7 +555,9 @@ def _witness(
     return envelope, _witness_sections(stmt)
 
 
-def sign_statement(statement: dict[str, Any], key: Path | None, tsa: str | None) -> dict[str, Any]:
+def sign_statement(
+    statement: dict[str, Any], key: Path | None, tsa: str | None, token_path: Path | None = None
+) -> dict[str, Any]:
     """The statement as a DSSE envelope signed by the researcher (``witness sign``, same signer as the steps).
 
     The payload is the canonical statement, byte for byte: what the bundle
@@ -558,7 +576,7 @@ def sign_statement(statement: dict[str, Any], key: Path | None, tsa: str | None)
             str(dst),
             "-t",
             STATEMENT_TYPE,
-            *_signer_args(key),
+            *_signer_args(key, token_path),
             *(["--timestamp-servers", tsa] if tsa else []),
         ]
         r = subprocess.run(full, capture_output=True, text=True, env=_witness_env())
@@ -570,9 +588,29 @@ def sign_statement(statement: dict[str, Any], key: Path | None, tsa: str | None)
     return envelope
 
 
-def _signing(key: Path, tsa: str | None) -> dict[str, Any]:
-    """What the bundle records about its signer: the key's fingerprint, and the timestamp authority used."""
-    return {"method": "key", "key_fingerprint": key_fingerprint(key), "timestamp_authority": tsa}
+def _signing(key: Path | None, envelopes: dict[str, dict[str, Any]], tsa: str | None) -> dict[str, Any]:
+    """What the bundle records about its signer: a key fingerprint, or the identity in the Fulcio certificates.
+
+    Witness asks Fulcio for a certificate per step, so one login yields one certificate per envelope.
+    """
+    if key is not None:
+        return {"method": "key", "key_fingerprint": key_fingerprint(key), "timestamp_authority": tsa}
+    from .identity import certificate_identity, signature_chain
+
+    certs = {}
+    for name, env in envelopes.items():
+        sig = next((s for s in env["signatures"] if s.get("certificate")), None)
+        if sig is None:
+            raise RunError(f"witness signed the {name} envelope without a certificate; --identity needs Fulcio")
+        certs[name] = certificate_identity(signature_chain(sig)[0])
+    first = next(iter(certs.values()))
+    return {
+        "method": "identity",
+        "identity": first["subject"],
+        "issuer": first["issuer"],
+        "certificates_sha256": {name: c["certificate_sha256"] for name, c in certs.items()},
+        "timestamp_authority": tsa,
+    }
 
 
 def compare_rerun(
@@ -624,9 +662,11 @@ def execute(
     store: AttestationStore,
     rerun_of: dict[str, Any] | None = None,
     tsa: str | None = TSA_URL,
+    identity: bool = False,
+    publish: str | None = None,
     allow_dirty: bool = False,
 ) -> dict[str, Any]:
-    """Run, sign, store.
+    """Run, sign, store; then, with ``publish`` (a Rekor URL), record the envelopes there.
 
     ``rerun_of`` is the first bundle when this run repeats it: the comparison
     goes into the predicate before the id is computed, so one bundle is
@@ -637,7 +677,11 @@ def execute(
     darnit_bin = Path(sys.executable).parent / "darnit"
     if not darnit_bin.exists():
         raise RunError(f"darnit CLI not found next to {sys.executable}")
-    key = key or default_key()
+    if identity and not tsa:
+        raise RunError(
+            "--identity needs a timestamp: the certificate lives ten minutes, the timestamp places the signature in that window"
+        )
+    key = None if identity else (key or default_key())
     exp_cmd = (entry.get("run") or {}).get("command")
     exp_outputs = (entry.get("run") or {}).get("outputs")  # None: infer from Witness products
     claims = _claims(entry)
@@ -669,6 +713,13 @@ def execute(
                 # (caches, data, precomputed results) are not there, so the experiment reads
                 # only what the commit contains. The same path rerun takes.
                 repo = _clone(str(source), ref, tmpdir / "artifact")
+        token_path: Path | None = None
+        if identity:
+            from .identity import identity_token
+
+            token_path = tmpdir / "oidc.token"
+            token_path.touch(mode=0o600)
+            token_path.write_text(identity_token())  # one login per run; both Witness steps reuse it
         started = datetime.now(UTC).isoformat()
 
         record_dir = repo / RECORD_DIR
@@ -680,6 +731,7 @@ def execute(
             repo,
             ["sh", "-c", audit_command()],  # darnit: on PATH, see _witness_env
             tsa,
+            token_path,
         )
         audit_blob, audit_record = _record(repo, AUDIT_RECORD, audit_w, "the audit report")
         audit = json.loads(audit_blob)
@@ -698,6 +750,7 @@ def execute(
                 repo,
                 ["sh", "-c", wrap_command(exp_cmd), EXIT_RECORD],
                 tsa,
+                token_path,
             )
             exit_blob, exit_record = _record(repo, EXIT_RECORD, exp_w, "the experiment's exit status")
             shutil.rmtree(record_dir)
@@ -742,7 +795,7 @@ def execute(
         subject_name = public_url(artifact if _is_url(artifact) else local_name or _local_subject(repo))
 
         envelopes = {"amber-audit": audit_env, **({"experiment": exp_env} if exp_env else {})}
-        signing = _signing(key, tsa)
+        signing = _signing(key, envelopes, tsa)
         predicate = {
             "started_at": started,
             # Which parts of this predicate ``verify`` checks against a Witness envelope, and which the tool
@@ -796,7 +849,7 @@ def execute(
             "predicateType": PREDICATE_TYPE,
             "predicate": predicate,
         }
-        statement_env = sign_statement(statement, key, tsa)
+        statement_env = sign_statement(statement, key, tsa, token_path)
 
     bundle_id = hashlib.sha256(_canonical(statement)).hexdigest()
     bundle = {
@@ -804,11 +857,24 @@ def execute(
         "statement": statement,
         "statement_envelope": statement_env,
         "witness_envelopes": envelopes,
-        "publication": None,  # reserved: where a transparency-log record goes once the bundle is published
+        "publication": None,
     }
     _store_bundle(store, bundle)
     for path, data in blobs.items():
         write_blob(store, bundle_id, path, data)
+    if publish:
+        from .publish import publish_envelope
+
+        try:
+            bundle["publication"] = {
+                name: publish_envelope(env, key, publish)
+                for name, env in {"statement": statement_env, **envelopes}.items()
+            }
+        except Exception as e:  # noqa: BLE001 - the bundle is signed and stored; say what did not get published
+            raise RunError(
+                f"bundle {bundle_id} is stored; publishing to {publish} failed: {type(e).__name__}: {e}"
+            ) from e
+        _store_bundle(store, bundle)
     return bundle
 
 
@@ -820,6 +886,8 @@ def run(
     store: AttestationStore,
     command: list[str] | None = None,
     tsa: str | None = TSA_URL,
+    identity: bool = False,
+    publish: str | None = None,
     allow_dirty: bool = False,
 ) -> dict[str, Any]:
     """``command`` (argv after ``--``) overrides the entry's run.command; with no entry, everything else is inferred."""
@@ -831,4 +899,6 @@ def run(
         entry = {**entry, "run": {**(entry.get("run") or {}), "command": shlex.join(command)}}
         if not claims:
             entry["_source"] = "inferred"
-    return execute(artifact, ref, key, entry, store, tsa=tsa, allow_dirty=allow_dirty)
+    return execute(
+        artifact, ref, key, entry, store, tsa=tsa, identity=identity, publish=publish, allow_dirty=allow_dirty
+    )

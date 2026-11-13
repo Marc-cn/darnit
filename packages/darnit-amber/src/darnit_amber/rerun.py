@@ -12,6 +12,8 @@ from typing import Any
 
 from .dsse import pae as _pae
 from .dsse import verify_with
+from .identity import signature_chain, verify_identity_signature
+from .publish import verify_publication
 from .run import (
     STATEMENT_TYPE,
     TSA_URL,
@@ -163,11 +165,13 @@ def _key_fingerprint(pubkey: Path) -> str:
 
 
 class _Expected:
-    """What the caller says the signer is: a public key."""
+    """What the caller says the signer is: a public key, or a Fulcio identity and issuer."""
 
-    def __init__(self, pubkey: Path | None) -> None:
+    def __init__(self, pubkey: Path | None, identity: str | None, issuer: str | None) -> None:
         self.pubkey = pubkey
         self.key = _load_pubkey(pubkey) if pubkey else None
+        self.identity = identity
+        self.issuer = issuer
 
 
 def _check_envelope(
@@ -175,11 +179,13 @@ def _check_envelope(
 ) -> dict[str, Any]:
     """One DSSE envelope against the signer the statement names and the signer the caller expects.
 
-    ``ok`` requires: a signature that verifies with ``--pubkey``, the
-    statement's own description of the signer to match it (key fingerprint),
-    and the caller's expectation to match it: ``--pubkey`` must be the
-    signing key. An envelope that carries a certificate is not a key-signed
-    envelope and is refused here.
+    ``ok`` requires: a signature that verifies (with ``--pubkey`` for a
+    key-signed envelope, with its certificate for a Fulcio one), the
+    statement's own description of the signer to match it (key fingerprint,
+    or identity and issuer and, where recorded, the certificate digest), and
+    the caller's expectation to match it: ``--pubkey`` must be the signing
+    key, also when the envelope carries a certificate; an identity-signed
+    envelope needs ``--expect-identity`` and ``--expect-issuer``.
     """
     result: dict[str, Any] = {"method": signer.get("method"), "signature": None, "ok": False}
     signatures = env.get("signatures") or []
@@ -193,6 +199,9 @@ def _check_envelope(
     if signer.get("method") == "key":
         if cert_sigs:
             result["signature"] = "the statement says key-signed, the envelope carries a certificate"
+            return result
+        if expected.identity is not None or expected.issuer is not None:
+            result["signature"] = "an identity was expected, the statement says key-signed"
             return result
         if expected.key is None:
             result["signature"] = "not checked: key-signed and no --pubkey"
@@ -210,7 +219,32 @@ def _check_envelope(
                 continue
         result["signature"] = "no signature verifies with --pubkey"
         return result
-    result["signature"] = f"unknown signing method {signer.get('method')!r}"
+    if signer.get("method") != "identity":
+        result["signature"] = f"unknown signing method {signer.get('method')!r}"
+        return result
+    if not cert_sigs:
+        result["signature"] = "the statement says identity-signed, the envelope carries no certificate"
+        return result
+    index, sig = cert_sigs[0]
+    who = verify_identity_signature(env, sig, _trusted_time(stamps, index), _trusted_root().get_fulcio_certs())
+    result.update(who)
+    if not who["ok"]:
+        return result
+    leaf = signature_chain(sig)[0]
+    problems = []
+    if who["subject"] != signer.get("identity") or who["issuer"] != signer.get("issuer"):
+        problems.append("the certificate names a different identity or issuer than the statement")
+    recorded = signer.get("certificate_sha256")
+    if recorded and who["certificate_sha256"] != recorded:
+        problems.append("the certificate is not the one the statement names")
+    if expected.key is not None and _spki_der(expected.key) != _spki_der(leaf.public_key()):
+        problems.append("--pubkey is not the key in the certificate")
+    if expected.identity is None or expected.issuer is None:
+        problems.append("no expected identity: pass --expect-identity and --expect-issuer")
+    elif who["subject"] != expected.identity or who["issuer"] != expected.issuer:
+        problems.append(f"the certificate names {who['subject']} from {who['issuer']}, not the expected identity")
+    result["signature"] = "ok" if not problems else "; ".join(problems)
+    result["ok"] = not problems
     return result
 
 
@@ -220,30 +254,40 @@ def _statement_signer(pred: dict[str, Any]) -> dict[str, Any]:
 
 
 def _witness_signer(signing: dict[str, Any], name: str) -> dict[str, Any]:
-    """Who signed the Witness envelope ``name``: the run's signer, the same for every step."""
-    return dict(signing)
+    out = {k: v for k, v in signing.items() if k != "certificates_sha256"}
+    cert = (signing.get("certificates_sha256") or {}).get(name)
+    if cert:
+        out["certificate_sha256"] = cert
+    return out
 
 
 def verify(
     store: Any,
     bundle_id: str,
     pubkey: Path | None,
+    online: bool = True,
+    expect_identity: str | None = None,
+    expect_issuer: str | None = None,
     claimer_pubkey: Path | None = None,
+    expect_claimer_identity: str | None = None,
+    expect_claimer_issuer: str | None = None,
+    expect_published: bool = False,
 ) -> dict[str, Any]:
     """Every check a bundle must pass; ``verified`` is true only when all of them do.
 
     A bundle has one signer for the run (``signing``: the Witness envelopes,
     and the statement of an original bundle) and, once ``claim`` derived it,
-    another for the statement (``claim_signer``). ``pubkey`` names the run's
-    signer; ``claimer_pubkey`` names the claimer. With no claimer key the
-    run's is used, which is right when the researcher made the claim.
+    another for the statement (``claim_signer``). ``pubkey`` or the expected
+    identity names the run's signer; ``claimer_pubkey`` or the expected
+    claimer identity names the claimer. With no claimer expectation the run's
+    is used, which is right when the researcher made the claim.
     """
     bundle = read_bundle(store, bundle_id)
     stmt = bundle["statement"]
     pred = stmt["predicate"]
-    expected = _Expected(pubkey)
-    if pred.get("claim_signer") and claimer_pubkey:
-        expected_claimer = _Expected(claimer_pubkey)
+    expected = _Expected(pubkey, expect_identity, expect_issuer)
+    if pred.get("claim_signer") and (claimer_pubkey or expect_claimer_identity or expect_claimer_issuer):
+        expected_claimer = _Expected(claimer_pubkey, expect_claimer_identity, expect_claimer_issuer)
     else:
         expected_claimer = expected
     recomputed = hashlib.sha256(_canonical(stmt)).hexdigest()
@@ -345,9 +389,22 @@ def verify(
     checks["signatures_verified"] = bool(envs) and all(s["ok"] for s in checks["signatures"].values())
     if pred.get("claim_signer") and expected_claimer is expected and not checks["signatures"]["statement"]["ok"]:
         checks["signatures"]["statement"]["signature"] += (
-            "; the statement is signed by the claimer: name it with --claimer-pubkey"
+            "; the statement is signed by the claimer: name it with --claimer-pubkey or --expect-claimer-identity"
         )
 
+    publication = bundle.get("publication")
+    if publication:
+        checks["publication"] = {}
+        for name, record in publication.items():
+            try:
+                checks["publication"][name] = verify_publication(all_envs[name], record, _trusted_root(), online=online)
+            except Exception as e:  # noqa: BLE001 - reported, never fatal
+                checks["publication"][name] = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        checks["published"] = all(p.get("ok") for p in checks["publication"].values())
+    elif expect_published:
+        checks["published"] = (
+            False  # publication sits outside the statement; a bundle can drop it, so it is opt-in to require
+        )
     checks["signing"] = signing
     if pred.get("claim_signer"):
         checks["claim_signer"] = pred["claim_signer"]
@@ -365,10 +422,17 @@ def rerun(
     bundle_id: str,
     key: Path | None,
     tsa: str | None = TSA_URL,
+    identity: bool = False,
+    publish: str | None = None,
     pubkey: Path | None = None,
+    expect_identity: str | None = None,
+    expect_issuer: str | None = None,
+    online: bool = True,
     consent: Callable[[str], bool] | None = None,
     artifact: str | None = None,
     claimer_pubkey: Path | None = None,
+    expect_claimer_identity: str | None = None,
+    expect_claimer_issuer: str | None = None,
 ) -> dict[str, Any]:
     """Verify the bundle, get consent for its command, then run it again at the recorded commit in a fresh clone.
 
@@ -378,7 +442,17 @@ def rerun(
     when the bundle names a local artifact (``local/<name>``), which records
     no path; a URL subject needs none.
     """
-    report = verify(store, bundle_id, pubkey, claimer_pubkey=claimer_pubkey)
+    report = verify(
+        store,
+        bundle_id,
+        pubkey,
+        online,
+        expect_identity,
+        expect_issuer,
+        claimer_pubkey=claimer_pubkey,
+        expect_claimer_identity=expect_claimer_identity,
+        expect_claimer_issuer=expect_claimer_issuer,
+    )
     if not report["verified"]:
         raise RunError(
             f"bundle {bundle_id} does not verify ({', '.join(failed_checks(report))}); rerun executes nothing from it"
@@ -418,6 +492,8 @@ def rerun(
         store,
         rerun_of=first,
         tsa=tsa,
+        identity=identity,
+        publish=publish,
     )
     new_pred = new["statement"]["predicate"]
     comparison = new_pred["reruns"]

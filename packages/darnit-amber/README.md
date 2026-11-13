@@ -113,6 +113,8 @@ Nothing leaves the researcher's machine by default except a hash.
 | | what it proves | who learns what |
 |---|---|---|
 | default | the bundle was signed with the researcher's key and existed at the time in the RFC 3161 countersignature (Sigstore's timestamp authority) | the timestamp authority sees a hash of the signature, nothing else |
+| `--identity` | who signed: a short-lived Sigstore certificate from a GitHub/Google/institutional login | the identity (email or login) is recorded in Sigstore's public certificate log |
+| `--publish` | anyone can look the run up in Rekor, Sigstore's public log, and see it has not been altered or backdated | Rekor stores the envelope's hashes, the signature and the signer (certificate or public key), not the envelope itself; the bundle and outputs stay in the researcher's store |
 
 The default key is generated once, ed25519, under darnit's data directory
 (`~/.local/share/darnit/amber/signing.key` on Linux, mode 0600, with the
@@ -122,31 +124,64 @@ is signed but cannot be `verified`, because nothing places its signature in
 time. The bundle records the key's fingerprint and the timestamp authority
 under `signing`, never a path.
 
+`run --identity` signs with no key at all. Amber prints a URL; open it on
+any device, log in, and paste the code back (in GitHub Actions, or with a
+token in `SIGSTORE_ID_TOKEN`, there is no prompt). Fulcio issues a
+certificate valid for ten minutes bound to that login; Witness signs with
+it and keeps the certificate in the envelope. The bundle records the
+identity and issuer under `signing` instead of a key fingerprint. The
+timestamp is mandatory here: it is what places the signature inside the
+certificate's ten minutes.
+
 `verify` first checks that the bundle is one piece: the statement itself
 is a signed DSSE envelope (`statement_envelope`) whose payload is, byte for
 byte, the statement the id hashes, so nothing under `predicate` (claims,
-verdict, audit results) can be edited after the fact; and the
+verdict, audit results, identity) can be edited after the fact; and the
 statement names each Witness envelope by digest and its signer by key
-fingerprint, so an envelope cannot be dropped or swapped. Stored outputs are hashed against the statement. It then reports,
+fingerprint or certificate digest, so an envelope cannot be dropped or
+swapped. Stored outputs are hashed against the statement. It then reports,
 per envelope (the statement and each Witness step), the signature check
 and each timestamp's time, whether it covers that signature, and whether
 its signer chains to a timestamp authority in Sigstore's trusted root
 (fetched through TUF; the copy sigstore-python ships is used offline).
 Every signature needs a trusted timestamp. The verifier must say who the
-signer is: `--pubkey` (a signature nobody checked never counts as
-verified), as `cosign verify` requires. A bundle that `claim` derived has
+signer is: `--pubkey` for a key-signed bundle (a signature nobody checked
+never counts as verified), and `--expect-identity` with `--expect-issuer`
+for an `--identity` bundle, as `cosign verify` requires. For an
+`--identity` bundle it adds, per signature, the identity and issuer in the
+certificate (which must be the ones the statement names), whether the
+certificate chains to Fulcio in the same trusted root, and whether the
+timestamp falls in the certificate's window; `--pubkey` given alongside
+must be the key in the certificate; `--expect-identity` with a key-signed
+bundle fails rather than being ignored. A bundle that `claim` derived has
 two signers: the run's, behind the Witness envelopes, and the claimer's,
 behind the statement, so name both: `--pubkey researcher.pub
---claimer-pubkey reviewer.pub`; with no claimer key the run's is used,
+--claimer-pubkey reviewer.pub` (or `--expect-claimer-identity` with
+`--expect-claimer-issuer`); with no claimer expectation the run's is used,
 which is right when the researcher claimed their own run. Each claim says
-who stands behind it (`signed_by`). A bundle is `verified` only when every
-check passes.
+who stands behind it (`signed_by`). `--expect-published` fails a bundle
+with no publication record. A bundle is `verified` only when every check
+passes.
 
-`verified` establishes that this exact bundle, signed with a key the
-researcher holds, existed at the timestamp's time. Who holds the key, and
-whether anyone else can confirm the bundle without the researcher's
-cooperation, are the next steps (a Sigstore identity instead of a key, and
-publication in a transparency log).
+`run --publish` records the statement envelope and each Witness envelope
+in Rekor as `dsse` entries (with the certificate, or the key's public half,
+as verifier) and keeps the log index, integrated time and inclusion proof
+under `publication`, next to the statement rather than inside it: the
+bundle is stored first, then published, so a failed publish leaves a
+stored, signed bundle and an error naming it. Only the envelopes are
+published: the experiment's outputs stay in the researcher's store. `verify` checks, per envelope, that the log entry is
+this envelope (payload hash and signatures), that the inclusion proof and
+its signed checkpoint verify against Rekor's key in the trusted root, and,
+unless `--offline`, that the log still holds the same entry at that index.
+`published` is true when every envelope passes.
+
+What `verified` means, by mode:
+
+| mode | `verify` establishes |
+|---|---|
+| default | this exact bundle, signed with a key the researcher holds, existed at the timestamp's time |
+| `--identity` | and who signed it: the login in the certificate |
+| `--publish` | and anyone can confirm it from the public log, without the researcher's cooperation |
 
 ## Entry files
 
@@ -245,9 +280,8 @@ experiment (`command`, `exit_code`, `outputs` with sha256), the overall
 digest of each Witness envelope. The bundle holds that statement, its
 signature (`statement_envelope`, a DSSE envelope over the canonical
 statement, signed and timestamped like the steps), the Witness envelopes
-for both steps (git, command-run and product attestations), and a
-`publication` slot, empty until the bundle is recorded in a transparency
-log. The bundle id is the sha256 of the
+for both steps (git, command-run and product attestations), and
+`publication` when published. The bundle id is the sha256 of the
 canonical statement. A bundle made with `--no-timestamp` is signed but
 cannot be `verified`: nothing places its signatures in time.
 

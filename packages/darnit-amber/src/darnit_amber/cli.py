@@ -10,6 +10,7 @@ from pathlib import Path
 from darnit.stores.errors import StoreError
 
 from .claim import claim
+from .publish import REKOR_URL
 from .rerun import rerun, verify
 from .run import TSA_URL, RunError, run
 
@@ -26,7 +27,15 @@ def _make_store(a: argparse.Namespace):  # noqa: ANN202
 
 def _add_verify_args(q: argparse.ArgumentParser) -> None:
     q.add_argument("--pubkey", type=Path, help="PEM public key the bundle must be signed with")
+    q.add_argument("--expect-identity", help="for an --identity bundle: the email or login the certificate must name")
+    q.add_argument(
+        "--expect-issuer", help="for an --identity bundle: the OIDC issuer, e.g. https://github.com/login/oauth"
+    )
     q.add_argument("--claimer-pubkey", type=Path, help="for a bundle derived by claim: the claimer's PEM public key")
+    q.add_argument("--expect-claimer-identity", help="for a claim signed with --identity: the claimer's email or login")
+    q.add_argument("--expect-claimer-issuer", help="for a claim signed with --identity: the claimer's OIDC issuer")
+    q.add_argument("--expect-published", action="store_true", help="fail unless the bundle records a publication")
+    q.add_argument("--offline", action="store_true", help="do not re-fetch published entries from Rekor")
 
 
 def _consent(yes: bool):  # noqa: ANN202
@@ -55,6 +64,17 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("artifact", nargs="?", default=".", help="local path or git URL of the artifact (default: .)")
     r.add_argument("--ref", help="commit, branch or tag to check out (URL artifacts only)")
     r.add_argument("--key", type=Path, help="signing key (PEM); default: a key generated once under darnit's data dir")
+    r.add_argument(
+        "--identity",
+        action="store_true",
+        help="sign with a Sigstore certificate from a login instead of a key (the identity becomes public)",
+    )
+    r.add_argument(
+        "--publish",
+        action="store_true",
+        help="record the signed envelopes in Rekor, Sigstore's public log (the envelope and signer become public)",
+    )
+    r.add_argument("--rekor", default=REKOR_URL, help=f"Rekor instance for --publish (default: {REKOR_URL})")
     r.add_argument("--tsa", default=TSA_URL, help="RFC 3161 timestamp authority (default: Sigstore's)")
     r.add_argument("--no-timestamp", action="store_true", help="do not countersign with a timestamp authority")
     r.add_argument("--claims", type=Path, help="corpus entry (yaml or json): claims and run.command")
@@ -65,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     r.add_argument("--out", type=Path, default=Path("amber-runs"), help="store directory")
     for name, help_ in (
-        ("verify", "check a stored bundle: id, statement signature, outputs vs Witness, timestamps, signer"),
+        ("verify", "check a stored bundle: id, statement signature, outputs vs Witness, timestamps, identity"),
         ("rerun", "verify a stored bundle, then re-execute its experiment and compare outputs"),
         ("claim", "attach a paper claim to a stored run, measured from its stored outputs"),
     ):
@@ -81,6 +101,9 @@ def main(argv: list[str] | None = None) -> int:
                 "--artifact", help="path or URL to clone when the bundle names a local artifact (local/<name>)"
             )
             q.add_argument("--key", type=Path, help="signing key for this rerun (default: the generated one)")
+            q.add_argument("--identity", action="store_true")
+            q.add_argument("--publish", action="store_true")
+            q.add_argument("--rekor", default=REKOR_URL)
             q.add_argument("--tsa", default=TSA_URL)
             q.add_argument("--no-timestamp", action="store_true")
         else:
@@ -108,17 +131,35 @@ def main(argv: list[str] | None = None) -> int:
         try:
             store = _make_store(a)
             if a.cmd == "verify":
-                result = verify(store, a.bundle_id, a.pubkey, claimer_pubkey=a.claimer_pubkey)
+                result = verify(
+                    store,
+                    a.bundle_id,
+                    a.pubkey,
+                    not a.offline,
+                    a.expect_identity,
+                    a.expect_issuer,
+                    claimer_pubkey=a.claimer_pubkey,
+                    expect_claimer_identity=a.expect_claimer_identity,
+                    expect_claimer_issuer=a.expect_claimer_issuer,
+                    expect_published=a.expect_published,
+                )
             elif a.cmd == "rerun":
                 result = rerun(
                     store,
                     a.bundle_id,
                     a.key,
                     None if a.no_timestamp else a.tsa,
+                    a.identity,
+                    a.rekor if a.publish else None,
                     pubkey=a.pubkey,
+                    expect_identity=a.expect_identity,
+                    expect_issuer=a.expect_issuer,
+                    online=not a.offline,
                     consent=_consent(a.yes),
                     artifact=a.artifact,
                     claimer_pubkey=a.claimer_pubkey,
+                    expect_claimer_identity=a.expect_claimer_identity,
+                    expect_claimer_issuer=a.expect_claimer_issuer,
                 )
             else:
                 spec = {
@@ -147,6 +188,8 @@ def main(argv: list[str] | None = None) -> int:
         store = _make_store(a)
         if command and a.cmd != "run":
             raise RunError("a command after -- only makes sense with run")
+        if a.identity and a.key:
+            raise RunError("--identity and --key are alternatives")
         bundle = run(
             a.artifact,
             a.ref,
@@ -155,6 +198,8 @@ def main(argv: list[str] | None = None) -> int:
             store,
             command or None,
             None if a.no_timestamp else a.tsa,
+            a.identity,
+            a.rekor if a.publish else None,
             a.allow_dirty,
         )
     except _REPORTED as e:
@@ -172,6 +217,10 @@ def main(argv: list[str] | None = None) -> int:
         "audit": statuses,
         "verdict": pred.get("verdict"),
         "signing": pred.get("signing"),
+        "publication": {
+            n: {"log": p["log"], "log_index": p["log_index"]} for n, p in (bundle.get("publication") or {}).items()
+        }
+        or None,
         "claims": [
             {
                 k: x.get(k)
