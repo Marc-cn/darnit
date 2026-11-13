@@ -1,6 +1,6 @@
 # Feature Specification: Amber Run Bundles
 
-**Feature Branch**: `amber-run-bundle` (PR #678, on #532; the Sigstore identity, Rekor publication and S3 store follow in separate PRs)
+**Feature Branch**: `amber-run-bundle` (PR #678, on #532; the Sigstore identity and Rekor publication follow in a separate PR)
 
 **Created**: 2026-11-04
 
@@ -73,12 +73,12 @@ All in `tests/darnit_amber/test_run_bundle.py`, with Witness and signing replace
 
 ### Non-functional
 
+- `boto3` is an extra (`darnit-amber[s3]`); the default install carries no S3 client.
 - `sigstore` and `rfc3161-client` are dependencies: `verify` needs Sigstore's trusted root (its timestamp authorities) for any bundle.
 
 ## Out of scope
 
 - Running the experiment in a pinned container (darnit #677 step B).
 - Signing with a Sigstore identity instead of a key, and recording the envelopes in Rekor: the two PRs that follow this one.
-- An S3-compatible attestation store: a third follow-up PR.
 - MCP tools for `run`, `verify`, `claim` and `rerun`: a design question for the `#677` thread.
 - Choosing between key and keyless signing by default, and between an S3 store and GHCR: decided on #677.

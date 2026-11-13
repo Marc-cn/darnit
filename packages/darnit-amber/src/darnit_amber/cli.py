@@ -18,6 +18,16 @@ _REPORTED = (RunError, StoreError, OSError, KeyError, ValueError, TypeError)
 
 
 def _make_store(a: argparse.Namespace):  # noqa: ANN202
+    if a.store == "s3":
+        if not a.bucket:
+            raise RunError("--bucket is required with --store s3")
+        try:
+            from .s3_store import S3AttestationStore
+
+            # boto3 is imported by the constructor, not the module, so the guard must cover both.
+            return S3AttestationStore(bucket=a.bucket, prefix=a.prefix, endpoint_url=a.endpoint_url)
+        except ImportError as e:
+            raise RunError("--store s3 needs boto3: pip install 'darnit-amber[s3]'") from e
     from darnit.stores.defaults.local_fs import LocalFsAttestationStore
 
     a.out.mkdir(parents=True, exist_ok=True)
@@ -63,7 +73,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="run on a checkout with uncommitted changes; the bundle then records no commit and cannot be rerun",
     )
-    r.add_argument("--out", type=Path, default=Path("amber-runs"), help="store directory")
+    r.add_argument("--store", choices=["local-fs", "s3"], default="local-fs", help="attestation store backend")
+    r.add_argument("--out", type=Path, default=Path("amber-runs"), help="local-fs: store directory")
+    r.add_argument("--bucket", help="s3: bucket name")
+    r.add_argument("--prefix", default="amber/runs", help="s3: key prefix")
+    r.add_argument("--endpoint-url", help="s3: endpoint for S3-compatible services")
     for name, help_ in (
         ("verify", "check a stored bundle: id, statement signature, outputs vs Witness, timestamps, signer"),
         ("rerun", "verify a stored bundle, then re-execute its experiment and compare outputs"),
@@ -71,7 +85,11 @@ def main(argv: list[str] | None = None) -> int:
     ):
         q = sub.add_parser(name, help=help_)
         q.add_argument("bundle_id")
+        q.add_argument("--store", choices=["local-fs", "s3"], default="local-fs")
         q.add_argument("--out", type=Path, default=Path("amber-runs"))
+        q.add_argument("--bucket")
+        q.add_argument("--prefix", default="amber/runs")
+        q.add_argument("--endpoint-url")
         if name == "verify":
             _add_verify_args(q)
         elif name == "rerun":

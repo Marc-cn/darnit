@@ -34,7 +34,7 @@ A researcher runs their experiment once through darnit, inside the
 artifact's checkout:
 
 ```
-darnit-amber run --out amber-runs -- ./run_experiment.sh
+darnit-amber run --store s3 --bucket amber-runs -- ./run_experiment.sh
 ```
 
 darnit runs the Amber audit and the command under CNCF Witness and stores

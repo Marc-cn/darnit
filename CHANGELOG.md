@@ -45,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`.amber/`, removed after each step) that `verify` reads back by digest.
   `verify` names two signers for a derived bundle (`--pubkey`,
   `--claimer-pubkey`); values and tolerances must be finite plain decimals.
+- `darnit-amber run|verify|claim|rerun --store s3 --bucket B [--prefix P]
+  [--endpoint-url U]`: an S3-compatible attestation store for run bundles
+  (`<prefix>/<id>.intoto.json`, outputs under `<prefix>/<id>/outputs/`),
+  registered as the `s3` entry point under `darnit.stores.attestation`.
+  boto3 is an extra: `pip install 'darnit-amber[s3]'`; without it the CLI
+  says so in one line.
 
 - Developer test flow automation scripts (`scripts/clean_and_install_dev.sh`,
   `scripts/setup_dev_projects.sh`, `scripts/run_dev_test_flow.sh`) to

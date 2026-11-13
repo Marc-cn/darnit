@@ -17,14 +17,26 @@ dependencies = [
     "packaging>=23.0",
 ]
 
+[project.optional-dependencies]
+s3 = ["boto3>=1.43.118"]  # the S3 attestation store; `darnit-amber run --store s3`
+
 [project.scripts]
 darnit-amber = "darnit_amber.cli:main"
 
 [project.entry-points."darnit.implementations"]
 amber = "darnit_amber:register"
 
+[project.entry-points."darnit.stores.attestation"]
+s3 = "darnit_amber.s3_store:S3AttestationStore"
+
 [project.entry-points."darnit.frameworks"]
 amber = "darnit_amber:get_framework_path"
+
+[dependency-groups]
+dev = [
+    "boto3>=1.43.118",
+    "moto[server]>=5.2.4",
+]
 
 [build-system]
 requires = ["hatchling"]
